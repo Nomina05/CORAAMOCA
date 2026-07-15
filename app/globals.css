@@ -42,3 +42,4 @@ main { min-width:0; } header { height:70px; background:white; border-bottom:1px 
 @media(max-width:560px){.technical-kpis,.technical-form-grid{grid-template-columns:1fr}.technical-form-grid .span-2{grid-column:auto}.direction-strip strong{width:100%}}
 @media(max-width:480px){.kpis,.area-grid{grid-template-columns:1fr}.kpis article{border-right:0;border-bottom:1px solid var(--line)!important}.form-row{grid-template-columns:1fr}.deadline-card{display:none}.page-head h1{font-size:22px}.header-actions .icon-btn{display:none}}
 @media print{.sidebar,header,.primary,.outline,.modal-backdrop{display:none!important}.app-shell{display:block}.content{padding:0}.area-grid{grid-template-columns:repeat(5,1fr)}body{background:white}}
+.catalog-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}.catalog-grid .users-card{min-width:0}.catalog-grid table{min-width:520px}@media(max-width:1200px){.catalog-grid{grid-template-columns:1fr}}
