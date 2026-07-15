@@ -247,7 +247,7 @@ export default function Home() {
           {currentUser.role === "Administrador" && <button className={section === "Usuarios" ? "active" : ""} onClick={() => setSection("Usuarios")}><span>♙</span>Usuarios y roles</button>}
           {(currentUser.role==="Administrador"||currentUser.role==="Director")&&<button className={section==="Catálogos"?"active":""} onClick={()=>setSection("Catálogos")}><span>▣</span>Catálogos</button>}
           <p className="nav-label">ÁREAS DE GESTIÓN</p>
-          {areaData.map(a => <button key={a.name} onClick={() => { setSection("Proyectos"); setFilter(a.name as Area); }}><i className={`dot ${a.color}`} />{a.name}</button>)}
+          {areaData.map(a => <button className="area-nav-button" key={a.name} onClick={() => { setSection("Proyectos"); setFilter(a.name as Area); }}><i className={`dot ${a.color}`} /><div><strong>{a.name}</strong><small>{a.metric} · {a.label}</small></div></button>)}
         </nav>
         <div className="sidebar-foot"><div className="avatar">{userInitials}</div><div><strong>{userName}</strong><span>{currentUser.role || "Usuario"}</span></div><button title="Cerrar sesión" onClick={logout}>↪</button></div>
       </aside>
