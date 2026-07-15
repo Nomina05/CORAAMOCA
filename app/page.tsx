@@ -181,7 +181,8 @@ export default function Home() {
   async function saveTechnicalProject(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault(); setTechnicalMessage("");
     const fd = new FormData(e.currentTarget);
-    const numeric = ["project_year","population","linear_meters","budgeted_amount","appropriation_amount","awarded_amount","advance_20_amount","measurement_count","total_measured","total_paid","work_progre…9 tokens truncated… string | number | boolean | null> = {};
+    const numeric = ["project_year","population","linear_meters","budgeted_amount","appropriation_amount","awarded_amount","advance_20_amount","measurement_count","total_measured","total_paid","work_progress"];
+    const data: Record<string, string | number | boolean | null> = {};
     fd.forEach((value,key) => { data[key] = numeric.includes(key) ? (String(value)==="" ? null : Number(value)) : String(value); });
     data.has_lot = fd.get("has_lot") === "on";
     if (editingTechnical) data.id = editingTechnical.id;
