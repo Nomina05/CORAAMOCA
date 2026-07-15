@@ -12,15 +12,31 @@ type CatalogItem={id:string;code?:string;name?:string;description:string;active:
 type ProjectCatalogs={accounts:CatalogItem[];processes:CatalogItem[];suppliers:CatalogItem[]};
 type DirectionModule={label:string;section:string;icon:string;permission?:keyof Permissions;roles?:string[];adminOnly?:boolean};
 type InstitutionalDirection={name:string;shortName:string;icon:string;area?:string;modules:DirectionModule[]};
+type OrganizationUnit={name:string;children?:OrganizationUnit[]};
 
 const institutionalDirections:InstitutionalDirection[]=[
  {name:"Dirección General",shortName:"Dirección General",icon:"⌂",modules:[{label:"Resumen institucional",section:"Resumen",icon:"▦",permission:"ver_resumen"},{label:"Proyectos institucionales",section:"Proyectos",icon:"▤",permission:"ver_proyectos"},{label:"Reportes ejecutivos",section:"Reportes",icon:"▥",permission:"ver_reportes"}]},
- {name:"Dirección de Recursos Humanos",shortName:"Recursos Humanos",icon:"♙",area:"Gestión Humana",modules:[{label:"Gestión de Recursos Humanos",section:"Recursos Humanos",icon:"◉"}]},
+ {name:"Dirección de Recursos Humanos",shortName:"Recursos Humanos",icon:"♙",area:"Gestión Humana",modules:[{label:"Gestión de Recursos Humanos",section:"Recursos Humanos",icon:"◉"},{label:"Estructura organizacional",section:"Estructura Organizacional",icon:"⌘"}]},
  {name:"Dirección Técnica",shortName:"Dirección Técnica",icon:"⌁",area:"Técnica",modules:[{label:"Proyectos y obras",section:"Proyectos Técnicos",icon:"▤",permission:"ver_proyectos_tecnicos"},{label:"Cubicaciones",section:"Cubicaciones",icon:"▧",permission:"ver_cubicaciones"}]},
  {name:"Dirección de Planificación y Desarrollo",shortName:"Planificación y Desarrollo",icon:"◇",modules:[{label:"Proyectos institucionales",section:"Proyectos",icon:"▤",permission:"ver_proyectos"},{label:"Indicadores y reportes",section:"Reportes",icon:"▥",permission:"ver_reportes"}]},
  {name:"Dirección Administrativa y Financiera",shortName:"Administrativa y Financiera",icon:"$",area:"Financiera",modules:[{label:"Presupuesto y ejecución",section:"Proyectos Técnicos",icon:"$",permission:"ver_proyectos_tecnicos"},{label:"Compras, cuentas y proveedores",section:"Catálogos",icon:"▣",roles:["Administrador","Director"]},{label:"Libramientos y pagos",section:"Cubicaciones",icon:"▧",permission:"ver_cubicaciones"}]},
  {name:"Configuración",shortName:"Configuración",icon:"⚙",modules:[{label:"Usuarios y roles",section:"Usuarios",icon:"♙",adminOnly:true}]},
 ];
+
+const organizationalStructure:OrganizationUnit={name:"Dirección General",children:[
+ {name:"Dirección de Comunicaciones",children:[{name:"División de Relaciones Públicas",children:[{name:"Sección de Prensa"}]},{name:"División de Participación Social y Ciudadana"},{name:"Sección de Protocolo y Eventos"},{name:"Sección de Redes Sociales y Medios Digitales"}]},
+ {name:"Dirección de Recursos Humanos",children:[{name:"Sección de Registro, Control y Nómina"},{name:"Sección de Evaluación del Desempeño y Capacitaciones"},{name:"Sección de Organización del Trabajo y Compensaciones"}]},
+ {name:"Dirección Administrativa y Financiera",children:[{name:"Departamento Administrativo",children:[{name:"Sección de Activo Fijo"},{name:"Sección de Transportación"},{name:"División de Servicios Generales",children:[{name:"Sección de Seguridad"},{name:"Sección de Mayordomía"},{name:"Sección de Mantenimiento y Reparación"},{name:"Sección de Archivo y Correspondencia"},{name:"Sección de Almacén y Suministro"}]}]},{name:"Departamento Financiero",children:[{name:"Sección de Contabilidad"},{name:"Sección de Presupuesto"},{name:"Sección de Tesorería"}]},{name:"Departamento de Contrataciones Públicas",children:[{name:"Sección de Planeación y Preparación de Contrataciones"},{name:"Sección de Gestión Contractual"}]}]},
+ {name:"Dirección Técnica",children:[{name:"Departamento de Aguas Residuales y Saneamiento",children:[{name:"Sección de Operación y Mantenimiento de Redes de Aguas Residuales"},{name:"Sección de Tratamiento de Aguas Residuales"},{name:"Sección de Control de Calidad de Aguas Residuales"}]},{name:"Departamento de Operación y Mantenimiento",children:[{name:"Sección de Operación y Distribución de Agua Potable"},{name:"Sección de Catastro de Redes de Agua Potable"},{name:"Sección de Electromecánica"},{name:"Sección de Mantenimiento de Redes"},{name:"Sección de Operación y Mantenimiento de Redes de Zonas Periféricas"}]},{name:"Departamento de Producción y Tratamiento de Agua Potable",children:[{name:"Sección de Tratamiento de Agua Potable"},{name:"Sección de Laboratorio de Agua Potable"},{name:"Sección de Obra de Toma"},{name:"Sección de Control y Calidad de Agua Potable"}]},{name:"Departamento de Ingeniería",children:[{name:"Sección de Construcción"},{name:"Sección de Diseño y Presupuesto"},{name:"Sección de Fiscalización y Control de Obras"}]}]},
+ {name:"Dirección Comercial",children:[{name:"Departamento de Gestión Comercial",children:[{name:"Sección de Gestión de Cobros"},{name:"Sección de Facturación"},{name:"Sección de Atención al Cliente"},{name:"Centros de Pagos Externos"},{name:"Centros de Servicio al Cliente"}]},{name:"Departamento de Gestión Operativa",children:[{name:"Sección de Catastro de Usuarios"},{name:"Sección de Micromedición"},{name:"Sección de Corte y Reconexión"}]}]},
+ {name:"Dirección de Planificación y Desarrollo",children:[{name:"Departamento de Desarrollo Institucional y Calidad en la Gestión"},{name:"Sección de Cooperación Internacional"},{name:"Departamento de Formulación, Monitoreo y Evaluación de Planes, Programas y Proyectos"}]},
+ {name:"Departamento de Tecnología de la Información y Comunicación (TIC)",children:[{name:"Sección de Administración de Servicios TIC"},{name:"Sección de Operaciones TIC"}]},
+ {name:"Departamento de Control y Análisis de Operaciones"},
+ {name:"Departamento Jurídico"},
+ {name:"Oficina de Acceso a la Información"}
+]};
+
+function OrganizationBranch({unit,level=0}:{unit:OrganizationUnit;level?:number}){return <div className={`organization-branch level-${Math.min(level,3)}`}><div className="organization-unit"><i>{level===0?"DG":level===1?"D":"•"}</i><span>{unit.name}</span>{unit.children&&<b>{unit.children.length}</b>}</div>{unit.children&&<div className="organization-children">{unit.children.map(child=><OrganizationBranch key={child.name} unit={child} level={level+1}/>)}</div>}</div>}
 
 type Area = "Todos" | "Institucional" | "Gestión Humana" | "Financiera" | "Técnica" | "Comercial";
 type Project = { id: number; code: string; name: string; area: Exclude<Area, "Todos">; owner: string; progress: number; budget: number; spent: number; status: "En curso" | "En riesgo" | "Completado"; due: string };
@@ -55,233 +71,7 @@ function TechnicalProjectModal({ project,catalogs,onClose,onSubmit }: { project:
 
 function MeasurementModal({ projects,onClose,onSubmit }:{projects:TechnicalProject[];onClose:()=>void;onSubmit:(e:React.FormEvent<HTMLFormElement>)=>void}){
   const [selected,setSelected]=useState(projects[0]?.id||""); const project=projects.find(item=>item.id===selected);
-  return <div className="modal-backdrop" onMouseDown={onClose}><form className="modal measurement-modal" onSubmit={onSubmit} onMouseDown={e=>e.stopPropagation()}><div className="modal-head"><div><span className="eyebrow">NUEVA CUBICACIÓN</span><h2>Registrar etapa de cubicación</h2></div><button type="button" onClick={onClose}>×</button></div><label>Seleccionar código, obra y ubicación<select name="projectId" required value={selected} onChange={e=>setSelected(e.target.value)}><option value="">Seleccione una obra</option>{projects.map(item=><option value={item.id} key={item.id}>{item.snip_code||"Sin SNIP"} · {item.work_name} · {[item.municipality,item.district,item.sector].filter(Boolean).join(" / ")||"Sin ubicación"}</option>)}</select></label>{project&&<div className="project-context"><div><span>CÓDIGO SNIP</span><strong>{project.snip_code||"No especificado"}</strong></div><div><span>OBRA</span><strong>{project.work_name}</strong></div><div><span>MUNICIPIO</span><strong>{project.municipality||"No especificado"}</strong></div><div><span>DISTRITO</span><strong>{project.district||"No especificado"}</strong></div><div><span>SECTOR</span><strong>{project.sector||"No especificado"}</strong></div></div>}<div className="form-row"><label>Monto de la cubicación<input name="amount" required type="number" min="0.01" step="0.01"/></label><label>Incremento de avance (%)<input name="progress" required type="number" min="0" max="100" step="0.01"/></label></div><label>Descripción de los trabajos<textarea name="description" required rows={3}/></label><div className="workflow-notice">El registro no afectará los totales de la obra hasta alcanzar el estatus <b>Pagada</b>.</div><div className="modal-actions"><button type="button" className="outline" onClick={onClose}>Cancelar</button><button className="primary">Registrar cubicación</button></div></form></div>;
-}
-
-function AuditModal({measurement,onClose}:{measurement:Measurement;onClose:()=>void}){return <div className="modal-backdrop" onMouseDown={onClose}><div className="modal audit-modal" onMouseDown={e=>e.stopPropagation()}><div className="modal-head"><div><span className="eyebrow">AUDITORÍA DE CUBICACIÓN</span><h2>{measurement.code}</h2><p>{measurement.work_name}</p></div><button onClick={onClose}>×</button></div><div className="audit-list">{measurement.audit.map((entry,index)=><div className="audit-entry" key={`${entry.created_at}-${index}`}><i/><div><strong>{entry.to_status}</strong><span>{entry.action} por {entry.user_name}</span><small>{new Date(entry.created_at).toLocaleString("es-DO",{dateStyle:"medium",timeStyle:"short"})}{entry.comments?` · ${entry.comments}`:""}</small></div></div>)}</div><div className="modal-actions"><button className="primary" onClick={onClose}>Cerrar</button></div></div></div>}
-
-export default function Home() {
-  const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
-  const [authReady, setAuthReady] = useState(false);
-  const [authBusy, setAuthBusy] = useState(false);
-  const [authError, setAuthError] = useState("");
-  const [users, setUsers] = useState<ManagedUser[]>([]);
-  const [usersLoading, setUsersLoading] = useState(false);
-  const [usersMessage, setUsersMessage] = useState("");
-  const [showCreateUser,setShowCreateUser]=useState(false);
-  const [catalogs,setCatalogs]=useState<ProjectCatalogs>({accounts:[],processes:[],suppliers:[]});
-  const [catalogMessage,setCatalogMessage]=useState("");
-  const [showCatalogForm,setShowCatalogForm]=useState<"account"|"process"|"supplier"|null>(null);
-  const [expandedDirection,setExpandedDirection]=useState("Dirección General");
-  const [technicalProjects, setTechnicalProjects] = useState<TechnicalProject[]>([]);
-  const [technicalLoading, setTechnicalLoading] = useState(false);
-  const [technicalMessage, setTechnicalMessage] = useState("");
-  const [showTechnicalForm, setShowTechnicalForm] = useState(false);
-  const [editingTechnical, setEditingTechnical] = useState<TechnicalProject | null>(null);
-  const [measurements,setMeasurements]=useState<Measurement[]>([]);
-  const [measurementsLoading,setMeasurementsLoading]=useState(false);
-  const [measurementMessage,setMeasurementMessage]=useState("");
-  const [showMeasurementForm,setShowMeasurementForm]=useState(false);
-  const [auditMeasurement,setAuditMeasurement]=useState<Measurement|null>(null);
-  const [section, setSection] = useState("Resumen");
-  const [filter, setFilter] = useState<Area>("Todos");
-  const [query, setQuery] = useState("");
-  const [projects, setProjects] = useState<Project[]>(initialProjects);
-  const [showForm, setShowForm] = useState(false);
-  const [notice, setNotice] = useState(3);
-
-  useEffect(() => {
-    fetch("/api/auth/session", { cache: "no-store" })
-      .then(response => response.ok ? response.json() : null)
-      .then(data => setCurrentUser(data?.user || null))
-      .finally(() => setAuthReady(true));
-  }, []);
-
-  useEffect(() => {
-    if (section !== "Usuarios" || currentUser?.role !== "Administrador") return;
-    setUsersLoading(true);
-    fetch("/api/users", { cache: "no-store" })
-      .then(response => response.json())
-      .then(data => setUsers(data.users || []))
-      .finally(() => setUsersLoading(false));
-  }, [section, currentUser?.role]);
-
-  useEffect(() => {
-    if (section === "Proyectos Técnicos" || section === "Cubicaciones") loadTechnicalProjects();
-    if (section === "Cubicaciones") loadMeasurements();
-    if(section==="Catálogos"||section==="Proyectos Técnicos")loadCatalogs();
-  }, [section]);
-
-  useEffect(()=>{if(!currentUser||currentUser.role==="Administrador")return;const views:Array<[string,keyof Permissions]>=[["Resumen","ver_resumen"],["Proyectos","ver_proyectos"],["Proyectos Técnicos","ver_proyectos_tecnicos"],["Cubicaciones","ver_cubicaciones"],["Calendario","ver_calendario"],["Reportes","ver_reportes"]];const allowed=views.filter(([,key])=>Boolean(currentUser.permissions?.[key])).map(([name])=>name);if(currentUser.area==="Gestión Humana")allowed.push("Recursos Humanos");if((currentUser.role==="Director")&&!allowed.includes("Catálogos"))allowed.push("Catálogos");if(!allowed.includes(section))setSection(allowed[0]||"Acceso restringido");},[currentUser,section]);
-
-  async function loadTechnicalProjects() {
-    setTechnicalLoading(true);
-    const response = await fetch("/api/projects/technical", { cache: "no-store" });
-    const data = await response.json();
-    setTechnicalProjects(data.projects || []);
-    setTechnicalLoading(false);
-  }
-
-  async function loadMeasurements(){setMeasurementsLoading(true);const response=await fetch("/api/cubicaciones",{cache:"no-store"});const data=await response.json();setMeasurements(data.measurements||[]);setMeasurementsLoading(false);}
-  async function loadCatalogs(){const response=await fetch("/api/catalogs",{cache:"no-store"});const data=await response.json();if(response.ok)setCatalogs(data.catalogs||{accounts:[],processes:[],suppliers:[]});}
-
-  useEffect(() => {
-    const saved = window.localStorage.getItem("coraamoca-projects");
-    if (saved) {
-      try { setProjects(JSON.parse(saved)); } catch { /* keep the institutional sample data */ }
-    }
-  }, []);
-
-  useEffect(() => {
-    window.localStorage.setItem("coraamoca-projects", JSON.stringify(projects));
-  }, [projects]);
-
-  const filtered = useMemo(() => projects.filter(p => (filter === "Todos" || p.area === filter) && `${p.name} ${p.code} ${p.owner}`.toLowerCase().includes(query.toLowerCase())), [projects, filter, query]);
-  const totals = useMemo(() => ({ budget: projects.reduce((a, p) => a + p.budget, 0), spent: projects.reduce((a, p) => a + p.spent, 0), avg: Math.round(projects.reduce((a, p) => a + p.progress, 0) / projects.length) }), [projects]);
-
-  function addProject(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const fd = new FormData(e.currentTarget);
-    const area = fd.get("area") as Project["area"];
-    setProjects(prev => [{ id: Date.now(), code: `${area.slice(0, 2).toUpperCase()}-${String(prev.length + 1).padStart(3, "0")}`, name: String(fd.get("name")), area, owner: String(fd.get("owner")), progress: 0, budget: Number(fd.get("budget")), spent: 0, status: "En curso", due: String(fd.get("due")) }, ...prev]);
-    setShowForm(false);
-  }
-
-  async function handleAuth(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setAuthBusy(true);
-    setAuthError("");
-    const fd = new FormData(e.currentTarget);
-    const username = String(fd.get("username") || "").trim();
-    const password = String(fd.get("password") || "");
-    if (!username || username.length < 3) {
-      setAuthError("El usuario debe tener al menos 3 caracteres.");
-      setAuthBusy(false);
-      return;
-    }
-    if (password.length < 6) {
-      setAuthError("La contraseña debe tener al menos 6 caracteres.");
-      setAuthBusy(false);
-      return;
-    }
-    const response = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
-    });
-    const result = await response.json();
-    if (!response.ok) setAuthError(result.error || "No fue posible completar la solicitud.");
-    else setCurrentUser(result.user);
-    setAuthBusy(false);
-  }
-
-  async function logout() {
-    await fetch("/api/auth/logout", { method: "POST" });
-    setCurrentUser(null);
-  }
-
-  async function updateUser(user: ManagedUser, changes: Partial<ManagedUser>) {
-    setUsersMessage("");
-    const updated = { ...user, ...changes };
-    const response = await fetch("/api/users", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: updated.id, role: updated.role, area: updated.area, active: updated.active }) });
-    const result = await response.json();
-    if (!response.ok) setUsersMessage(result.error || "No se pudo actualizar el usuario.");
-    else { setUsers(previous => previous.map(item => item.id === updated.id ? updated : item)); setUsersMessage("Cambios guardados correctamente."); }
-  }
-
-  async function updatePermissions(user:ManagedUser,key:keyof Permissions,enabled:boolean){const permissions={...(user.permissions||{}),[key]:enabled};const response=await fetch("/api/users",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:user.id,permissions})});const result=await response.json();if(!response.ok)setUsersMessage(result.error||"No se pudieron actualizar los permisos.");else{setUsers(items=>items.map(item=>item.id===user.id?{...item,permissions}:item));setUsersMessage("Permisos guardados correctamente.");}}
-
-  async function createManagedUser(e:React.FormEvent<HTMLFormElement>){e.preventDefault();setUsersMessage("");const fd=new FormData(e.currentTarget);const viewKeys=["ver_resumen","ver_proyectos","ver_proyectos_tecnicos","ver_cubicaciones","ver_calendario","ver_reportes"];const permissions=Object.fromEntries(viewKeys.map(key=>[key,fd.get(key)==="on"]));const response=await fetch("/api/users",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:String(fd.get("username")),password:String(fd.get("password")),fullName:String(fd.get("fullName")),area:String(fd.get("area")),role:String(fd.get("role")),permissions})});const result=await response.json();if(!response.ok){setUsersMessage(result.error||"No fue posible crear el usuario.");return;}setShowCreateUser(false);setUsers(items=>[...items,result.user]);setUsersMessage("Usuario creado con contraseña temporal.");}
-
-  async function createCatalogItem(e:React.FormEvent<HTMLFormElement>){e.preventDefault();if(!showCatalogForm)return;const fd=new FormData(e.currentTarget);const response=await fetch("/api/catalogs",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type:showCatalogForm,code:String(fd.get("code")||""),name:String(fd.get("name")||""),description:String(fd.get("description")||"")})});const result=await response.json();if(!response.ok){setCatalogMessage(result.error||"No fue posible guardar el registro.");return;}setShowCatalogForm(null);setCatalogMessage("Registro agregado correctamente.");await loadCatalogs();}
-  async function toggleCatalog(type:string,item:CatalogItem){const response=await fetch("/api/catalogs",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({type,id:item.id,code:item.code||"",name:item.name||"",description:item.description||"",active:!item.active})});const result=await response.json();if(!response.ok)setCatalogMessage(result.error||"No fue posible actualizar el registro.");else{setCatalogMessage("Catálogo actualizado correctamente.");await loadCatalogs();}}
-
-  async function changeFirstPassword(e:React.FormEvent<HTMLFormElement>){e.preventDefault();setAuthBusy(true);setAuthError("");const fd=new FormData(e.currentTarget);const password=String(fd.get("password")||"");const confirmation=String(fd.get("confirmation")||"");if(password.length<8){setAuthError("La nueva contraseña debe tener al menos 8 caracteres.");setAuthBusy(false);return;}if(password!==confirmation){setAuthError("Las contraseñas no coinciden.");setAuthBusy(false);return;}const response=await fetch("/api/auth/change-password",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({password})});const result=await response.json();if(!response.ok)setAuthError(result.error||"No fue posible cambiar la contraseña.");else setCurrentUser(result.user);setAuthBusy(false);}
-
-  function canView(key:keyof Permissions){return currentUser?.role==="Administrador"||Boolean(currentUser?.permissions?.[key]);}
-  function canSeeModule(module:DirectionModule,direction:InstitutionalDirection){if(currentUser?.role==="Administrador")return true;if(module.adminOnly)return false;if(module.roles&&!module.roles.includes(currentUser?.role||""))return false;if(module.permission&&!canView(module.permission))return false;if(direction.area&&module.permission===undefined)return currentUser?.area===direction.area;return true;}
-
-  async function createMeasurement(e:React.FormEvent<HTMLFormElement>){e.preventDefault();setMeasurementMessage("");const fd=new FormData(e.currentTarget);const response=await fetch("/api/cubicaciones",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({projectId:fd.get("projectId"),amount:Number(fd.get("amount")),progress:Number(fd.get("progress")),description:String(fd.get("description"))})});const result=await response.json();if(!response.ok){setMeasurementMessage(result.error||"No se pudo registrar la cubicación.");return;}setShowMeasurementForm(false);setMeasurementMessage(`Cubicación ${result.code} registrada correctamente.`);await loadMeasurements();await loadTechnicalProjects();}
-
-  async function advanceMeasurement(measurement:Measurement){const next=measurement.status==="Registrada"?"Revisada":measurement.status==="Revisada"?"Libramiento":measurement.status==="Libramiento"?"Pagada":null;if(!next)return;const comments=window.prompt(`Comentario para avanzar a ${next}:`)||"";const response=await fetch("/api/cubicaciones",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:measurement.id,status:next,comments})});const result=await response.json();if(!response.ok)setMeasurementMessage(result.error||"No se pudo avanzar la cubicación.");else{setMeasurementMessage(`Cubicación avanzada a ${next}.`);await loadMeasurements();await loadTechnicalProjects();}}
-  function canAdvanceMeasurement(status:Measurement["status"]){if(currentUser?.role==="Administrador")return status!=="Pagada";const key=status==="Registrada"?"revisar_cubicaciones":status==="Revisada"?"libramiento_cubicaciones":status==="Libramiento"?"pagar_cubicaciones":null;return key?Boolean(currentUser?.permissions?.[key as keyof Permissions]):false;}
-
-  async function saveTechnicalProject(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault(); setTechnicalMessage("");
-    const fd = new FormData(e.currentTarget);
-    const numeric = ["project_year","population","linear_meters","budgeted_amount","appropriation_amount","awarded_amount","advance_20_amount","fixed_asset_paid_amount","measurement_count","total_measured","total_paid","work_progress"];
-    const data: Record<string, string | number | boolean | null> = {};
-    fd.forEach((value,key) => { data[key] = numeric.includes(key) ? (String(value)==="" ? null : Number(value)) : String(value); });
-    data.has_lot = fd.get("has_lot") === "on";
-    if (editingTechnical) data.id = editingTechnical.id;
-    const response = await fetch("/api/projects/technical", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(data) });
-    const result = await response.json();
-    if (!response.ok) { setTechnicalMessage(result.error || "No fue posible guardar el proyecto."); return; }
-    setShowTechnicalForm(false); setEditingTechnical(null); setTechnicalMessage("Proyecto guardado correctamente."); await loadTechnicalProjects();
-  }
-
-  if (!authReady) return <div className="auth-loading"><div className="brand-mark">C</div><span>Preparando acceso seguro…</span></div>;
-
-  if(currentUser?.must_change_password)return <main className="login-page"><section className="login-visual"><div className="login-brand"><div className="brand-mark">C</div><div><strong>CORAAMOCA</strong><span>Gestión Institucional</span></div></div><div className="login-message"><span>PRIMER ACCESO</span><h1>Protege tu cuenta.</h1><p>La contraseña temporal debe ser reemplazada antes de entrar al sistema.</p></div></section><section className="login-panel"><form className="login-card" onSubmit={changeFirstPassword}><span className="eyebrow">CAMBIO OBLIGATORIO</span><h2>Crear nueva contraseña</h2><p>Utiliza al menos 8 caracteres y no compartas tu contraseña.</p><label>Nueva contraseña<input name="password" type="password" minLength={8} required autoComplete="new-password"/></label><label>Confirmar contraseña<input name="confirmation" type="password" minLength={8} required autoComplete="new-password"/></label>{authError&&<div className="auth-error">{authError}</div>}<button className="primary login-submit" disabled={authBusy}>{authBusy?"Guardando…":"Cambiar contraseña y continuar"}</button></form></section></main>;
-
-  if (!currentUser) return (
-    <main className="login-page">
-      <section className="login-visual">
-        <div className="login-brand"><div className="brand-mark">C</div><div><strong>CORAAMOCA</strong><span>Gestión Institucional</span></div></div>
-        <div className="login-message"><span>PLATAFORMA INSTITUCIONAL</span><h1>Gestionamos hoy<br />el agua del mañana.</h1><p>Un espacio único para coordinar proyectos, recursos y resultados de todas las áreas.</p></div>
-        <div className="login-stat"><strong>5</strong><span>áreas integradas</span><strong>100%</strong><span>gestión centralizada</span></div>
-      </section>
-      <section className="login-panel">
-        <form className="login-card" onSubmit={handleAuth}>
-          <div className="login-mobile-brand"><div className="brand-mark">C</div><strong>CORAAMOCA</strong></div>
-          <span className="eyebrow">ACCESO SEGURO</span>
-          <h2>Bienvenido de nuevo</h2>
-          <p>Ingresa tus credenciales institucionales.</p>
-          <label>Nombre de usuario<input name="username" required minLength={3} autoCapitalize="none" autoComplete="username" placeholder="Ej. jperez" /></label>
-          <label>Contraseña<input name="password" required minLength={6} type="password" autoComplete="current-password" placeholder="Mínimo 6 caracteres" /></label>
-          {authError && <div className="auth-error">{authError}</div>}
-          <button className="primary login-submit" disabled={authBusy}>{authBusy ? "Procesando…" : "Iniciar sesión"}</button>
-          <small className="secure-note">▣ Tu sesión está protegida y cifrada por Supabase.</small>
-        </form>
-      </section>
-    </main>
-  );
-
-  const userName = currentUser.full_name || currentUser.username || "Usuario";
-  const userInitials = String(userName).split(" ").map((part: string) => part[0]).join("").slice(0, 2).toUpperCase();
-
-  return (
-    <div className="app-shell">
-      <aside className="sidebar">
-        <div className="brand"><div className="brand-mark">C</div><div><strong>CORAAMOCA</strong><span>Gestión Institucional</span></div></div>
-        <nav className="direction-nav"><p className="nav-label">ESTRUCTURA INSTITUCIONAL</p>{institutionalDirections.map(direction=>{const modules=direction.modules.filter(module=>canSeeModule(module,direction));if(!modules.length)return null;const open=expandedDirection===direction.name;return <div className="direction-group" key={direction.name}><button className={`direction-toggle ${open?"open":""}`} onClick={()=>setExpandedDirection(open?"":direction.name)}><span>{direction.icon}</span><div><strong>{direction.shortName}</strong><small>{modules.length} {modules.length===1?"módulo":"módulos"}</small></div><b>⌄</b></button>{open&&<div className="direction-modules">{modules.map(module=><button key={`${direction.name}-${module.label}`} className={section===module.section?"active":""} onClick={()=>{setSection(module.section);if(direction.area)setFilter(direction.area as Area)}}><span>{module.icon}</span>{module.label}</button>)}</div>}</div>})}</nav>
-        <div className="sidebar-foot"><div className="avatar">{userInitials}</div><div><strong>{userName}</strong><span>{currentUser.role || "Usuario"}</span></div><button title="Cerrar sesión" onClick={logout}>↪</button></div>
-      </aside>
-
-      <main>
-        <header>
-          <div className="mobile-brand">CORAAMOCA</div>
-          <label className="search"><span>⌕</span><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar proyectos, responsables..." /><kbd>⌘ K</kbd></label>
-          <div className="header-actions"><button className="icon-btn" onClick={() => setNotice(0)}>♧{notice > 0 && <b>{notice}</b>}</button><button className="primary" onClick={() => section === "Cubicaciones" ? setShowMeasurementForm(true) : section === "Proyectos Técnicos" ? (setEditingTechnical(null),setShowTechnicalForm(true)) : setShowForm(true)}>＋ {section === "Cubicaciones" ? "Nueva cubicación" : "Nuevo proyecto"}</button></div>
-        </header>
-
-        <div className="content">
-          <div className="page-head"><div><span className="eyebrow">CENTRO DE OPERACIONES</span><h1>{section === "Resumen" ? "Resumen institucional" : section}</h1><p>Seguimiento integral de metas, recursos y resultados · Julio 2026</p></div><button className="outline" onClick={() => window.print()}>⇩ Exportar reporte</button></div>
-
-          {section === "Usuarios" && <section className="users-panel">
-            <div className="users-summary"><div><span>USUARIOS REGISTRADOS</span><strong>{users.length}</strong></div><div><span>CUENTAS ACTIVAS</span><strong>{users.filter(user => user.active).length}</strong></div><div><span>ADMINISTRADORES</span><strong>{users.filter(user => user.role === "Administrador").length}</strong></div></div>
-            <div className="users-card"><div className="users-card-head"><div><h2>Administración de usuarios</h2><p>Crea cuentas, asigna roles y define las vistas disponibles.</p></div><button className="primary" onClick={()=>setShowCreateUser(true)}>＋ Crear usuario</button></div>
-              {usersMessage && <div className={usersMessage.startsWith("Cambios")||usersMessage.startsWith("Usuario creado")||usersMessage.startsWith("Permisos") ? "users-success" : "auth-error"}>{usersMessage}</div>}
-              {usersLoading ? <div className="users-empty">Cargando usuarios…</div> : <div className="users-table-wrap"><table className="users-table permissions-table"><thead><tr><th>USUARIO</th><th>ÁREA</th><th>ROL</th><th>ESTADO</th><th>PERMISOS</th><th>ÚLTIMO ACCESO</th></tr></thead><tbody>{users.map(user => <tr key={user.id}><td><div className="user-identity"><div className="avatar">{user.full_name.split(" ").map(part => part[0]).join("").slice(0,2)}</div><div><strong>{user.full_name}</strong><span>@{user.username}{user.must_change_password?" · Contraseña temporal":""}</span></div></div></td><td><select value={user.area} onChange={event => updateUser(user,{ area:event.target.value })}>{areaData.map(area => <option key={area.name}>{area.name}</option>)}</select></td><td><select value={user.role} onChange={event => updateUser(user,{ role:event.target.value })}>{["Administrador","Director","Supervisor","Analista","Consulta","Usuario"].map(role => <option key={role}>{role}</option>)}</select></td><td><button className={`user-status ${user.active ? "is-active" : "is-inactive"}`} onClick={() => updateUser(user,{ active:!user.active })}>{user.active ? "● Activo" : "● Inactivo"}</button></td><td><div className="permission-toggles">{[["ver_resumen","Resumen"],["ver_proyectos","Proyectos"],["ver_proyectos_tecnicos","P. Técnicos"],["ver_cubicaciones","Cubicaciones"],["ver_calendario","Calendario"],["ver_reportes","Reportes"],["registrar_cubicaciones","Registrar cub."],["revisar_cubicaciones","Revisar cub."],["libramiento_cubicaciones","Libramiento"],["pagar_cubicaciones","Pagar cub."]].map(([key,label])=><label key={key}><input type="checkbox" checked={Boolean(user.role==="Administrador"||user.permissions?.[key as keyof Permissions])} disabled={user.role==="Administrador"} onChange={e=>updatePermissions(user,key as keyof Permissions,e.target.checked)}/>{label}</label>)}</div></td><td>{user.last_login_at ? new Date(user.last_login_at).toLocaleString("es-DO",{dateStyle:"medium",timeStyle:"short"}) : "Sin acceso"}</td></tr>)}</tbody></table></div>}
-            </div>
-          </section>}
-          {section==="Catálogos"&&<section className="users-panel"><div className="users-summary"><div><span>CUENTAS PRESUPUESTARIAS</span><strong>{catalogs.accounts.length}</strong></div><div><span>PROCESOS DE COMPRA</span><strong>{catalogs.processes.length}</strong></div><div><span>PROVEEDORES</span><strong>{catalogs.suppliers.length}</strong></div></div>{catalogMessage&&<div className={catalogMessage.includes("correctamente")?"users-success":"auth-error"}>{catalogMessage}</div>}<div className="catalog-grid">{([{type:"account",title:"Cuentas presupuestarias",items:catalogs.accounts},{type:"process",title:"Compras y contrataciones",items:catalogs.processes},{type:"supplier",title:"Proveedores y contratistas",items:catalogs.suppliers}] as const).map(group=><div className="users-card" key={group.type}><div className="users-card-head"><div><h2>{group.title}</h2><p>Registros disponibles para los proyectos.</p></div><button className="primary" onClick={()=>setShowCatalogForm(group.type)}>＋ Agregar</button></div><div className="users-table-wrap"><table className="users-table"><thead><tr><th>CÓDIGO / NOMBRE</th><th>DESCRIPCIÓN</th><th>ESTADO</th></tr></thead><tbody>{group.items.map(item=><tr key={item.id}><td><strong>{item.code||item.name}</strong></td><td>{item.description||"—"}</td><td><button className={`user-status ${item.active?"is-active":"is-inactive"}`} onClick={()=>toggleCatalog(group.type,item)}>{item.active?"● Activo":"● Inactivo"}</button></td></tr>)}</tbody></table></div></div>)}</div></section>}
-          {section==="Acceso restringido"&&<section className="technical-empty"><strong>Sin vistas asignadas</strong><span>Solicita al administrador que habilite los módulos correspondientes a tu función.</span></section>}
-          {section==="Recursos Humanos"&&<section className="technical-panel"><div className="direction-strip"><strong>DIRECCIÓN RESPONSABLE</strong><span>Dirección de Recursos Humanos</span></div><div className="technical-card"><div className="users-card-head"><div><h2>Gestión de Recursos Humanos</h2><p>Espacio jerárquico para empleados, expedientes, asistencia, licencias, desempeño y nómina.</p></div></div><div className="technical-empty"><strong>Módulo estructurado por dirección</strong><span>Los componentes operativos de Recursos Humanos se incorporarán dentro de esta área sin mezclarse con las demás direcciones.</span></div></div></section>}
-
-          {section === "Proyectos Técnicos" && <section className="technical-panel">
-            <div className="direction-strip"><strong>Dirección líder</strong><span>Dirección Técnica</span><i>＋</i><strong>Direcciones participantes</strong><span>Administrativa y Financiera</span><span>Planificación y Desarrollo</span></div>
-            <div className="technical-kpis"><article><span>PROYECTOS</span><strong>{technicalProjects.length}</strong></article><article><span>MONTO PRESUPUESTADO</span><strong>{money(technicalProjects.reduce((sum,p)=>sum+Number(p.budgeted_amount),0))}</strong></article><article><span>TOTAL CUBICADO</span><strong>{money(technicalProjects.reduce((sum,p)=>sum+Number(p.total_measured),0))}</strong></article><article><span>TOTAL PAGADO</span><strong>{money(technicalProjects.reduce((sum,p)=>sum+Number(p.total_paid),0))}</strong></article></div>
+  return <div className="modal-backdrop" onMouseDown={onClose}><form className="modal measurement-modal" onSubmit={onSubmit} onMouseDown={e=>e.stopPropagation()}><div className="modal-head"><div><span className="eyebrow">NUEVA CUBICACIÓN</span><h2>Registrar etapa de cubicación</h2></div><button type="button" onClick={onClose}>×</button></div><label>Seleccionar código, obra y ubicación<select name="projectId" required value={selected} onChange={e=>setSelected(e.target.value)}><option value="">Seleccione una obra</option>{projects.map(item=><option value={item.id} key={item.id}>{item.snip_code||"Sin SNIP"} · {item.work_name} · {[item.municipality,item.district,item.sector].filter(Boolean).join(" / ")||"Sin ubicación"}</option>)}</select></label>{project&&<div className="project-context"><div><span>CÓDIGO SNIP</span><strong>{project.snip_code||"No especificado"}</strong></div><div><span>OBRA</span><strong>{project.work_name}</strong></div><div><span>MUNICIPIO</span><strong>{project.municipality||"No especificado"}</strong></div><div><span>DISTRITO</span><strong>{project.district||"No especificado"}</strong></div><div><span>SECTOR</span><strong>{project.sector||"No especificado"}</strong></div></div>}<div className="form-row"><label>Monto de la …8791 tokens truncated…strong>{money(technicalProjects.reduce((sum,p)=>sum+Number(p.total_measured),0))}</strong></article><article><span>TOTAL PAGADO</span><strong>{money(technicalProjects.reduce((sum,p)=>sum+Number(p.total_paid),0))}</strong></article></div>
             {technicalMessage && <div className={technicalMessage.startsWith("Proyecto guardado") ? "users-success" : "auth-error"}>{technicalMessage}</div>}
             <div className="technical-card"><div className="users-card-head"><div><h2>Cartera de obras y proyectos técnicos</h2><p>Control presupuestario, contractual, territorial y de ejecución.</p></div><button className="primary" onClick={()=>{setEditingTechnical(null);setShowTechnicalForm(true)}}>＋ Registrar proyecto</button></div>
               {technicalLoading ? <div className="users-empty">Cargando proyectos…</div> : technicalProjects.length===0 ? <div className="technical-empty"><strong>No hay proyectos técnicos registrados</strong><span>Registra la primera obra para iniciar el seguimiento interdireccional.</span></div> : <div className="users-table-wrap"><table className="technical-table"><thead><tr><th>OBRA / SNIP</th><th>UBICACIÓN</th><th>CONTRATISTA</th><th>PRESUPUESTO</th><th>CUBICADO / PAGADO</th><th>AVANCE</th><th>ESTATUS</th><th></th></tr></thead><tbody>{technicalProjects.map(project=><tr key={project.id}><td><strong>{project.work_name}</strong><small>{project.snip_code || "Sin código SNIP"} · {project.project_year}</small></td><td><b>{project.municipality}</b><small>{[project.district,project.sector].filter(Boolean).join(" · ")}</small></td><td>{project.supplier_contractor}</td><td><b>{money(Number(project.budgeted_amount))}</b><small>Adjudicado: {money(Number(project.awarded_amount))}</small></td><td><b>{money(Number(project.total_measured))}</b><small>Pagado: {money(Number(project.total_paid))}</small></td><td><div className="tech-progress"><i><em style={{width:`${project.work_progress}%`}} /></i><b>{project.work_progress}%</b></div></td><td><span className="work-status">{project.work_status}</span><small>{project.measurement_status}</small></td><td><button className="row-action" onClick={()=>{setEditingTechnical(project);setShowTechnicalForm(true)}}>Editar</button></td></tr>)}</tbody></table></div>}
@@ -296,7 +86,7 @@ export default function Home() {
             <div className="technical-card"><div className="users-card-head"><div><h2>Expedientes de cubicación</h2><p>Etapas, responsables y trazabilidad completa.</p></div></div>{measurementsLoading?<div className="users-empty">Cargando cubicaciones…</div>:measurements.length===0?<div className="technical-empty"><strong>No hay cubicaciones registradas</strong><span>Seleccione una obra y registre su primera etapa de cubicación.</span></div>:<div className="users-table-wrap"><table className="measurement-table"><thead><tr><th>CÓDIGO / ETAPA</th><th>OBRA Y SECTOR</th><th>MONTO</th><th>AVANCE</th><th>REGISTRADO POR</th><th>ESTATUS</th><th>ACCIONES</th></tr></thead><tbody>{measurements.map(item=><tr key={item.id}><td><strong>{item.code}</strong><small>Cubicación No. {item.measurement_number}</small></td><td><b>{item.work_name}</b><small>{item.snip_code||"Sin SNIP"} · {item.sector||item.municipality}</small></td><td><b>{money(Number(item.amount))}</b><small>{item.status==="Pagada"?"Aplicado a la obra":"Sin afectar presupuesto"}</small></td><td><b>＋{item.progress_increment}%</b><small>{item.status==="Pagada"?"Avance aplicado":"Pendiente de pago"}</small></td><td>{item.registered_by_name}<small>{new Date(item.created_at).toLocaleDateString("es-DO")}</small></td><td><span className={`measurement-status status-${item.status.toLowerCase()}`}>{item.status}</span></td><td><div className="measurement-actions"><button className="row-action" onClick={()=>setAuditMeasurement(item)}>Auditoría</button>{canAdvanceMeasurement(item.status)&&<button className="advance-action" onClick={()=>advanceMeasurement(item)}>Avanzar →</button>}</div></td></tr>)}</tbody></table></div>}</div>
           </section>}
 
-          <div className={section === "Usuarios" || section === "Catálogos" || section === "Proyectos Técnicos" || section === "Cubicaciones" || section === "Recursos Humanos" || section === "Acceso restringido" ? "section-hidden" : ""}>
+          <div className={section === "Usuarios" || section === "Catálogos" || section === "Proyectos Técnicos" || section === "Cubicaciones" || section === "Recursos Humanos" || section === "Estructura Organizacional" || section === "Acceso restringido" ? "section-hidden" : ""}>
 
           <section className="hero-grid">
             <article className="score-card"><div className="score-top"><div><span>ÍNDICE DE DESEMPEÑO</span><strong>78.4</strong><small>/100</small></div><div className="trend">↗ 6.2%</div></div><div className="score-track"><i style={{ width: "78.4%" }} /></div><div className="score-meta"><span>Planificado <b>82%</b></span><span>Ejecutado <b>74%</b></span><span>Eficiencia <b>79%</b></span></div></article>
