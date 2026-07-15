@@ -1,6 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { createClient, type Session } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+);
+
+const usernameEmail = (username: string) =>
+  `${username.trim().toLowerCase().replace(/[^a-z0-9._-]/g, "")}@auth.coraamoca.gob.do`;
 
 type Area = "Todos" | "Institucional" | "Gestión Humana" | "Financiera" | "Técnica" | "Comercial";
 type Project = { id: number; code: string; name: string; area: Exclude<Area, "Todos">; owner: string; progress: number; budget: number; spent: number; status: "En curso" | "En riesgo" | "Completado"; due: string };
@@ -25,12 +34,29 @@ const areaData = [
 const money = (value: number) => new Intl.NumberFormat("es-DO", { style: "currency", currency: "DOP", maximumFractionDigits: 0 }).format(value);
 
 export default function Home() {
+  const [session, setSession] = useState<Session | null>(null);
+  const [authReady, setAuthReady] = useState(false);
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [authBusy, setAuthBusy] = useState(false);
+  const [authError, setAuthError] = useState("");
   const [section, setSection] = useState("Resumen");
   const [filter, setFilter] = useState<Area>("Todos");
   const [query, setQuery] = useState("");
   const [projects, setProjects] = useState<Project[]>(initialProjects);
   const [showForm, setShowForm] = useState(false);
   const [notice, setNotice] = useState(3);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setAuthReady(true);
+    });
+    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+      setAuthReady(true);
+    });
+    return () => data.subscription.unsubscribe();
+  }, []);
 
   useEffect(() => {
     const saved = window.localStorage.getItem("coraamoca-projects");
@@ -54,6 +80,70 @@ export default function Home() {
     setShowForm(false);
   }
 
+  async function handleAuth(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setAuthBusy(true);
+    setAuthError("");
+    const fd = new FormData(e.currentTarget);
+    const username = String(fd.get("username") || "").trim();
+    const password = String(fd.get("password") || "");
+    if (!username || username.length < 3) {
+      setAuthError("El usuario debe tener al menos 3 caracteres.");
+      setAuthBusy(false);
+      return;
+    }
+    if (password.length < 6) {
+      setAuthError("La contraseña debe tener al menos 6 caracteres.");
+      setAuthBusy(false);
+      return;
+    }
+    if (authMode === "register") {
+      const fullName = String(fd.get("fullName") || "").trim();
+      const area = String(fd.get("userArea") || "Institucional");
+      const { data, error } = await supabase.auth.signUp({
+        email: usernameEmail(username),
+        password,
+        options: { data: { username: username.toLowerCase(), full_name: fullName, area, role: "Usuario" } },
+      });
+      if (error) setAuthError(error.message.includes("already") ? "Ese nombre de usuario ya existe." : error.message);
+      else if (!data.session) setAuthError("La cuenta fue creada. Desactiva la confirmación de correo en Supabase para permitir el acceso inmediato.");
+    } else {
+      const { error } = await supabase.auth.signInWithPassword({ email: usernameEmail(username), password });
+      if (error) setAuthError("Usuario o contraseña incorrectos.");
+    }
+    setAuthBusy(false);
+  }
+
+  if (!authReady) return <div className="auth-loading"><div className="brand-mark">C</div><span>Preparando acceso seguro…</span></div>;
+
+  if (!session) return (
+    <main className="login-page">
+      <section className="login-visual">
+        <div className="login-brand"><div className="brand-mark">C</div><div><strong>CORAAMOCA</strong><span>Gestión Institucional</span></div></div>
+        <div className="login-message"><span>PLATAFORMA INSTITUCIONAL</span><h1>Gestionamos hoy<br />el agua del mañana.</h1><p>Un espacio único para coordinar proyectos, recursos y resultados de todas las áreas.</p></div>
+        <div className="login-stat"><strong>5</strong><span>áreas integradas</span><strong>100%</strong><span>gestión centralizada</span></div>
+      </section>
+      <section className="login-panel">
+        <form className="login-card" onSubmit={handleAuth}>
+          <div className="login-mobile-brand"><div className="brand-mark">C</div><strong>CORAAMOCA</strong></div>
+          <span className="eyebrow">ACCESO SEGURO</span>
+          <h2>{authMode === "login" ? "Bienvenido de nuevo" : "Crear cuenta de usuario"}</h2>
+          <p>{authMode === "login" ? "Ingresa tus credenciales institucionales." : "No necesitas una dirección de correo electrónico."}</p>
+          {authMode === "register" && <><label>Nombre completo<input name="fullName" required placeholder="Ej. Juan Pérez" autoComplete="name" /></label><label>Área<select name="userArea">{areaData.map(a => <option key={a.name}>{a.name}</option>)}</select></label></>}
+          <label>Nombre de usuario<input name="username" required minLength={3} autoCapitalize="none" autoComplete="username" placeholder="Ej. jperez" /></label>
+          <label>Contraseña<input name="password" required minLength={6} type="password" autoComplete={authMode === "login" ? "current-password" : "new-password"} placeholder="Mínimo 6 caracteres" /></label>
+          {authError && <div className="auth-error">{authError}</div>}
+          <button className="primary login-submit" disabled={authBusy}>{authBusy ? "Procesando…" : authMode === "login" ? "Iniciar sesión" : "Registrar usuario"}</button>
+          <button className="auth-switch" type="button" onClick={() => { setAuthMode(authMode === "login" ? "register" : "login"); setAuthError(""); }}>{authMode === "login" ? "¿Usuario nuevo? Crear una cuenta" : "Ya tengo una cuenta · Iniciar sesión"}</button>
+          <small className="secure-note">▣ Tu sesión está protegida y cifrada por Supabase.</small>
+        </form>
+      </section>
+    </main>
+  );
+
+  const userName = session.user.user_metadata?.full_name || session.user.user_metadata?.username || "Usuario";
+  const userInitials = String(userName).split(" ").map((part: string) => part[0]).join("").slice(0, 2).toUpperCase();
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -64,7 +154,7 @@ export default function Home() {
           <p className="nav-label">ÁREAS DE GESTIÓN</p>
           {areaData.map(a => <button key={a.name} onClick={() => { setSection("Proyectos"); setFilter(a.name as Area); }}><i className={`dot ${a.color}`} />{a.name}</button>)}
         </nav>
-        <div className="sidebar-foot"><div className="avatar">AM</div><div><strong>Ana Martínez</strong><span>Administradora</span></div><button>•••</button></div>
+        <div className="sidebar-foot"><div className="avatar">{userInitials}</div><div><strong>{userName}</strong><span>{session.user.user_metadata?.role || "Usuario"}</span></div><button title="Cerrar sesión" onClick={() => supabase.auth.signOut()}>↪</button></div>
       </aside>
 
       <main>
