@@ -14,11 +14,12 @@ type DirectionModule={label:string;section:string;icon:string;permission?:keyof 
 type InstitutionalDirection={name:string;shortName:string;icon:string;area?:string;modules:DirectionModule[]};
 
 const institutionalDirections:InstitutionalDirection[]=[
- {name:"Dirección General",shortName:"Dirección General",icon:"⌂",modules:[{label:"Resumen institucional",section:"Resumen",icon:"▦",permission:"ver_resumen"},{label:"Proyectos institucionales",section:"Proyectos",icon:"▤",permission:"ver_proyectos"},{label:"Reportes ejecutivos",section:"Reportes",icon:"▥",permission:"ver_reportes"},{label:"Usuarios y roles",section:"Usuarios",icon:"♙",adminOnly:true}]},
+ {name:"Dirección General",shortName:"Dirección General",icon:"⌂",modules:[{label:"Resumen institucional",section:"Resumen",icon:"▦",permission:"ver_resumen"},{label:"Proyectos institucionales",section:"Proyectos",icon:"▤",permission:"ver_proyectos"},{label:"Reportes ejecutivos",section:"Reportes",icon:"▥",permission:"ver_reportes"}]},
  {name:"Dirección de Recursos Humanos",shortName:"Recursos Humanos",icon:"♙",area:"Gestión Humana",modules:[{label:"Gestión de Recursos Humanos",section:"Recursos Humanos",icon:"◉"}]},
  {name:"Dirección Técnica",shortName:"Dirección Técnica",icon:"⌁",area:"Técnica",modules:[{label:"Proyectos y obras",section:"Proyectos Técnicos",icon:"▤",permission:"ver_proyectos_tecnicos"},{label:"Cubicaciones",section:"Cubicaciones",icon:"▧",permission:"ver_cubicaciones"}]},
  {name:"Dirección de Planificación y Desarrollo",shortName:"Planificación y Desarrollo",icon:"◇",modules:[{label:"Proyectos institucionales",section:"Proyectos",icon:"▤",permission:"ver_proyectos"},{label:"Indicadores y reportes",section:"Reportes",icon:"▥",permission:"ver_reportes"}]},
  {name:"Dirección Administrativa y Financiera",shortName:"Administrativa y Financiera",icon:"$",area:"Financiera",modules:[{label:"Presupuesto y ejecución",section:"Proyectos Técnicos",icon:"$",permission:"ver_proyectos_tecnicos"},{label:"Compras, cuentas y proveedores",section:"Catálogos",icon:"▣",roles:["Administrador","Director"]},{label:"Libramientos y pagos",section:"Cubicaciones",icon:"▧",permission:"ver_cubicaciones"}]},
+ {name:"Configuración",shortName:"Configuración",icon:"⚙",modules:[{label:"Usuarios y roles",section:"Usuarios",icon:"♙",adminOnly:true}]},
 ];
 
 type Area = "Todos" | "Institucional" | "Gestión Humana" | "Financiera" | "Técnica" | "Comercial";
