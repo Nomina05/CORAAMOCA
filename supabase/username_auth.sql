@@ -65,3 +65,32 @@ begin delete from public.app_user_sessions where token_hash=encode(digest(p_toke
 
 revoke all on function public.register_app_user(text,text,text,text), public.login_app_user(text,text), public.get_app_session(text), public.logout_app_session(text) from public;
 grant execute on function public.register_app_user(text,text,text,text), public.login_app_user(text,text), public.get_app_session(text), public.logout_app_session(text) to anon, authenticated;
+
+create or replace function public.admin_list_users(p_token text)
+returns jsonb language plpgsql security definer set search_path = public, extensions as $$
+declare v_admin public.app_users%rowtype; v_users jsonb;
+begin
+  select u.* into v_admin from public.app_users u join public.app_user_sessions s on s.user_id=u.id where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.expires_at>now() and u.active=true and u.role='Administrador';
+  if v_admin.id is null then return jsonb_build_object('success',false,'error','No autorizado.'); end if;
+  select coalesce(jsonb_agg(jsonb_build_object('id',id,'username',username,'full_name',full_name,'area',area,'role',role,'active',active,'created_at',created_at,'last_login_at',last_login_at) order by created_at),'[]'::jsonb) into v_users from public.app_users;
+  return jsonb_build_object('success',true,'users',v_users);
+end $$;
+
+create or replace function public.admin_update_user(p_token text, p_user_id uuid, p_role text, p_area text, p_active boolean)
+returns jsonb language plpgsql security definer set search_path = public, extensions as $$
+declare v_admin public.app_users%rowtype;
+begin
+  select u.* into v_admin from public.app_users u join public.app_user_sessions s on s.user_id=u.id where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.expires_at>now() and u.active=true and u.role='Administrador';
+  if v_admin.id is null then return jsonb_build_object('success',false,'error','No autorizado.'); end if;
+  if p_role not in ('Administrador','Director','Supervisor','Analista','Consulta','Usuario') then return jsonb_build_object('success',false,'error','Rol inválido.'); end if;
+  if p_user_id=v_admin.id and (p_role<>'Administrador' or p_active=false) then return jsonb_build_object('success',false,'error','No puedes retirar tu propio acceso administrativo.'); end if;
+  update public.app_users set role=p_role, area=coalesce(nullif(trim(p_area),''),area), active=p_active, updated_at=now() where id=p_user_id;
+  if not found then return jsonb_build_object('success',false,'error','Usuario no encontrado.'); end if;
+  if p_active=false then delete from public.app_user_sessions where user_id=p_user_id; end if;
+  return jsonb_build_object('success',true);
+end $$;
+
+revoke all on function public.admin_list_users(text), public.admin_update_user(text,uuid,text,text,boolean) from public;
+grant execute on function public.admin_list_users(text), public.admin_update_user(text,uuid,text,text,boolean) to anon, authenticated;
+
+update public.app_users set role='Administrador', updated_at=now() where username='creyes';
