@@ -1,15 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { createClient, type Session } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
-);
-
-const usernameEmail = (username: string) =>
-  `${username.trim().toLowerCase().replace(/[^a-z0-9._-]/g, "")}@usuarios.coraamoca.com`;
+type AppUser = { id: string; username: string; full_name: string; area: string; role: string };
 
 type Area = "Todos" | "Institucional" | "Gestión Humana" | "Financiera" | "Técnica" | "Comercial";
 type Project = { id: number; code: string; name: string; area: Exclude<Area, "Todos">; owner: string; progress: number; budget: number; spent: number; status: "En curso" | "En riesgo" | "Completado"; due: string };
@@ -34,7 +27,7 @@ const areaData = [
 const money = (value: number) => new Intl.NumberFormat("es-DO", { style: "currency", currency: "DOP", maximumFractionDigits: 0 }).format(value);
 
 export default function Home() {
-  const [session, setSession] = useState<Session | null>(null);
+  const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [authBusy, setAuthBusy] = useState(false);
@@ -47,15 +40,10 @@ export default function Home() {
   const [notice, setNotice] = useState(3);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setAuthReady(true);
-    });
-    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      setSession(nextSession);
-      setAuthReady(true);
-    });
-    return () => data.subscription.unsubscribe();
+    fetch("/api/auth/session", { cache: "no-store" })
+      .then(response => response.ok ? response.json() : null)
+      .then(data => setCurrentUser(data?.user || null))
+      .finally(() => setAuthReady(true));
   }, []);
 
   useEffect(() => {
@@ -97,26 +85,28 @@ export default function Home() {
       setAuthBusy(false);
       return;
     }
-    if (authMode === "register") {
-      const fullName = String(fd.get("fullName") || "").trim();
-      const area = String(fd.get("userArea") || "Institucional");
-      const { data, error } = await supabase.auth.signUp({
-        email: usernameEmail(username),
-        password,
-        options: { data: { username: username.toLowerCase(), full_name: fullName, area, role: "Usuario" } },
-      });
-      if (error) setAuthError(error.message.includes("already") ? "Ese nombre de usuario ya existe." : error.message);
-      else if (!data.session) setAuthError("La cuenta fue creada. Desactiva la confirmación de correo en Supabase para permitir el acceso inmediato.");
-    } else {
-      const { error } = await supabase.auth.signInWithPassword({ email: usernameEmail(username), password });
-      if (error) setAuthError("Usuario o contraseña incorrectos.");
-    }
+    const payload = authMode === "register"
+      ? { username, password, fullName: String(fd.get("fullName") || "").trim(), area: String(fd.get("userArea") || "Institucional") }
+      : { username, password };
+    const response = await fetch(`/api/auth/${authMode}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const result = await response.json();
+    if (!response.ok) setAuthError(result.error || "No fue posible completar la solicitud.");
+    else setCurrentUser(result.user);
     setAuthBusy(false);
+  }
+
+  async function logout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    setCurrentUser(null);
   }
 
   if (!authReady) return <div className="auth-loading"><div className="brand-mark">C</div><span>Preparando acceso seguro…</span></div>;
 
-  if (!session) return (
+  if (!currentUser) return (
     <main className="login-page">
       <section className="login-visual">
         <div className="login-brand"><div className="brand-mark">C</div><div><strong>CORAAMOCA</strong><span>Gestión Institucional</span></div></div>
@@ -141,7 +131,7 @@ export default function Home() {
     </main>
   );
 
-  const userName = session.user.user_metadata?.full_name || session.user.user_metadata?.username || "Usuario";
+  const userName = currentUser.full_name || currentUser.username || "Usuario";
   const userInitials = String(userName).split(" ").map((part: string) => part[0]).join("").slice(0, 2).toUpperCase();
 
   return (
@@ -154,7 +144,7 @@ export default function Home() {
           <p className="nav-label">ÁREAS DE GESTIÓN</p>
           {areaData.map(a => <button key={a.name} onClick={() => { setSection("Proyectos"); setFilter(a.name as Area); }}><i className={`dot ${a.color}`} />{a.name}</button>)}
         </nav>
-        <div className="sidebar-foot"><div className="avatar">{userInitials}</div><div><strong>{userName}</strong><span>{session.user.user_metadata?.role || "Usuario"}</span></div><button title="Cerrar sesión" onClick={() => supabase.auth.signOut()}>↪</button></div>
+        <div className="sidebar-foot"><div className="avatar">{userInitials}</div><div><strong>{userName}</strong><span>{currentUser.role || "Usuario"}</span></div><button title="Cerrar sesión" onClick={logout}>↪</button></div>
       </aside>
 
       <main>
