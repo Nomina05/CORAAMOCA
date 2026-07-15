@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 type AppUser = { id: string; username: string; full_name: string; area: string; role: string };
 type ManagedUser = AppUser & { active: boolean; created_at: string; last_login_at: string | null };
+type TechnicalProject = { id:string; budget_account:string; procurement_process:string; project_year:number; supplier_contractor:string; snip_code:string; has_lot:boolean; lot_number:string; work_name:string; fixed_assets:string; municipality:string; district:string; sector:string; population:number; linear_meters:number|null; budgeted_amount:number; appropriation_amount:number; awarded_amount:number; advance_20_amount:number; measurement_count:number; measurement_status:string; total_measured:number; total_paid:number; work_status:string; work_progress:number; created_at:string };
 
 type Area = "Todos" | "Institucional" | "Gestión Humana" | "Financiera" | "Técnica" | "Comercial";
 type Project = { id: number; code: string; name: string; area: Exclude<Area, "Todos">; owner: string; progress: number; budget: number; spent: number; status: "En curso" | "En riesgo" | "Completado"; due: string };
@@ -27,6 +28,15 @@ const areaData = [
 
 const money = (value: number) => new Intl.NumberFormat("es-DO", { style: "currency", currency: "DOP", maximumFractionDigits: 0 }).format(value);
 
+function TechnicalProjectModal({ project, onClose, onSubmit }: { project: TechnicalProject | null; onClose: () => void; onSubmit: (e: React.FormEvent<HTMLFormElement>) => void }) {
+  return <div className="modal-backdrop technical-backdrop" onMouseDown={onClose}><form key={project?.id || "new"} className="modal technical-modal" onSubmit={onSubmit} onMouseDown={e=>e.stopPropagation()}><div className="modal-head"><div><span className="eyebrow">DIRECCIÓN TÉCNICA</span><h2>{project ? "Editar proyecto" : "Registrar proyecto institucional"}</h2></div><button type="button" onClick={onClose}>×</button></div>
+    <div className="form-section"><h3>1. Identificación y contratación</h3><div className="technical-form-grid"><label className="span-2">Obra<input name="work_name" required defaultValue={project?.work_name}/></label><label>Cuenta presupuestaria<input name="budget_account" required defaultValue={project?.budget_account}/></label><label>Proceso de compra o contratación<input name="procurement_process" required defaultValue={project?.procurement_process}/></label><label>Año de realización<input name="project_year" type="number" min="2000" max="2100" required defaultValue={project?.project_year || new Date().getFullYear()}/></label><label>Proveedor o contratista<input name="supplier_contractor" required defaultValue={project?.supplier_contractor}/></label><label>Código SNIP<input name="snip_code" defaultValue={project?.snip_code}/></label><label>No. de lote<input name="lot_number" defaultValue={project?.lot_number}/></label><label className="check-label"><input name="has_lot" type="checkbox" defaultChecked={project?.has_lot}/> El proyecto posee lote</label><label>Activos fijos<input name="fixed_assets" defaultValue={project?.fixed_assets}/></label></div></div>
+    <div className="form-section"><h3>2. Ubicación e impacto</h3><div className="technical-form-grid"><label>Municipio<input name="municipality" required defaultValue={project?.municipality}/></label><label>Distrito<input name="district" defaultValue={project?.district}/></label><label>Sector<input name="sector" defaultValue={project?.sector}/></label><label>Población beneficiada<input name="population" type="number" min="0" defaultValue={project?.population || 0}/></label><label>Metros lineales (cuando aplique)<input name="linear_meters" type="number" min="0" step="0.01" defaultValue={project?.linear_meters || ""}/></label></div></div>
+    <div className="form-section"><h3>3. Gestión financiera</h3><div className="technical-form-grid"><label>Monto presupuestado<input name="budgeted_amount" type="number" min="0" step="0.01" defaultValue={project?.budgeted_amount || 0}/></label><label>Monto en apropiación<input name="appropriation_amount" type="number" min="0" step="0.01" defaultValue={project?.appropriation_amount || 0}/></label><label>Monto adjudicado<input name="awarded_amount" type="number" min="0" step="0.01" defaultValue={project?.awarded_amount || 0}/></label><label>Avance del 20%<input name="advance_20_amount" type="number" min="0" step="0.01" defaultValue={project?.advance_20_amount || 0}/></label></div></div>
+    <div className="form-section"><h3>4. Cubicaciones y ejecución</h3><div className="technical-form-grid"><label>Cantidad de cubicaciones<input name="measurement_count" type="number" min="0" defaultValue={project?.measurement_count || 0}/></label><label>Estatus de cubicaciones<select name="measurement_status" defaultValue={project?.measurement_status || "Pendiente"}>{["Pendiente","En revisión","Aprobada","Observada","Pagada"].map(x=><option key={x}>{x}</option>)}</select></label><label>Total cubicado<input name="total_measured" type="number" min="0" step="0.01" defaultValue={project?.total_measured || 0}/></label><label>Total pagado<input name="total_paid" type="number" min="0" step="0.01" defaultValue={project?.total_paid || 0}/></label><label>Estatus de obra<select name="work_status" defaultValue={project?.work_status || "Planificación"}>{["Planificación","En contratación","Adjudicada","En ejecución","Pausada","Finalizada","Cancelada"].map(x=><option key={x}>{x}</option>)}</select></label><label>Avance de obra (%)<input name="work_progress" type="number" min="0" max="100" step="0.01" defaultValue={project?.work_progress || 0}/></label></div></div>
+    <div className="modal-actions"><button type="button" className="outline" onClick={onClose}>Cancelar</button><button className="primary">Guardar proyecto</button></div></form></div>;
+}
+
 export default function Home() {
   const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
   const [authReady, setAuthReady] = useState(false);
@@ -36,6 +46,11 @@ export default function Home() {
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
   const [usersMessage, setUsersMessage] = useState("");
+  const [technicalProjects, setTechnicalProjects] = useState<TechnicalProject[]>([]);
+  const [technicalLoading, setTechnicalLoading] = useState(false);
+  const [technicalMessage, setTechnicalMessage] = useState("");
+  const [showTechnicalForm, setShowTechnicalForm] = useState(false);
+  const [editingTechnical, setEditingTechnical] = useState<TechnicalProject | null>(null);
   const [section, setSection] = useState("Resumen");
   const [filter, setFilter] = useState<Area>("Todos");
   const [query, setQuery] = useState("");
@@ -58,6 +73,18 @@ export default function Home() {
       .then(data => setUsers(data.users || []))
       .finally(() => setUsersLoading(false));
   }, [section, currentUser?.role]);
+
+  useEffect(() => {
+    if (section === "Proyectos Técnicos") loadTechnicalProjects();
+  }, [section]);
+
+  async function loadTechnicalProjects() {
+    setTechnicalLoading(true);
+    const response = await fetch("/api/projects/technical", { cache: "no-store" });
+    const data = await response.json();
+    setTechnicalProjects(data.projects || []);
+    setTechnicalLoading(false);
+  }
 
   useEffect(() => {
     const saved = window.localStorage.getItem("coraamoca-projects");
@@ -126,6 +153,20 @@ export default function Home() {
     else { setUsers(previous => previous.map(item => item.id === updated.id ? updated : item)); setUsersMessage("Cambios guardados correctamente."); }
   }
 
+  async function saveTechnicalProject(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault(); setTechnicalMessage("");
+    const fd = new FormData(e.currentTarget);
+    const numeric = ["project_year","population","linear_meters","budgeted_amount","appropriation_amount","awarded_amount","advance_20_amount","measurement_count","total_measured","total_paid","work_progress"];
+    const data: Record<string, string | number | boolean | null> = {};
+    fd.forEach((value,key) => { data[key] = numeric.includes(key) ? (String(value)==="" ? null : Number(value)) : String(value); });
+    data.has_lot = fd.get("has_lot") === "on";
+    if (editingTechnical) data.id = editingTechnical.id;
+    const response = await fetch("/api/projects/technical", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(data) });
+    const result = await response.json();
+    if (!response.ok) { setTechnicalMessage(result.error || "No fue posible guardar el proyecto."); return; }
+    setShowTechnicalForm(false); setEditingTechnical(null); setTechnicalMessage("Proyecto guardado correctamente."); await loadTechnicalProjects();
+  }
+
   if (!authReady) return <div className="auth-loading"><div className="brand-mark">C</div><span>Preparando acceso seguro…</span></div>;
 
   if (!currentUser) return (
@@ -162,7 +203,7 @@ export default function Home() {
         <div className="brand"><div className="brand-mark">C</div><div><strong>CORAAMOCA</strong><span>Gestión Institucional</span></div></div>
         <nav>
           <p className="nav-label">ESPACIO DE TRABAJO</p>
-          {["Resumen", "Proyectos", "Calendario", "Reportes"].map((x, i) => <button key={x} className={section === x ? "active" : ""} onClick={() => setSection(x)}><span>{["▦", "▤", "□", "▥"][i]}</span>{x}</button>)}
+          {["Resumen", "Proyectos", "Proyectos Técnicos", "Calendario", "Reportes"].map((x, i) => <button key={x} className={section === x ? "active" : ""} onClick={() => setSection(x)}><span>{["▦", "▤", "⌁", "□", "▥"][i]}</span>{x}</button>)}
           {currentUser.role === "Administrador" && <button className={section === "Usuarios" ? "active" : ""} onClick={() => setSection("Usuarios")}><span>♙</span>Usuarios y roles</button>}
           <p className="nav-label">ÁREAS DE GESTIÓN</p>
           {areaData.map(a => <button key={a.name} onClick={() => { setSection("Proyectos"); setFilter(a.name as Area); }}><i className={`dot ${a.color}`} />{a.name}</button>)}
@@ -174,7 +215,7 @@ export default function Home() {
         <header>
           <div className="mobile-brand">CORAAMOCA</div>
           <label className="search"><span>⌕</span><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar proyectos, responsables..." /><kbd>⌘ K</kbd></label>
-          <div className="header-actions"><button className="icon-btn" onClick={() => setNotice(0)}>♧{notice > 0 && <b>{notice}</b>}</button><button className="primary" onClick={() => setShowForm(true)}>＋ Nuevo proyecto</button></div>
+          <div className="header-actions"><button className="icon-btn" onClick={() => setNotice(0)}>♧{notice > 0 && <b>{notice}</b>}</button><button className="primary" onClick={() => section === "Proyectos Técnicos" ? (setEditingTechnical(null),setShowTechnicalForm(true)) : setShowForm(true)}>＋ Nuevo proyecto</button></div>
         </header>
 
         <div className="content">
@@ -188,7 +229,16 @@ export default function Home() {
             </div>
           </section>}
 
-          <div className={section === "Usuarios" ? "section-hidden" : ""}>
+          {section === "Proyectos Técnicos" && <section className="technical-panel">
+            <div className="direction-strip"><strong>Dirección líder</strong><span>Dirección Técnica</span><i>＋</i><strong>Direcciones participantes</strong><span>Administrativa y Financiera</span><span>Planificación y Desarrollo</span></div>
+            <div className="technical-kpis"><article><span>PROYECTOS</span><strong>{technicalProjects.length}</strong></article><article><span>MONTO PRESUPUESTADO</span><strong>{money(technicalProjects.reduce((sum,p)=>sum+Number(p.budgeted_amount),0))}</strong></article><article><span>TOTAL CUBICADO</span><strong>{money(technicalProjects.reduce((sum,p)=>sum+Number(p.total_measured),0))}</strong></article><article><span>TOTAL PAGADO</span><strong>{money(technicalProjects.reduce((sum,p)=>sum+Number(p.total_paid),0))}</strong></article></div>
+            {technicalMessage && <div className={technicalMessage.startsWith("Proyecto guardado") ? "users-success" : "auth-error"}>{technicalMessage}</div>}
+            <div className="technical-card"><div className="users-card-head"><div><h2>Cartera de obras y proyectos técnicos</h2><p>Control presupuestario, contractual, territorial y de ejecución.</p></div><button className="primary" onClick={()=>{setEditingTechnical(null);setShowTechnicalForm(true)}}>＋ Registrar proyecto</button></div>
+              {technicalLoading ? <div className="users-empty">Cargando proyectos…</div> : technicalProjects.length===0 ? <div className="technical-empty"><strong>No hay proyectos técnicos registrados</strong><span>Registra la primera obra para iniciar el seguimiento interdireccional.</span></div> : <div className="users-table-wrap"><table className="technical-table"><thead><tr><th>OBRA / SNIP</th><th>UBICACIÓN</th><th>CONTRATISTA</th><th>PRESUPUESTO</th><th>CUBICADO / PAGADO</th><th>AVANCE</th><th>ESTATUS</th><th></th></tr></thead><tbody>{technicalProjects.map(project=><tr key={project.id}><td><strong>{project.work_name}</strong><small>{project.snip_code || "Sin código SNIP"} · {project.project_year}</small></td><td><b>{project.municipality}</b><small>{[project.district,project.sector].filter(Boolean).join(" · ")}</small></td><td>{project.supplier_contractor}</td><td><b>{money(Number(project.budgeted_amount))}</b><small>Adjudicado: {money(Number(project.awarded_amount))}</small></td><td><b>{money(Number(project.total_measured))}</b><small>Pagado: {money(Number(project.total_paid))}</small></td><td><div className="tech-progress"><i><em style={{width:`${project.work_progress}%`}} /></i><b>{project.work_progress}%</b></div></td><td><span className="work-status">{project.work_status}</span><small>{project.measurement_status}</small></td><td><button className="row-action" onClick={()=>{setEditingTechnical(project);setShowTechnicalForm(true)}}>Editar</button></td></tr>)}</tbody></table></div>}
+            </div>
+          </section>}
+
+          <div className={section === "Usuarios" || section === "Proyectos Técnicos" ? "section-hidden" : ""}>
 
           <section className="hero-grid">
             <article className="score-card"><div className="score-top"><div><span>ÍNDICE DE DESEMPEÑO</span><strong>78.4</strong><small>/100</small></div><div className="trend">↗ 6.2%</div></div><div className="score-track"><i style={{ width: "78.4%" }} /></div><div className="score-meta"><span>Planificado <b>82%</b></span><span>Ejecutado <b>74%</b></span><span>Eficiencia <b>79%</b></span></div></article>
@@ -212,6 +262,7 @@ export default function Home() {
       </main>
 
       {showForm && <div className="modal-backdrop" onMouseDown={() => setShowForm(false)}><form className="modal" onSubmit={addProject} onMouseDown={e => e.stopPropagation()}><div className="modal-head"><div><span className="eyebrow">NUEVA INICIATIVA</span><h2>Registrar proyecto</h2></div><button type="button" onClick={() => setShowForm(false)}>×</button></div><label>Nombre del proyecto<input name="name" required placeholder="Ej. Ampliación de cobertura rural" /></label><div className="form-row"><label>Área<select name="area">{areaData.map(a => <option key={a.name}>{a.name}</option>)}</select></label><label>Responsable<input name="owner" required placeholder="Nombre o unidad" /></label></div><div className="form-row"><label>Presupuesto (RD$)<input name="budget" required type="number" min="0" placeholder="0" /></label><label>Fecha de entrega<input name="due" required type="date" /></label></div><div className="modal-actions"><button type="button" className="outline" onClick={() => setShowForm(false)}>Cancelar</button><button className="primary">Crear proyecto</button></div></form></div>}
+      {showTechnicalForm && <TechnicalProjectModal project={editingTechnical} onClose={()=>setShowTechnicalForm(false)} onSubmit={saveTechnicalProject} />}
     </div>
   );
 }
