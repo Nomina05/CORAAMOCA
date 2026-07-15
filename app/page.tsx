@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-type Permissions = { registrar_cubicaciones?:boolean; revisar_cubicaciones?:boolean; libramiento_cubicaciones?:boolean; pagar_cubicaciones?:boolean };
-type AppUser = { id: string; username: string; full_name: string; area: string; role: string; permissions?:Permissions };
+type Permissions = { registrar_cubicaciones?:boolean; revisar_cubicaciones?:boolean; libramiento_cubicaciones?:boolean; pagar_cubicaciones?:boolean; ver_resumen?:boolean; ver_proyectos?:boolean; ver_proyectos_tecnicos?:boolean; ver_cubicaciones?:boolean; ver_calendario?:boolean; ver_reportes?:boolean };
+type AppUser = { id: string; username: string; full_name: string; area: string; role: string; permissions?:Permissions; must_change_password?:boolean };
 type ManagedUser = AppUser & { active: boolean; created_at: string; last_login_at: string | null };
 type TechnicalProject = { id:string; budget_account:string; procurement_process:string; project_year:number; supplier_contractor:string; snip_code:string; has_lot:boolean; lot_number:string; work_name:string; fixed_assets:string; municipality:string; district:string; sector:string; population:number; linear_meters:number|null; budgeted_amount:number; appropriation_amount:number; awarded_amount:number; advance_20_amount:number; fixed_asset_paid_amount:number; measurement_count:number; measurement_status:string; total_measured:number; total_paid:number; work_status:string; work_progress:number; created_at:string };
 type AuditEntry={action:string;from_status:string|null;to_status:string;comments:string;created_at:string;user_name:string};
@@ -50,12 +50,12 @@ function AuditModal({measurement,onClose}:{measurement:Measurement;onClose:()=>v
 export default function Home() {
   const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
   const [authReady, setAuthReady] = useState(false);
-  const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [authBusy, setAuthBusy] = useState(false);
   const [authError, setAuthError] = useState("");
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
   const [usersMessage, setUsersMessage] = useState("");
+  const [showCreateUser,setShowCreateUser]=useState(false);
   const [technicalProjects, setTechnicalProjects] = useState<TechnicalProject[]>([]);
   const [technicalLoading, setTechnicalLoading] = useState(false);
   const [technicalMessage, setTechnicalMessage] = useState("");
@@ -93,6 +93,8 @@ export default function Home() {
     if (section === "Proyectos Técnicos" || section === "Cubicaciones") loadTechnicalProjects();
     if (section === "Cubicaciones") loadMeasurements();
   }, [section]);
+
+  useEffect(()=>{if(!currentUser||currentUser.role==="Administrador")return;const views:Array<[string,keyof Permissions]>=[["Resumen","ver_resumen"],["Proyectos","ver_proyectos"],["Proyectos Técnicos","ver_proyectos_tecnicos"],["Cubicaciones","ver_cubicaciones"],["Calendario","ver_calendario"],["Reportes","ver_reportes"]];const allowed=views.filter(([,key])=>Boolean(currentUser.permissions?.[key])).map(([name])=>name);if(!allowed.includes(section))setSection(allowed[0]||"Acceso restringido");},[currentUser,section]);
 
   async function loadTechnicalProjects() {
     setTechnicalLoading(true);
@@ -143,13 +145,10 @@ export default function Home() {
       setAuthBusy(false);
       return;
     }
-    const payload = authMode === "register"
-      ? { username, password, fullName: String(fd.get("fullName") || "").trim(), area: String(fd.get("userArea") || "Institucional") }
-      : { username, password };
-    const response = await fetch(`/api/auth/${authMode}`, {
+    const response = await fetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ username, password }),
     });
     const result = await response.json();
     if (!response.ok) setAuthError(result.error || "No fue posible completar la solicitud.");
@@ -173,6 +172,12 @@ export default function Home() {
 
   async function updatePermissions(user:ManagedUser,key:keyof Permissions,enabled:boolean){const permissions={...(user.permissions||{}),[key]:enabled};const response=await fetch("/api/users",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:user.id,permissions})});const result=await response.json();if(!response.ok)setUsersMessage(result.error||"No se pudieron actualizar los permisos.");else{setUsers(items=>items.map(item=>item.id===user.id?{...item,permissions}:item));setUsersMessage("Permisos guardados correctamente.");}}
 
+  async function createManagedUser(e:React.FormEvent<HTMLFormElement>){e.preventDefault();setUsersMessage("");const fd=new FormData(e.currentTarget);const viewKeys=["ver_resumen","ver_proyectos","ver_proyectos_tecnicos","ver_cubicaciones","ver_calendario","ver_reportes"];const permissions=Object.fromEntries(viewKeys.map(key=>[key,fd.get(key)==="on"]));const response=await fetch("/api/users",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:String(fd.get("username")),password:String(fd.get("password")),fullName:String(fd.get("fullName")),area:String(fd.get("area")),role:String(fd.get("role")),permissions})});const result=await response.json();if(!response.ok){setUsersMessage(result.error||"No fue posible crear el usuario.");return;}setShowCreateUser(false);setUsers(items=>[...items,result.user]);setUsersMessage("Usuario creado con contraseña temporal.");}
+
+  async function changeFirstPassword(e:React.FormEvent<HTMLFormElement>){e.preventDefault();setAuthBusy(true);setAuthError("");const fd=new FormData(e.currentTarget);const password=String(fd.get("password")||"");const confirmation=String(fd.get("confirmation")||"");if(password.length<8){setAuthError("La nueva contraseña debe tener al menos 8 caracteres.");setAuthBusy(false);return;}if(password!==confirmation){setAuthError("Las contraseñas no coinciden.");setAuthBusy(false);return;}const response=await fetch("/api/auth/change-password",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({password})});const result=await response.json();if(!response.ok)setAuthError(result.error||"No fue posible cambiar la contraseña.");else setCurrentUser(result.user);setAuthBusy(false);}
+
+  function canView(key:keyof Permissions){return currentUser?.role==="Administrador"||Boolean(currentUser?.permissions?.[key]);}
+
   async function createMeasurement(e:React.FormEvent<HTMLFormElement>){e.preventDefault();setMeasurementMessage("");const fd=new FormData(e.currentTarget);const response=await fetch("/api/cubicaciones",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({projectId:fd.get("projectId"),amount:Number(fd.get("amount")),progress:Number(fd.get("progress")),description:String(fd.get("description"))})});const result=await response.json();if(!response.ok){setMeasurementMessage(result.error||"No se pudo registrar la cubicación.");return;}setShowMeasurementForm(false);setMeasurementMessage(`Cubicación ${result.code} registrada correctamente.`);await loadMeasurements();await loadTechnicalProjects();}
 
   async function advanceMeasurement(measurement:Measurement){const next=measurement.status==="Registrada"?"Revisada":measurement.status==="Revisada"?"Libramiento":measurement.status==="Libramiento"?"Pagada":null;if(!next)return;const comments=window.prompt(`Comentario para avanzar a ${next}:`)||"";const response=await fetch("/api/cubicaciones",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:measurement.id,status:next,comments})});const result=await response.json();if(!response.ok)setMeasurementMessage(result.error||"No se pudo avanzar la cubicación.");else{setMeasurementMessage(`Cubicación avanzada a ${next}.`);await loadMeasurements();await loadTechnicalProjects();}}
@@ -194,6 +199,8 @@ export default function Home() {
 
   if (!authReady) return <div className="auth-loading"><div className="brand-mark">C</div><span>Preparando acceso seguro…</span></div>;
 
+  if(currentUser?.must_change_password)return <main className="login-page"><section className="login-visual"><div className="login-brand"><div className="brand-mark">C</div><div><strong>CORAAMOCA</strong><span>Gestión Institucional</span></div></div><div className="login-message"><span>PRIMER ACCESO</span><h1>Protege tu cuenta.</h1><p>La contraseña temporal debe ser reemplazada antes de entrar al sistema.</p></div></section><section className="login-panel"><form className="login-card" onSubmit={changeFirstPassword}><span className="eyebrow">CAMBIO OBLIGATORIO</span><h2>Crear nueva contraseña</h2><p>Utiliza al menos 8 caracteres y no compartas tu contraseña.</p><label>Nueva contraseña<input name="password" type="password" minLength={8} required autoComplete="new-password"/></label><label>Confirmar contraseña<input name="confirmation" type="password" minLength={8} required autoComplete="new-password"/></label>{authError&&<div className="auth-error">{authError}</div>}<button className="primary login-submit" disabled={authBusy}>{authBusy?"Guardando…":"Cambiar contraseña y continuar"}</button></form></section></main>;
+
   if (!currentUser) return (
     <main className="login-page">
       <section className="login-visual">
@@ -205,14 +212,12 @@ export default function Home() {
         <form className="login-card" onSubmit={handleAuth}>
           <div className="login-mobile-brand"><div className="brand-mark">C</div><strong>CORAAMOCA</strong></div>
           <span className="eyebrow">ACCESO SEGURO</span>
-          <h2>{authMode === "login" ? "Bienvenido de nuevo" : "Crear cuenta de usuario"}</h2>
-          <p>{authMode === "login" ? "Ingresa tus credenciales institucionales." : "No necesitas una dirección de correo electrónico."}</p>
-          {authMode === "register" && <><label>Nombre completo<input name="fullName" required placeholder="Ej. Juan Pérez" autoComplete="name" /></label><label>Área<select name="userArea">{areaData.map(a => <option key={a.name}>{a.name}</option>)}</select></label></>}
+          <h2>Bienvenido de nuevo</h2>
+          <p>Ingresa tus credenciales institucionales.</p>
           <label>Nombre de usuario<input name="username" required minLength={3} autoCapitalize="none" autoComplete="username" placeholder="Ej. jperez" /></label>
-          <label>Contraseña<input name="password" required minLength={6} type="password" autoComplete={authMode === "login" ? "current-password" : "new-password"} placeholder="Mínimo 6 caracteres" /></label>
+          <label>Contraseña<input name="password" required minLength={6} type="password" autoComplete="current-password" placeholder="Mínimo 6 caracteres" /></label>
           {authError && <div className="auth-error">{authError}</div>}
-          <button className="primary login-submit" disabled={authBusy}>{authBusy ? "Procesando…" : authMode === "login" ? "Iniciar sesión" : "Registrar usuario"}</button>
-          <button className="auth-switch" type="button" onClick={() => { setAuthMode(authMode === "login" ? "register" : "login"); setAuthError(""); }}>{authMode === "login" ? "¿Usuario nuevo? Crear una cuenta" : "Ya tengo una cuenta · Iniciar sesión"}</button>
+          <button className="primary login-submit" disabled={authBusy}>{authBusy ? "Procesando…" : "Iniciar sesión"}</button>
           <small className="secure-note">▣ Tu sesión está protegida y cifrada por Supabase.</small>
         </form>
       </section>
@@ -228,7 +233,7 @@ export default function Home() {
         <div className="brand"><div className="brand-mark">C</div><div><strong>CORAAMOCA</strong><span>Gestión Institucional</span></div></div>
         <nav>
           <p className="nav-label">ESPACIO DE TRABAJO</p>
-          {["Resumen", "Proyectos", "Proyectos Técnicos", "Cubicaciones", "Calendario", "Reportes"].map((x, i) => <button key={x} className={section === x ? "active" : ""} onClick={() => setSection(x)}><span>{["▦", "▤", "⌁", "▧", "□", "▥"][i]}</span>{x}</button>)}
+          {[{name:"Resumen",key:"ver_resumen",icon:"▦"},{name:"Proyectos",key:"ver_proyectos",icon:"▤"},{name:"Proyectos Técnicos",key:"ver_proyectos_tecnicos",icon:"⌁"},{name:"Cubicaciones",key:"ver_cubicaciones",icon:"▧"},{name:"Calendario",key:"ver_calendario",icon:"□"},{name:"Reportes",key:"ver_reportes",icon:"▥"}].filter(item=>canView(item.key as keyof Permissions)).map(item => <button key={item.name} className={section === item.name ? "active" : ""} onClick={() => setSection(item.name)}><span>{item.icon}</span>{item.name}</button>)}
           {currentUser.role === "Administrador" && <button className={section === "Usuarios" ? "active" : ""} onClick={() => setSection("Usuarios")}><span>♙</span>Usuarios y roles</button>}
           <p className="nav-label">ÁREAS DE GESTIÓN</p>
           {areaData.map(a => <button key={a.name} onClick={() => { setSection("Proyectos"); setFilter(a.name as Area); }}><i className={`dot ${a.color}`} />{a.name}</button>)}
@@ -248,11 +253,12 @@ export default function Home() {
 
           {section === "Usuarios" && <section className="users-panel">
             <div className="users-summary"><div><span>USUARIOS REGISTRADOS</span><strong>{users.length}</strong></div><div><span>CUENTAS ACTIVAS</span><strong>{users.filter(user => user.active).length}</strong></div><div><span>ADMINISTRADORES</span><strong>{users.filter(user => user.role === "Administrador").length}</strong></div></div>
-            <div className="users-card"><div className="users-card-head"><div><h2>Administración de usuarios</h2><p>Define el área, rol y acceso de cada colaborador.</p></div><span className="permission-note">Solo administradores</span></div>
-              {usersMessage && <div className={usersMessage.startsWith("Cambios") ? "users-success" : "auth-error"}>{usersMessage}</div>}
-              {usersLoading ? <div className="users-empty">Cargando usuarios…</div> : <div className="users-table-wrap"><table className="users-table permissions-table"><thead><tr><th>USUARIO</th><th>ÁREA</th><th>ROL</th><th>ESTADO</th><th>PERMISOS DE CUBICACIÓN</th><th>ÚLTIMO ACCESO</th></tr></thead><tbody>{users.map(user => <tr key={user.id}><td><div className="user-identity"><div className="avatar">{user.full_name.split(" ").map(part => part[0]).join("").slice(0,2)}</div><div><strong>{user.full_name}</strong><span>@{user.username}</span></div></div></td><td><select value={user.area} onChange={event => updateUser(user,{ area:event.target.value })}>{areaData.map(area => <option key={area.name}>{area.name}</option>)}</select></td><td><select value={user.role} onChange={event => updateUser(user,{ role:event.target.value })}>{["Administrador","Director","Supervisor","Analista","Consulta","Usuario"].map(role => <option key={role}>{role}</option>)}</select></td><td><button className={`user-status ${user.active ? "is-active" : "is-inactive"}`} onClick={() => updateUser(user,{ active:!user.active })}>{user.active ? "● Activo" : "● Inactivo"}</button></td><td><div className="permission-toggles">{[["registrar_cubicaciones","Registrar"],["revisar_cubicaciones","Revisar"],["libramiento_cubicaciones","Libramiento"],["pagar_cubicaciones","Pagar"]].map(([key,label])=><label key={key}><input type="checkbox" checked={Boolean(user.role==="Administrador"||user.permissions?.[key as keyof Permissions])} disabled={user.role==="Administrador"} onChange={e=>updatePermissions(user,key as keyof Permissions,e.target.checked)}/>{label}</label>)}</div></td><td>{user.last_login_at ? new Date(user.last_login_at).toLocaleString("es-DO",{dateStyle:"medium",timeStyle:"short"}) : "Sin acceso"}</td></tr>)}</tbody></table></div>}
+            <div className="users-card"><div className="users-card-head"><div><h2>Administración de usuarios</h2><p>Crea cuentas, asigna roles y define las vistas disponibles.</p></div><button className="primary" onClick={()=>setShowCreateUser(true)}>＋ Crear usuario</button></div>
+              {usersMessage && <div className={usersMessage.startsWith("Cambios")||usersMessage.startsWith("Usuario creado")||usersMessage.startsWith("Permisos") ? "users-success" : "auth-error"}>{usersMessage}</div>}
+              {usersLoading ? <div className="users-empty">Cargando usuarios…</div> : <div className="users-table-wrap"><table className="users-table permissions-table"><thead><tr><th>USUARIO</th><th>ÁREA</th><th>ROL</th><th>ESTADO</th><th>PERMISOS</th><th>ÚLTIMO ACCESO</th></tr></thead><tbody>{users.map(user => <tr key={user.id}><td><div className="user-identity"><div className="avatar">{user.full_name.split(" ").map(part => part[0]).join("").slice(0,2)}</div><div><strong>{user.full_name}</strong><span>@{user.username}{user.must_change_password?" · Contraseña temporal":""}</span></div></div></td><td><select value={user.area} onChange={event => updateUser(user,{ area:event.target.value })}>{areaData.map(area => <option key={area.name}>{area.name}</option>)}</select></td><td><select value={user.role} onChange={event => updateUser(user,{ role:event.target.value })}>{["Administrador","Director","Supervisor","Analista","Consulta","Usuario"].map(role => <option key={role}>{role}</option>)}</select></td><td><button className={`user-status ${user.active ? "is-active" : "is-inactive"}`} onClick={() => updateUser(user,{ active:!user.active })}>{user.active ? "● Activo" : "● Inactivo"}</button></td><td><div className="permission-toggles">{[["ver_resumen","Resumen"],["ver_proyectos","Proyectos"],["ver_proyectos_tecnicos","P. Técnicos"],["ver_cubicaciones","Cubicaciones"],["ver_calendario","Calendario"],["ver_reportes","Reportes"],["registrar_cubicaciones","Registrar cub."],["revisar_cubicaciones","Revisar cub."],["libramiento_cubicaciones","Libramiento"],["pagar_cubicaciones","Pagar cub."]].map(([key,label])=><label key={key}><input type="checkbox" checked={Boolean(user.role==="Administrador"||user.permissions?.[key as keyof Permissions])} disabled={user.role==="Administrador"} onChange={e=>updatePermissions(user,key as keyof Permissions,e.target.checked)}/>{label}</label>)}</div></td><td>{user.last_login_at ? new Date(user.last_login_at).toLocaleString("es-DO",{dateStyle:"medium",timeStyle:"short"}) : "Sin acceso"}</td></tr>)}</tbody></table></div>}
             </div>
           </section>}
+          {section==="Acceso restringido"&&<section className="technical-empty"><strong>Sin vistas asignadas</strong><span>Solicita al administrador que habilite los módulos correspondientes a tu función.</span></section>}
 
           {section === "Proyectos Técnicos" && <section className="technical-panel">
             <div className="direction-strip"><strong>Dirección líder</strong><span>Dirección Técnica</span><i>＋</i><strong>Direcciones participantes</strong><span>Administrativa y Financiera</span><span>Planificación y Desarrollo</span></div>
@@ -271,7 +277,7 @@ export default function Home() {
             <div className="technical-card"><div className="users-card-head"><div><h2>Expedientes de cubicación</h2><p>Etapas, responsables y trazabilidad completa.</p></div></div>{measurementsLoading?<div className="users-empty">Cargando cubicaciones…</div>:measurements.length===0?<div className="technical-empty"><strong>No hay cubicaciones registradas</strong><span>Seleccione una obra y registre su primera etapa de cubicación.</span></div>:<div className="users-table-wrap"><table className="measurement-table"><thead><tr><th>CÓDIGO / ETAPA</th><th>OBRA Y SECTOR</th><th>MONTO</th><th>AVANCE</th><th>REGISTRADO POR</th><th>ESTATUS</th><th>ACCIONES</th></tr></thead><tbody>{measurements.map(item=><tr key={item.id}><td><strong>{item.code}</strong><small>Cubicación No. {item.measurement_number}</small></td><td><b>{item.work_name}</b><small>{item.snip_code||"Sin SNIP"} · {item.sector||item.municipality}</small></td><td><b>{money(Number(item.amount))}</b><small>{item.status==="Pagada"?"Aplicado a la obra":"Sin afectar presupuesto"}</small></td><td><b>＋{item.progress_increment}%</b><small>{item.status==="Pagada"?"Avance aplicado":"Pendiente de pago"}</small></td><td>{item.registered_by_name}<small>{new Date(item.created_at).toLocaleDateString("es-DO")}</small></td><td><span className={`measurement-status status-${item.status.toLowerCase()}`}>{item.status}</span></td><td><div className="measurement-actions"><button className="row-action" onClick={()=>setAuditMeasurement(item)}>Auditoría</button>{canAdvanceMeasurement(item.status)&&<button className="advance-action" onClick={()=>advanceMeasurement(item)}>Avanzar →</button>}</div></td></tr>)}</tbody></table></div>}</div>
           </section>}
 
-          <div className={section === "Usuarios" || section === "Proyectos Técnicos" || section === "Cubicaciones" ? "section-hidden" : ""}>
+          <div className={section === "Usuarios" || section === "Proyectos Técnicos" || section === "Cubicaciones" || section === "Acceso restringido" ? "section-hidden" : ""}>
 
           <section className="hero-grid">
             <article className="score-card"><div className="score-top"><div><span>ÍNDICE DE DESEMPEÑO</span><strong>78.4</strong><small>/100</small></div><div className="trend">↗ 6.2%</div></div><div className="score-track"><i style={{ width: "78.4%" }} /></div><div className="score-meta"><span>Planificado <b>82%</b></span><span>Ejecutado <b>74%</b></span><span>Eficiencia <b>79%</b></span></div></article>
@@ -295,6 +301,7 @@ export default function Home() {
       </main>
 
       {showForm && <div className="modal-backdrop" onMouseDown={() => setShowForm(false)}><form className="modal" onSubmit={addProject} onMouseDown={e => e.stopPropagation()}><div className="modal-head"><div><span className="eyebrow">NUEVA INICIATIVA</span><h2>Registrar proyecto</h2></div><button type="button" onClick={() => setShowForm(false)}>×</button></div><label>Nombre del proyecto<input name="name" required placeholder="Ej. Ampliación de cobertura rural" /></label><div className="form-row"><label>Área<select name="area">{areaData.map(a => <option key={a.name}>{a.name}</option>)}</select></label><label>Responsable<input name="owner" required placeholder="Nombre o unidad" /></label></div><div className="form-row"><label>Presupuesto (RD$)<input name="budget" required type="number" min="0" placeholder="0" /></label><label>Fecha de entrega<input name="due" required type="date" /></label></div><div className="modal-actions"><button type="button" className="outline" onClick={() => setShowForm(false)}>Cancelar</button><button className="primary">Crear proyecto</button></div></form></div>}
+      {showCreateUser&&<div className="modal-backdrop" onMouseDown={()=>setShowCreateUser(false)}><form className="modal technical-modal" onSubmit={createManagedUser} onMouseDown={e=>e.stopPropagation()}><div className="modal-head"><div><span className="eyebrow">ADMINISTRACIÓN</span><h2>Crear usuario institucional</h2><p>La contraseña será temporal y deberá cambiarse en el primer acceso.</p></div><button type="button" onClick={()=>setShowCreateUser(false)}>×</button></div><div className="technical-form-grid"><label>Nombre completo<input name="fullName" required minLength={3}/></label><label>Nombre de usuario<input name="username" required minLength={3} autoCapitalize="none"/></label><label>Contraseña temporal<input name="password" required minLength={8} type="password"/></label><label>Área<select name="area">{areaData.map(a=><option key={a.name}>{a.name}</option>)}</select></label><label>Rol<select name="role">{["Usuario","Consulta","Analista","Supervisor","Director","Administrador"].map(role=><option key={role}>{role}</option>)}</select></label></div><div className="form-section"><h3>Permisos de vista iniciales</h3><div className="permission-toggles create-permissions">{[["ver_resumen","Resumen"],["ver_proyectos","Proyectos"],["ver_proyectos_tecnicos","Proyectos Técnicos"],["ver_cubicaciones","Cubicaciones"],["ver_calendario","Calendario"],["ver_reportes","Reportes"]].map(([key,label])=><label key={key}><input name={key} type="checkbox" defaultChecked/>{label}</label>)}</div></div><div className="modal-actions"><button type="button" className="outline" onClick={()=>setShowCreateUser(false)}>Cancelar</button><button className="primary">Crear usuario</button></div></form></div>}
       {showTechnicalForm && <TechnicalProjectModal project={editingTechnical} onClose={()=>setShowTechnicalForm(false)} onSubmit={saveTechnicalProject} />}
       {showMeasurementForm && <MeasurementModal projects={technicalProjects} onClose={()=>setShowMeasurementForm(false)} onSubmit={createMeasurement}/>} 
       {auditMeasurement && <AuditModal measurement={auditMeasurement} onClose={()=>setAuditMeasurement(null)}/>} 
