@@ -2,9 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-type AppUser = { id: string; username: string; full_name: string; area: string; role: string };
+type Permissions = { registrar_cubicaciones?:boolean; revisar_cubicaciones?:boolean; libramiento_cubicaciones?:boolean; pagar_cubicaciones?:boolean };
+type AppUser = { id: string; username: string; full_name: string; area: string; role: string; permissions?:Permissions };
 type ManagedUser = AppUser & { active: boolean; created_at: string; last_login_at: string | null };
 type TechnicalProject = { id:string; budget_account:string; procurement_process:string; project_year:number; supplier_contractor:string; snip_code:string; has_lot:boolean; lot_number:string; work_name:string; fixed_assets:string; municipality:string; district:string; sector:string; population:number; linear_meters:number|null; budgeted_amount:number; appropriation_amount:number; awarded_amount:number; advance_20_amount:number; measurement_count:number; measurement_status:string; total_measured:number; total_paid:number; work_status:string; work_progress:number; created_at:string };
+type AuditEntry={action:string;from_status:string|null;to_status:string;comments:string;created_at:string;user_name:string};
+type Measurement={id:string;project_id:string;measurement_number:number;code:string;amount:number;progress_increment:number;description:string;status:"Registrada"|"Revisada"|"Libramiento"|"Pagada";work_name:string;snip_code:string;sector:string;municipality:string;registered_by_name:string;created_at:string;audit:AuditEntry[]};
 
 type Area = "Todos" | "Institucional" | "Gestión Humana" | "Financiera" | "Técnica" | "Comercial";
 type Project = { id: number; code: string; name: string; area: Exclude<Area, "Todos">; owner: string; progress: number; budget: number; spent: number; status: "En curso" | "En riesgo" | "Completado"; due: string };
@@ -37,6 +40,13 @@ function TechnicalProjectModal({ project, onClose, onSubmit }: { project: Techni
     <div className="modal-actions"><button type="button" className="outline" onClick={onClose}>Cancelar</button><button className="primary">Guardar proyecto</button></div></form></div>;
 }
 
+function MeasurementModal({ projects,onClose,onSubmit }:{projects:TechnicalProject[];onClose:()=>void;onSubmit:(e:React.FormEvent<HTMLFormElement>)=>void}){
+  const [selected,setSelected]=useState(projects[0]?.id||""); const project=projects.find(item=>item.id===selected);
+  return <div className="modal-backdrop" onMouseDown={onClose}><form className="modal measurement-modal" onSubmit={onSubmit} onMouseDown={e=>e.stopPropagation()}><div className="modal-head"><div><span className="eyebrow">NUEVA CUBICACIÓN</span><h2>Registrar etapa de cubicación</h2></div><button type="button" onClick={onClose}>×</button></div><label>Seleccionar código y obra<select name="projectId" required value={selected} onChange={e=>setSelected(e.target.value)}><option value="">Seleccione una obra</option>{projects.map(item=><option value={item.id} key={item.id}>{item.snip_code||"Sin SNIP"} · {item.work_name}</option>)}</select></label>{project&&<div className="project-context"><div><span>OBRA</span><strong>{project.work_name}</strong></div><div><span>SECTOR</span><strong>{project.sector||"No especificado"}</strong></div><div><span>MUNICIPIO</span><strong>{project.municipality}</strong></div></div>}<div className="form-row"><label>Monto de la cubicación<input name="amount" required type="number" min="0.01" step="0.01"/></label><label>Incremento de avance (%)<input name="progress" required type="number" min="0" max="100" step="0.01"/></label></div><label>Descripción de los trabajos<textarea name="description" required rows={3}/></label><div className="workflow-notice">El registro no afectará los totales de la obra hasta alcanzar el estatus <b>Pagada</b>.</div><div className="modal-actions"><button type="button" className="outline" onClick={onClose}>Cancelar</button><button className="primary">Registrar cubicación</button></div></form></div>;
+}
+
+function AuditModal({measurement,onClose}:{measurement:Measurement;onClose:()=>void}){return <div className="modal-backdrop" onMouseDown={onClose}><div className="modal audit-modal" onMouseDown={e=>e.stopPropagation()}><div className="modal-head"><div><span className="eyebrow">AUDITORÍA DE CUBICACIÓN</span><h2>{measurement.code}</h2><p>{measurement.work_name}</p></div><button onClick={onClose}>×</button></div><div className="audit-list">{measurement.audit.map((entry,index)=><div className="audit-entry" key={`${entry.created_at}-${index}`}><i/><div><strong>{entry.to_status}</strong><span>{entry.action} por {entry.user_name}</span><small>{new Date(entry.created_at).toLocaleString("es-DO",{dateStyle:"medium",timeStyle:"short"})}{entry.comments?` · ${entry.comments}`:""}</small></div></div>)}</div><div className="modal-actions"><button className="primary" onClick={onClose}>Cerrar</button></div></div></div>}
+
 export default function Home() {
   const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
   const [authReady, setAuthReady] = useState(false);
@@ -51,6 +61,11 @@ export default function Home() {
   const [technicalMessage, setTechnicalMessage] = useState("");
   const [showTechnicalForm, setShowTechnicalForm] = useState(false);
   const [editingTechnical, setEditingTechnical] = useState<TechnicalProject | null>(null);
+  const [measurements,setMeasurements]=useState<Measurement[]>([]);
+  const [measurementsLoading,setMeasurementsLoading]=useState(false);
+  const [measurementMessage,setMeasurementMessage]=useState("");
+  const [showMeasurementForm,setShowMeasurementForm]=useState(false);
+  const [auditMeasurement,setAuditMeasurement]=useState<Measurement|null>(null);
   const [section, setSection] = useState("Resumen");
   const [filter, setFilter] = useState<Area>("Todos");
   const [query, setQuery] = useState("");
@@ -75,7 +90,8 @@ export default function Home() {
   }, [section, currentUser?.role]);
 
   useEffect(() => {
-    if (section === "Proyectos Técnicos") loadTechnicalProjects();
+    if (section === "Proyectos Técnicos" || section === "Cubicaciones") loadTechnicalProjects();
+    if (section === "Cubicaciones") loadMeasurements();
   }, [section]);
 
   async function loadTechnicalProjects() {
@@ -85,6 +101,8 @@ export default function Home() {
     setTechnicalProjects(data.projects || []);
     setTechnicalLoading(false);
   }
+
+  async function loadMeasurements(){setMeasurementsLoading(true);const response=await fetch("/api/cubicaciones",{cache:"no-store"});const data=await response.json();setMeasurements(data.measurements||[]);setMeasurementsLoading(false);}
 
   useEffect(() => {
     const saved = window.localStorage.getItem("coraamoca-projects");
@@ -153,11 +171,17 @@ export default function Home() {
     else { setUsers(previous => previous.map(item => item.id === updated.id ? updated : item)); setUsersMessage("Cambios guardados correctamente."); }
   }
 
+  async function updatePermissions(user:ManagedUser,key:keyof Permissions,enabled:boolean){const permissions={...(user.permissions||{}),[key]:enabled};const response=await fetch("/api/users",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:user.id,permissions})});const result=await response.json();if(!response.ok)setUsersMessage(result.error||"No se pudieron actualizar los permisos.");else{setUsers(items=>items.map(item=>item.id===user.id?{...item,permissions}:item));setUsersMessage("Permisos guardados correctamente.");}}
+
+  async function createMeasurement(e:React.FormEvent<HTMLFormElement>){e.preventDefault();setMeasurementMessage("");const fd=new FormData(e.currentTarget);const response=await fetch("/api/cubicaciones",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({projectId:fd.get("projectId"),amount:Number(fd.get("amount")),progress:Number(fd.get("progress")),description:String(fd.get("description"))})});const result=await response.json();if(!response.ok){setMeasurementMessage(result.error||"No se pudo registrar la cubicación.");return;}setShowMeasurementForm(false);setMeasurementMessage(`Cubicación ${result.code} registrada correctamente.`);await loadMeasurements();await loadTechnicalProjects();}
+
+  async function advanceMeasurement(measurement:Measurement){const next=measurement.status==="Registrada"?"Revisada":measurement.status==="Revisada"?"Libramiento":measurement.status==="Libramiento"?"Pagada":null;if(!next)return;const comments=window.prompt(`Comentario para avanzar a ${next}:`)||"";const response=await fetch("/api/cubicaciones",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:measurement.id,status:next,comments})});const result=await response.json();if(!response.ok)setMeasurementMessage(result.error||"No se pudo avanzar la cubicación.");else{setMeasurementMessage(`Cubicación avanzada a ${next}.`);await loadMeasurements();await loadTechnicalProjects();}}
+  function canAdvanceMeasurement(status:Measurement["status"]){if(currentUser?.role==="Administrador")return status!=="Pagada";const key=status==="Registrada"?"revisar_cubicaciones":status==="Revisada"?"libramiento_cubicaciones":status==="Libramiento"?"pagar_cubicaciones":null;return key?Boolean(currentUser?.permissions?.[key as keyof Permissions]):false;}
+
   async function saveTechnicalProject(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault(); setTechnicalMessage("");
     const fd = new FormData(e.currentTarget);
-    const numeric = ["project_year","population","linear_meters","budgeted_amount","appropriation_amount","awarded_amount","advance_20_amount","measurement_count","total_measured","total_paid","work_progress"];
-    const data: Record<string, string | number | boolean | null> = {};
+    const numeric = ["project_year","population","linear_meters","budgeted_amount","appropriation_amount","awarded_amount","advance_20_amount","measurement_count","total_measured","total_paid","work_progre…9 tokens truncated… string | number | boolean | null> = {};
     fd.forEach((value,key) => { data[key] = numeric.includes(key) ? (String(value)==="" ? null : Number(value)) : String(value); });
     data.has_lot = fd.get("has_lot") === "on";
     if (editingTechnical) data.id = editingTechnical.id;
@@ -203,7 +227,7 @@ export default function Home() {
         <div className="brand"><div className="brand-mark">C</div><div><strong>CORAAMOCA</strong><span>Gestión Institucional</span></div></div>
         <nav>
           <p className="nav-label">ESPACIO DE TRABAJO</p>
-          {["Resumen", "Proyectos", "Proyectos Técnicos", "Calendario", "Reportes"].map((x, i) => <button key={x} className={section === x ? "active" : ""} onClick={() => setSection(x)}><span>{["▦", "▤", "⌁", "□", "▥"][i]}</span>{x}</button>)}
+          {["Resumen", "Proyectos", "Proyectos Técnicos", "Cubicaciones", "Calendario", "Reportes"].map((x, i) => <button key={x} className={section === x ? "active" : ""} onClick={() => setSection(x)}><span>{["▦", "▤", "⌁", "▧", "□", "▥"][i]}</span>{x}</button>)}
           {currentUser.role === "Administrador" && <button className={section === "Usuarios" ? "active" : ""} onClick={() => setSection("Usuarios")}><span>♙</span>Usuarios y roles</button>}
           <p className="nav-label">ÁREAS DE GESTIÓN</p>
           {areaData.map(a => <button key={a.name} onClick={() => { setSection("Proyectos"); setFilter(a.name as Area); }}><i className={`dot ${a.color}`} />{a.name}</button>)}
@@ -215,7 +239,7 @@ export default function Home() {
         <header>
           <div className="mobile-brand">CORAAMOCA</div>
           <label className="search"><span>⌕</span><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar proyectos, responsables..." /><kbd>⌘ K</kbd></label>
-          <div className="header-actions"><button className="icon-btn" onClick={() => setNotice(0)}>♧{notice > 0 && <b>{notice}</b>}</button><button className="primary" onClick={() => section === "Proyectos Técnicos" ? (setEditingTechnical(null),setShowTechnicalForm(true)) : setShowForm(true)}>＋ Nuevo proyecto</button></div>
+          <div className="header-actions"><button className="icon-btn" onClick={() => setNotice(0)}>♧{notice > 0 && <b>{notice}</b>}</button><button className="primary" onClick={() => section === "Cubicaciones" ? setShowMeasurementForm(true) : section === "Proyectos Técnicos" ? (setEditingTechnical(null),setShowTechnicalForm(true)) : setShowForm(true)}>＋ {section === "Cubicaciones" ? "Nueva cubicación" : "Nuevo proyecto"}</button></div>
         </header>
 
         <div className="content">
@@ -225,7 +249,7 @@ export default function Home() {
             <div className="users-summary"><div><span>USUARIOS REGISTRADOS</span><strong>{users.length}</strong></div><div><span>CUENTAS ACTIVAS</span><strong>{users.filter(user => user.active).length}</strong></div><div><span>ADMINISTRADORES</span><strong>{users.filter(user => user.role === "Administrador").length}</strong></div></div>
             <div className="users-card"><div className="users-card-head"><div><h2>Administración de usuarios</h2><p>Define el área, rol y acceso de cada colaborador.</p></div><span className="permission-note">Solo administradores</span></div>
               {usersMessage && <div className={usersMessage.startsWith("Cambios") ? "users-success" : "auth-error"}>{usersMessage}</div>}
-              {usersLoading ? <div className="users-empty">Cargando usuarios…</div> : <div className="users-table-wrap"><table className="users-table"><thead><tr><th>USUARIO</th><th>ÁREA</th><th>ROL</th><th>ESTADO</th><th>ÚLTIMO ACCESO</th></tr></thead><tbody>{users.map(user => <tr key={user.id}><td><div className="user-identity"><div className="avatar">{user.full_name.split(" ").map(part => part[0]).join("").slice(0,2)}</div><div><strong>{user.full_name}</strong><span>@{user.username}</span></div></div></td><td><select value={user.area} onChange={event => updateUser(user,{ area:event.target.value })}>{areaData.map(area => <option key={area.name}>{area.name}</option>)}</select></td><td><select value={user.role} onChange={event => updateUser(user,{ role:event.target.value })}>{["Administrador","Director","Supervisor","Analista","Consulta","Usuario"].map(role => <option key={role}>{role}</option>)}</select></td><td><button className={`user-status ${user.active ? "is-active" : "is-inactive"}`} onClick={() => updateUser(user,{ active:!user.active })}>{user.active ? "● Activo" : "● Inactivo"}</button></td><td>{user.last_login_at ? new Date(user.last_login_at).toLocaleString("es-DO",{dateStyle:"medium",timeStyle:"short"}) : "Sin acceso"}</td></tr>)}</tbody></table></div>}
+              {usersLoading ? <div className="users-empty">Cargando usuarios…</div> : <div className="users-table-wrap"><table className="users-table permissions-table"><thead><tr><th>USUARIO</th><th>ÁREA</th><th>ROL</th><th>ESTADO</th><th>PERMISOS DE CUBICACIÓN</th><th>ÚLTIMO ACCESO</th></tr></thead><tbody>{users.map(user => <tr key={user.id}><td><div className="user-identity"><div className="avatar">{user.full_name.split(" ").map(part => part[0]).join("").slice(0,2)}</div><div><strong>{user.full_name}</strong><span>@{user.username}</span></div></div></td><td><select value={user.area} onChange={event => updateUser(user,{ area:event.target.value })}>{areaData.map(area => <option key={area.name}>{area.name}</option>)}</select></td><td><select value={user.role} onChange={event => updateUser(user,{ role:event.target.value })}>{["Administrador","Director","Supervisor","Analista","Consulta","Usuario"].map(role => <option key={role}>{role}</option>)}</select></td><td><button className={`user-status ${user.active ? "is-active" : "is-inactive"}`} onClick={() => updateUser(user,{ active:!user.active })}>{user.active ? "● Activo" : "● Inactivo"}</button></td><td><div className="permission-toggles">{[["registrar_cubicaciones","Registrar"],["revisar_cubicaciones","Revisar"],["libramiento_cubicaciones","Libramiento"],["pagar_cubicaciones","Pagar"]].map(([key,label])=><label key={key}><input type="checkbox" checked={Boolean(user.role==="Administrador"||user.permissions?.[key as keyof Permissions])} disabled={user.role==="Administrador"} onChange={e=>updatePermissions(user,key as keyof Permissions,e.target.checked)}/>{label}</label>)}</div></td><td>{user.last_login_at ? new Date(user.last_login_at).toLocaleString("es-DO",{dateStyle:"medium",timeStyle:"short"}) : "Sin acceso"}</td></tr>)}</tbody></table></div>}
             </div>
           </section>}
 
@@ -238,7 +262,15 @@ export default function Home() {
             </div>
           </section>}
 
-          <div className={section === "Usuarios" || section === "Proyectos Técnicos" ? "section-hidden" : ""}>
+          {section === "Cubicaciones" && <section className="measurements-panel">
+            <div className="workflow-head"><div><span>FLUJO DE APROBACIÓN</span><h2>Cubicaciones de obras</h2><p>Cada cubicación avanza por la línea de mando antes de afectar la ejecución financiera y física.</p></div><button className="primary" onClick={()=>setShowMeasurementForm(true)} disabled={!technicalProjects.length}>＋ Registrar cubicación</button></div>
+            <div className="workflow-line">{["Registrada","Revisada","Libramiento","Pagada"].map((stage,index)=><div key={stage}><i>{index+1}</i><strong>{stage}</strong><span>{index===0?"Sin afectación":index===1?"Validación técnica":index===2?"Trámite financiero":"Impacta obra"}</span></div>)}</div>
+            <div className="measurement-kpis"><article><span>REGISTRADAS</span><strong>{measurements.filter(x=>x.status==="Registrada").length}</strong></article><article><span>EN REVISIÓN / LIBRAMIENTO</span><strong>{measurements.filter(x=>x.status==="Revisada"||x.status==="Libramiento").length}</strong></article><article><span>PAGADAS</span><strong>{measurements.filter(x=>x.status==="Pagada").length}</strong></article><article><span>MONTO PAGADO</span><strong>{money(measurements.filter(x=>x.status==="Pagada").reduce((s,x)=>s+Number(x.amount),0))}</strong></article></div>
+            {measurementMessage&&<div className={measurementMessage.includes("correctamente")||measurementMessage.includes("avanzada")?"users-success":"auth-error"}>{measurementMessage}</div>}
+            <div className="technical-card"><div className="users-card-head"><div><h2>Expedientes de cubicación</h2><p>Etapas, responsables y trazabilidad completa.</p></div></div>{measurementsLoading?<div className="users-empty">Cargando cubicaciones…</div>:measurements.length===0?<div className="technical-empty"><strong>No hay cubicaciones registradas</strong><span>Seleccione una obra y registre su primera etapa de cubicación.</span></div>:<div className="users-table-wrap"><table className="measurement-table"><thead><tr><th>CÓDIGO / ETAPA</th><th>OBRA Y SECTOR</th><th>MONTO</th><th>AVANCE</th><th>REGISTRADO POR</th><th>ESTATUS</th><th>ACCIONES</th></tr></thead><tbody>{measurements.map(item=><tr key={item.id}><td><strong>{item.code}</strong><small>Cubicación No. {item.measurement_number}</small></td><td><b>{item.work_name}</b><small>{item.snip_code||"Sin SNIP"} · {item.sector||item.municipality}</small></td><td><b>{money(Number(item.amount))}</b><small>{item.status==="Pagada"?"Aplicado a la obra":"Sin afectar presupuesto"}</small></td><td><b>＋{item.progress_increment}%</b><small>{item.status==="Pagada"?"Avance aplicado":"Pendiente de pago"}</small></td><td>{item.registered_by_name}<small>{new Date(item.created_at).toLocaleDateString("es-DO")}</small></td><td><span className={`measurement-status status-${item.status.toLowerCase()}`}>{item.status}</span></td><td><div className="measurement-actions"><button className="row-action" onClick={()=>setAuditMeasurement(item)}>Auditoría</button>{canAdvanceMeasurement(item.status)&&<button className="advance-action" onClick={()=>advanceMeasurement(item)}>Avanzar →</button>}</div></td></tr>)}</tbody></table></div>}</div>
+          </section>}
+
+          <div className={section === "Usuarios" || section === "Proyectos Técnicos" || section === "Cubicaciones" ? "section-hidden" : ""}>
 
           <section className="hero-grid">
             <article className="score-card"><div className="score-top"><div><span>ÍNDICE DE DESEMPEÑO</span><strong>78.4</strong><small>/100</small></div><div className="trend">↗ 6.2%</div></div><div className="score-track"><i style={{ width: "78.4%" }} /></div><div className="score-meta"><span>Planificado <b>82%</b></span><span>Ejecutado <b>74%</b></span><span>Eficiencia <b>79%</b></span></div></article>
@@ -263,6 +295,8 @@ export default function Home() {
 
       {showForm && <div className="modal-backdrop" onMouseDown={() => setShowForm(false)}><form className="modal" onSubmit={addProject} onMouseDown={e => e.stopPropagation()}><div className="modal-head"><div><span className="eyebrow">NUEVA INICIATIVA</span><h2>Registrar proyecto</h2></div><button type="button" onClick={() => setShowForm(false)}>×</button></div><label>Nombre del proyecto<input name="name" required placeholder="Ej. Ampliación de cobertura rural" /></label><div className="form-row"><label>Área<select name="area">{areaData.map(a => <option key={a.name}>{a.name}</option>)}</select></label><label>Responsable<input name="owner" required placeholder="Nombre o unidad" /></label></div><div className="form-row"><label>Presupuesto (RD$)<input name="budget" required type="number" min="0" placeholder="0" /></label><label>Fecha de entrega<input name="due" required type="date" /></label></div><div className="modal-actions"><button type="button" className="outline" onClick={() => setShowForm(false)}>Cancelar</button><button className="primary">Crear proyecto</button></div></form></div>}
       {showTechnicalForm && <TechnicalProjectModal project={editingTechnical} onClose={()=>setShowTechnicalForm(false)} onSubmit={saveTechnicalProject} />}
+      {showMeasurementForm && <MeasurementModal projects={technicalProjects} onClose={()=>setShowMeasurementForm(false)} onSubmit={createMeasurement}/>} 
+      {auditMeasurement && <AuditModal measurement={auditMeasurement} onClose={()=>setAuditMeasurement(null)}/>} 
     </div>
   );
 }
