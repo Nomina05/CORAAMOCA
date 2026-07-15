@@ -13,8 +13,10 @@ export async function GET() {
 export async function PATCH(request: Request) {
   const token = (await cookies()).get(sessionCookie)?.value;
   if (!token) return NextResponse.json({ error: "No autorizado." }, { status: 401 });
-  const { id, role, area, active } = await request.json();
-  const { data, error } = await authDatabase().rpc("admin_update_user", { p_token: token, p_user_id: id, p_role: role, p_area: area, p_active: Boolean(active) });
+  const { id, role, area, active, permissions } = await request.json();
+  const { data, error } = permissions
+    ? await authDatabase().rpc("admin_set_user_permissions", { p_token: token, p_user_id: id, p_permissions: permissions })
+    : await authDatabase().rpc("admin_update_user", { p_token: token, p_user_id: id, p_role: role, p_area: area, p_active: Boolean(active) });
   if (error || !data?.success) return NextResponse.json({ error: data?.error || "No fue posible actualizar el usuario." }, { status: 400 });
   return NextResponse.json({ success: true });
 }
