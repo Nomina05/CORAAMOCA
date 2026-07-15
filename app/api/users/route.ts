@@ -10,6 +10,18 @@ export async function GET() {
   return NextResponse.json({ users: data.users });
 }
 
+export async function POST(request: Request) {
+  const token = (await cookies()).get(sessionCookie)?.value;
+  if (!token) return NextResponse.json({ error: "No autorizado." }, { status: 401 });
+  const body = await request.json();
+  const { data, error } = await authDatabase().rpc("admin_create_user", {
+    p_token: token, p_username: body.username, p_temp_password: body.password,
+    p_full_name: body.fullName, p_area: body.area, p_role: body.role, p_permissions: body.permissions || {},
+  });
+  if (error || !data?.success) return NextResponse.json({ error: data?.error || "No fue posible crear el usuario." }, { status: 400 });
+  return NextResponse.json({ success: true, user: data.user });
+}
+
 export async function PATCH(request: Request) {
   const token = (await cookies()).get(sessionCookie)?.value;
   if (!token) return NextResponse.json({ error: "No autorizado." }, { status: 401 });
