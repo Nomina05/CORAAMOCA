@@ -9,7 +9,7 @@ const supabase = createClient(
 );
 
 const usernameEmail = (username: string) =>
-  `${username.trim().toLowerCase().replace(/[^a-z0-9._-]/g, "")}@auth.coraamoca.gob.do`;
+  `${username.trim().toLowerCase().replace(/[^a-z0-9._-]/g, "")}@usuarios.coraamoca.com`;
 
 type Area = "Todos" | "Institucional" | "Gestión Humana" | "Financiera" | "Técnica" | "Comercial";
 type Project = { id: number; code: string; name: string; area: Exclude<Area, "Todos">; owner: string; progress: number; budget: number; spent: number; status: "En curso" | "En riesgo" | "Completado"; due: string };
