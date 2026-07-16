@@ -2,9 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-type Permissions = { registrar_cubicaciones?:boolean; revisar_cubicaciones?:boolean; libramiento_cubicaciones?:boolean; pagar_cubicaciones?:boolean; ver_auditoria_cubicaciones?:boolean; ver_resumen?:boolean; ver_proyectos?:boolean; crear_proyectos?:boolean; editar_proyectos?:boolean; ver_proyectos_tecnicos?:boolean; crear_proyectos_tecnicos?:boolean; editar_proyectos_tecnicos?:boolean; ver_cubicaciones?:boolean; ver_calendario?:boolean; ver_reportes?:boolean; ver_recursos_humanos?:boolean; ver_estructura_organizacional?:boolean; ver_catalogos?:boolean; gestionar_catalogos?:boolean };
-type AppUser = { id: string; username: string; full_name: string; area: string; role: string; permissions?:Permissions; must_change_password?:boolean };
-type ManagedUser = AppUser & { active: boolean; created_at: string; last_login_at: string | null };
+type Permissions = { registrar_cubicaciones?:boolean; revisar_cubicaciones?:boolean; libramiento_cubicaciones?:boolean; pagar_cubicaciones?:boolean; eliminar_cubicaciones?:boolean; ver_auditoria_cubicaciones?:boolean; ver_resumen?:boolean; ver_proyectos?:boolean; crear_proyectos?:boolean; editar_proyectos?:boolean; eliminar_proyectos?:boolean; aprobar_proyectos?:boolean; ver_proyectos_tecnicos?:boolean; crear_proyectos_tecnicos?:boolean; editar_proyectos_tecnicos?:boolean; eliminar_proyectos_tecnicos?:boolean; aprobar_proyectos_tecnicos?:boolean; ver_cubicaciones?:boolean; ver_calendario?:boolean; ver_reportes?:boolean; ver_recursos_humanos?:boolean; crear_recursos_humanos?:boolean; editar_recursos_humanos?:boolean; eliminar_recursos_humanos?:boolean; aprobar_recursos_humanos?:boolean; ver_estructura_organizacional?:boolean; ver_catalogos?:boolean; gestionar_catalogos?:boolean; eliminar_catalogos?:boolean; ver_auditoria_seguridad?:boolean };
+type AppUser = { id: string; username: string; full_name: string; area: string; department?:string; role: string; permissions?:Permissions; permissions_version?:number; must_change_password?:boolean };
+type ManagedUser = AppUser & { active: boolean; created_at: string; last_login_at: string | null; locked_until?:string|null; suspended_at?:string|null; suspension_reason?:string };
 type TechnicalProject = { id:string; budget_account:string; procurement_process:string; project_year:number; supplier_contractor:string; snip_code:string; has_lot:boolean; lot_number:string; work_name:string; fixed_assets:string; municipality:string; district:string; sector:string; population:number; linear_meters:number|null; budgeted_amount:number; appropriation_amount:number; awarded_amount:number; advance_20_amount:number; fixed_asset_paid_amount:number; measurement_count:number; measurement_status:string; total_measured:number; total_paid:number; work_status:string; work_progress:number; created_at:string };
 type AuditEntry={action:string;from_status:string|null;to_status:string;comments:string;created_at:string;user_name:string};
 type Measurement={id:string;project_id:string;measurement_number:number;code:string;amount:number;progress_increment:number;description:string;status:"Registrada"|"Revisada"|"Libramiento"|"Pagada";work_name:string;snip_code:string;sector:string;municipality:string;registered_by_name:string;created_at:string;audit:AuditEntry[]};
@@ -15,6 +15,8 @@ type InstitutionalDirection={name:string;shortName:string;icon:string;area?:stri
 type OrganizationUnit={name:string;children?:OrganizationUnit[]};
 
 const permissionGroups:{title:string;description:string;items:{key:keyof Permissions;label:string}[]}[]=[
+ {title:"Acciones críticas",description:"Controles separados para eliminar, aprobar y auditar.",items:[{key:"eliminar_proyectos",label:"Eliminar proyectos institucionales"},{key:"aprobar_proyectos",label:"Aprobar proyectos institucionales"},{key:"eliminar_proyectos_tecnicos",label:"Eliminar proyectos y obras"},{key:"aprobar_proyectos_tecnicos",label:"Aprobar proyectos y obras"},{key:"eliminar_cubicaciones",label:"Eliminar cubicaciones"},{key:"eliminar_catalogos",label:"Eliminar catálogos"},{key:"ver_auditoria_seguridad",label:"Consultar auditoría de seguridad"}]},
+ {title:"Gestión Humana avanzada",description:"Acciones específicas dentro del módulo de Recursos Humanos.",items:[{key:"crear_recursos_humanos",label:"Crear registros de Recursos Humanos"},{key:"editar_recursos_humanos",label:"Editar registros de Recursos Humanos"},{key:"eliminar_recursos_humanos",label:"Eliminar registros de Recursos Humanos"},{key:"aprobar_recursos_humanos",label:"Aprobar operaciones de Recursos Humanos"}]},
  {title:"Información institucional",description:"Panel general, proyectos y reportes.",items:[{key:"ver_resumen",label:"Ver resumen institucional"},{key:"ver_proyectos",label:"Ver proyectos institucionales"},{key:"crear_proyectos",label:"Crear proyectos institucionales"},{key:"editar_proyectos",label:"Editar proyectos institucionales"},{key:"ver_calendario",label:"Ver calendario"},{key:"ver_reportes",label:"Ver reportes e indicadores"}]},
  {title:"Recursos Humanos",description:"Acceso dirigido a la información organizacional.",items:[{key:"ver_recursos_humanos",label:"Ver Gestión de Recursos Humanos"},{key:"ver_estructura_organizacional",label:"Ver estructura organizacional"}]},
  {title:"Dirección Técnica",description:"Administración de obras y proyectos técnicos.",items:[{key:"ver_proyectos_tecnicos",label:"Ver proyectos y obras"},{key:"crear_proyectos_tecnicos",label:"Registrar proyectos y obras"},{key:"editar_proyectos_tecnicos",label:"Editar proyectos y obras"}]},
@@ -116,10 +118,26 @@ export default function Home() {
   const [notice, setNotice] = useState(3);
 
   useEffect(() => {
-    fetch("/api/auth/session", { cache: "no-store" })
-      .then(response => response.ok ? response.json() : null)
-      .then(data => setCurrentUser(data?.user || null))
-      .finally(() => setAuthReady(true));
+    let active = true;
+    async function refreshSession() {
+      const response = await fetch("/api/auth/session", { cache: "no-store" });
+      const data = response.ok ? await response.json() : null;
+      if (active) {
+        setCurrentUser(data?.user || null);
+        setAuthReady(true);
+      }
+    }
+    refreshSession();
+    const interval = window.setInterval(refreshSession, 15000);
+    const onFocus = () => refreshSession();
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
   }, []);
 
   useEffect(() => {
@@ -209,7 +227,8 @@ export default function Home() {
   async function updateUser(user: ManagedUser, changes: Partial<ManagedUser>) {
     setUsersMessage("");
     const updated = { ...user, ...changes };
-    const response = await fetch("/api/users", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: updated.id, role: updated.role, area: updated.area, active: updated.active }) });
+    const suspensionReason = changes.active === false ? window.prompt("Motivo de la suspensión:", "Suspendido por el administrador") || "" : "";
+    const response = await fetch("/api/users", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: updated.id, role: updated.role, area: updated.area, department: updated.department || "", active: updated.active, suspensionReason }) });
     const result = await response.json();
     if (!response.ok) setUsersMessage(result.error || "No se pudo actualizar el usuario.");
     else { setUsers(previous => previous.map(item => item.id === updated.id ? updated : item)); setUsersMessage("Cambios guardados correctamente."); }

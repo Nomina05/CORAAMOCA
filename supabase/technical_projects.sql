@@ -21,7 +21,7 @@ returns jsonb language plpgsql security definer set search_path = public, extens
 declare v_user public.app_users%rowtype; v_projects jsonb;
 begin
   select u.* into v_user from public.app_users u join public.app_user_sessions s on s.user_id=u.id where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.expires_at>now() and u.active=true;
-  if v_user.id is null then return jsonb_build_object('success',false,'error','No autorizado.'); end if;
+  if v_user.id is null or (v_user.role<>'Administrador' and coalesce((v_user.permissions->>'ver_proyectos_tecnicos')::boolean,false)=false) then return jsonb_build_object('success',false,'error','No tienes permiso para consultar proyectos técnicos.'); end if;
   select coalesce(jsonb_agg(to_jsonb(p) order by p.created_at desc),'[]'::jsonb) into v_projects from public.technical_projects p;
   return jsonb_build_object('success',true,'projects',v_projects);
 end $$;
@@ -31,7 +31,7 @@ returns jsonb language plpgsql security definer set search_path = public, extens
 declare v_user public.app_users%rowtype; v_id uuid;
 begin
   select u.* into v_user from public.app_users u join public.app_user_sessions s on s.user_id=u.id where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.expires_at>now() and u.active=true;
-  if v_user.id is null or v_user.role not in ('Administrador','Director','Supervisor','Analista') then return jsonb_build_object('success',false,'error','No tienes permiso para registrar o editar proyectos.'); end if;
+  if v_user.id is null or (v_user.role<>'Administrador' and coalesce((v_user.permissions->>case when p_project_id is null then 'crear_proyectos_tecnicos' else 'editar_proyectos_tecnicos' end)::boolean,false)=false) then return jsonb_build_object('success',false,'error','No tienes permiso para registrar o editar proyectos.'); end if;
   if coalesce(trim(p_data->>'work_name'),'')='' then return jsonb_build_object('success',false,'error','El nombre de la obra es obligatorio.'); end if;
   if p_project_id is null then
     insert into public.technical_projects(budget_account,procurement_process,project_year,supplier_contractor,snip_code,has_lot,lot_number,work_name,fixed_assets,municipality,district,sector,population,linear_meters,budgeted_amount,appropriation_amount,awarded_amount,advance_20_amount,measurement_count,measurement_status,total_measured,total_paid,work_status,work_progress,created_by)

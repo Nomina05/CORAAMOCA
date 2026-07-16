@@ -25,10 +25,22 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   const token = (await cookies()).get(sessionCookie)?.value;
   if (!token) return NextResponse.json({ error: "No autorizado." }, { status: 401 });
-  const { id, role, area, active, permissions } = await request.json();
-  const { data, error } = permissions
-    ? await authDatabase().rpc("admin_set_user_permissions", { p_token: token, p_user_id: id, p_permissions: permissions })
-    : await authDatabase().rpc("admin_update_user", { p_token: token, p_user_id: id, p_role: role, p_area: area, p_active: Boolean(active) });
+  const { id, role, area, department, active, suspensionReason, permissions } = await request.json();
+  const database = authDatabase();
+  let result = permissions
+    ? await database.rpc("admin_set_user_permissions", { p_token: token, p_user_id: id, p_permissions: permissions })
+    : await database.rpc("admin_update_user", {
+        p_token: token, p_user_id: id, p_role: role, p_area: area,
+        p_active: Boolean(active), p_department: department || "",
+        p_suspension_reason: suspensionReason || "",
+      });
+  // Compatibilidad durante el despliegue: permite aplicar primero la app y luego la migración SQL.
+  if (!permissions && result.error?.message?.includes("function public.admin_update_user")) {
+    result = await database.rpc("admin_update_user", {
+      p_token: token, p_user_id: id, p_role: role, p_area: area, p_active: Boolean(active),
+    });
+  }
+  const { data, error } = result;
   if (error || !data?.success) return NextResponse.json({ error: data?.error || "No fue posible actualizar el usuario." }, { status: 400 });
   return NextResponse.json({ success: true });
 }
