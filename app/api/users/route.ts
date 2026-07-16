@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { authDatabase, sessionCookie } from "../auth/_supabase";
+import { recordAudit } from "../auth/_audit";
 
 export async function GET() {
   const token = (await cookies()).get(sessionCookie)?.value;
@@ -19,6 +20,7 @@ export async function POST(request: Request) {
     p_full_name: body.fullName, p_area: body.area, p_role: body.role, p_permissions: body.permissions || {},
   });
   if (error || !data?.success) return NextResponse.json({ error: data?.error || "No fue posible crear el usuario." }, { status: 400 });
+  await recordAudit(request,token,{action:"USUARIO_CREADO",module:"Usuarios",entityType:"Usuario",entityId:data.user?.id,next:{username:body.username,fullName:body.fullName,area:body.area,role:body.role}});
   return NextResponse.json({ success: true, user: data.user });
 }
 
@@ -42,5 +44,6 @@ export async function PATCH(request: Request) {
   }
   const { data, error } = result;
   if (error || !data?.success) return NextResponse.json({ error: data?.error || "No fue posible actualizar el usuario." }, { status: 400 });
+  await recordAudit(request,token,{action:permissions?"PERMISOS_MODIFICADOS":active?"USUARIO_MODIFICADO":"USUARIO_SUSPENDIDO",module:"Usuarios",entityType:"Usuario",entityId:id,next:{role,area,department,active,permissions},reason:suspensionReason||""});
   return NextResponse.json({ success: true });
 }

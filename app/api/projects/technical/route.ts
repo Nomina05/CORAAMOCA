@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { authDatabase, sessionCookie } from "../../auth/_supabase";
+import { recordAudit } from "../../auth/_audit";
 
 export async function GET() {
   const token = (await cookies()).get(sessionCookie)?.value;
@@ -74,5 +75,6 @@ export async function POST(request: Request) {
     p_project_id: projectId,
     p_action: id ? "UPDATE" : "CREATE",
   });
+  await recordAudit(request,token,{action:id?"PROYECTO_MODIFICADO":"PROYECTO_CREADO",module:"Proyectos",entityType:"Proyecto",entityId:projectId,projectId,next:project,reason:project.change_reason||""});
   return NextResponse.json({ success: true, id: projectId });
 }

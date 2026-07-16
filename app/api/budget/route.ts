@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { authDatabase,sessionCookie } from "../auth/_supabase";
+import { recordAudit } from "../auth/_audit";
 
 export async function GET(request:Request){
   const token=(await cookies()).get(sessionCookie)?.value;
@@ -20,5 +21,6 @@ export async function POST(request:Request){
     ? await database.rpc("close_budget_year",{p_token:token,p_year:body.year,p_notes:body.notes||""})
     : await database.rpc("add_budget_modification",{p_token:token,p_project_id:body.projectId,p_type:body.type,p_amount:body.amount,p_description:body.description,p_reference:body.reference||""});
   if(result.error||!result.data?.success)return NextResponse.json({error:result.data?.error||"No fue posible completar la operación."},{status:400});
+  await recordAudit(request,token,{action:body.action==="close"?"CIERRE_PRESUPUESTARIO":"MODIFICACION_PRESUPUESTARIA",module:"Presupuesto",entityType:body.action==="close"?"Año presupuestario":"Proyecto",entityId:String(body.year||body.projectId||""),projectId:body.projectId||null,next:body,reason:body.notes||body.description||""});
   return NextResponse.json(result.data);
 }

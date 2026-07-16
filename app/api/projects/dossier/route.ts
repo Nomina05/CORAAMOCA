@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { authDatabase,sessionCookie } from "../../auth/_supabase";
+import { recordAudit } from "../../auth/_audit";
 
 export async function GET(request:Request){
   const token=(await cookies()).get(sessionCookie)?.value;
@@ -18,5 +19,6 @@ export async function POST(request:Request){
   const {data,error}=await authDatabase().rpc("add_project_document",{p_token:token,p_project_id:body.projectId,
     p_category:body.category,p_name:body.name,p_url:body.url,p_description:body.description||"",p_document_date:body.documentDate||null});
   if(error||!data?.success)return NextResponse.json({error:data?.error||"No fue posible agregar el documento."},{status:400});
+  await recordAudit(request,token,{action:"DOCUMENTO_PROYECTO_AGREGADO",module:"Expedientes",entityType:"Documento",entityId:data.id,projectId:body.projectId,next:body,reason:body.description||""});
   return NextResponse.json(data);
 }

@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { authDatabase, sessionCookie } from "../_supabase";
+import { recordAudit } from "../_audit";
 
 export async function POST(request: Request) {
   const token = (await cookies()).get(sessionCookie)?.value;
@@ -8,5 +9,6 @@ export async function POST(request: Request) {
   const { password } = await request.json();
   const { data, error } = await authDatabase().rpc("change_own_password", { p_token: token, p_new_password: password });
   if (error || !data?.success) return NextResponse.json({ error: data?.error || "No fue posible cambiar la contraseña." }, { status: 400 });
+  await recordAudit(request,token,{action:"CONTRASENA_MODIFICADA",module:"Seguridad",entityType:"Usuario",entityId:data.user?.id,reason:"Cambio de contraseña por el usuario"});
   return NextResponse.json({ success: true, user: data.user });
 }
