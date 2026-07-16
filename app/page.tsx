@@ -13,6 +13,7 @@ type ProjectCatalogs={accounts:CatalogItem[];processes:CatalogItem[];suppliers:C
 type DirectionModule={label:string;section:string;icon:string;permission?:keyof Permissions;roles?:string[];adminOnly?:boolean};
 type InstitutionalDirection={name:string;shortName:string;icon:string;area?:string;modules:DirectionModule[]};
 type OrganizationUnit={name:string;children?:OrganizationUnit[]};
+type DashboardData={direction:string;department?:string;modules:{key:string;label:string}[];tasks:{id:string;code:string;status:string;amount:number;created_at:string;work_name:string;municipality:string;sector:string;task_label:string}[];projects:{id:string;work_name:string;snip_code:string;municipality:string;sector:string;work_status:string;work_progress:number;budgeted_amount:number;appropriation_amount:number;awarded_amount:number;total_paid:number;responsible_name:string;updated_at:string}[];alerts:{id:string;work_name:string;severity:"critical"|"high"|"medium"|"low";message:string;updated_at:string}[];activity:{action:string;from_status:string|null;to_status:string;comments:string;created_at:string;user_name:string;code:string;work_name:string}[]};
 
 const permissionGroups:{title:string;description:string;items:{key:keyof Permissions;label:string}[]}[]=[
  {title:"Acciones críticas",description:"Controles separados para eliminar, aprobar y auditar.",items:[{key:"eliminar_proyectos",label:"Eliminar proyectos institucionales"},{key:"aprobar_proyectos",label:"Aprobar proyectos institucionales"},{key:"eliminar_proyectos_tecnicos",label:"Eliminar proyectos y obras"},{key:"aprobar_proyectos_tecnicos",label:"Aprobar proyectos y obras"},{key:"eliminar_cubicaciones",label:"Eliminar cubicaciones"},{key:"eliminar_catalogos",label:"Eliminar catálogos"},{key:"ver_auditoria_seguridad",label:"Consultar auditoría de seguridad"}]},
@@ -116,6 +117,8 @@ export default function Home() {
   const [projects, setProjects] = useState<Project[]>(initialProjects);
   const [showForm, setShowForm] = useState(false);
   const [notice, setNotice] = useState(3);
+  const [dashboard,setDashboard]=useState<DashboardData|null>(null);
+  const [dashboardLoading,setDashboardLoading]=useState(false);
 
   useEffect(() => {
     let active = true;
@@ -154,6 +157,17 @@ export default function Home() {
     if (section === "Cubicaciones") loadMeasurements();
     if(section==="Catálogos"||section==="Proyectos Técnicos")loadCatalogs();
   }, [section]);
+
+  useEffect(()=>{
+    if(section!=="Resumen"||!currentUser)return;
+    let active=true;
+    setDashboardLoading(true);
+    fetch("/api/dashboard",{cache:"no-store"})
+      .then(response=>response.ok?response.json():null)
+      .then(data=>{if(active)setDashboard(data?.success?data:null);})
+      .finally(()=>{if(active)setDashboardLoading(false);});
+    return()=>{active=false;};
+  },[section,currentUser?.id,currentUser?.permissions_version]);
 
   useEffect(()=>{if(!currentUser||currentUser.role==="Administrador")return;const views:Array<[string,keyof Permissions]>=[["Resumen","ver_resumen"],["Proyectos","ver_proyectos"],["Proyectos Técnicos","ver_proyectos_tecnicos"],["Cubicaciones","ver_cubicaciones"],["Calendario","ver_calendario"],["Reportes","ver_reportes"],["Recursos Humanos","ver_recursos_humanos"],["Estructura Organizacional","ver_estructura_organizacional"],["Catálogos","ver_catalogos"]];const allowed=views.filter(([,key])=>Boolean(currentUser.permissions?.[key])).map(([name])=>name);if(!allowed.includes(section))setSection(allowed[0]||"Acceso restringido");},[currentUser,section]);
 
@@ -319,6 +333,21 @@ export default function Home() {
         <div className="content">
           <div className="page-head"><div><span className="eyebrow">CENTRO DE OPERACIONES</span><h1>{section === "Resumen" ? "Resumen institucional" : section}</h1><p>Seguimiento integral de metas, recursos y resultados · Julio 2026</p></div><button className="outline" onClick={() => window.print()}>⇩ Exportar reporte</button></div>
 
+          {section==="Resumen"&&<section className="personal-dashboard">
+            {dashboardLoading?<div className="technical-empty"><strong>Preparando su panel</strong><span>Consultando tareas, proyectos y alertas autorizadas…</span></div>:!dashboard?<div className="technical-empty"><strong>Panel pendiente de activación</strong><span>Ejecute la migración personal_dashboard.sql en Supabase para utilizar información operativa real.</span></div>:<>
+              <div className="dashboard-welcome"><div><span>ESPACIO DE TRABAJO PERSONAL</span><h2>Buenos días, {userName.split(" ")[0]}</h2><p>{dashboard.direction}{dashboard.department?` · ${dashboard.department}`:""} · {currentUser.role}</p></div><div><strong>{dashboard.tasks.length}</strong><span>tareas pendientes</span></div></div>
+              <div className="dashboard-modules"><div><span>SU DIRECCIÓN Y MÓDULOS AUTORIZADOS</span><strong>{dashboard.direction}</strong></div>{dashboard.modules.map(module=><button key={module.key} onClick={()=>{const sections:Record<string,string>={ver_resumen:"Resumen",ver_proyectos:"Proyectos",ver_proyectos_tecnicos:"Proyectos Técnicos",ver_cubicaciones:"Cubicaciones",ver_catalogos:"Catálogos",ver_reportes:"Reportes",ver_recursos_humanos:"Recursos Humanos",ver_estructura_organizacional:"Estructura Organizacional"};setSection(sections[module.key]||"Resumen")}}>{module.label}<b>→</b></button>)}</div>
+              <div className="dashboard-grid">
+                <article className="dashboard-card dashboard-tasks"><div className="dashboard-card-head"><div><span>PENDIENTES</span><h3>Trabajo que requiere su intervención</h3></div><b>{dashboard.tasks.length}</b></div>{dashboard.tasks.length===0?<div className="dashboard-empty">No tiene cubicaciones pendientes.</div>:dashboard.tasks.map(task=><button key={task.id} onClick={()=>setSection("Cubicaciones")}><i className={`task-${task.status.toLowerCase()}`}/><div><strong>{task.task_label}</strong><span>{task.code} · {task.work_name}</span><small>{[task.municipality,task.sector].filter(Boolean).join(" · ")} · {money(Number(task.amount))}</small></div><b>→</b></button>)}</article>
+                <article className="dashboard-card dashboard-alerts"><div className="dashboard-card-head"><div><span>CONTROL PRESUPUESTARIO</span><h3>Alertas que requieren atención</h3></div><b>{dashboard.alerts.length}</b></div>{dashboard.alerts.length===0?<div className="dashboard-empty">No existen alertas presupuestarias.</div>:dashboard.alerts.map(alert=><div className={`budget-alert alert-${alert.severity}`} key={`${alert.id}-${alert.message}`}><i>!</i><div><strong>{alert.work_name}</strong><span>{alert.message}</span></div></div>)}</article>
+              </div>
+              <div className="dashboard-grid dashboard-bottom">
+                <article className="dashboard-card"><div className="dashboard-card-head"><div><span>BAJO SU RESPONSABILIDAD</span><h3>Proyectos y obras relacionados</h3></div><button onClick={()=>setSection("Proyectos Técnicos")}>Ver todos</button></div>{dashboard.projects.length===0?<div className="dashboard-empty">No existen proyectos relacionados con su dirección.</div>:<div className="dashboard-project-list">{dashboard.projects.slice(0,5).map(project=><button key={project.id} onClick={()=>setSection("Proyectos Técnicos")}><div><strong>{project.work_name}</strong><span>{project.snip_code||"Sin SNIP"} · {project.municipality}</span></div><div className="dashboard-progress"><i><em style={{width:`${project.work_progress}%`}}/></i><b>{project.work_progress}%</b></div><small>{project.work_status}</small></button>)}</div>}</article>
+                <article className="dashboard-card"><div className="dashboard-card-head"><div><span>ACTIVIDAD RECIENTE</span><h3>Movimientos relacionados con su área</h3></div></div>{dashboard.activity.length===0?<div className="dashboard-empty">Todavía no hay actividad relacionada.</div>:<div className="dashboard-activity">{dashboard.activity.slice(0,6).map((item,index)=><div key={`${item.created_at}-${index}`}><i/><div><strong>{item.action} · {item.to_status}</strong><span>{item.code} · {item.work_name}</span><small>{item.user_name} · {new Date(item.created_at).toLocaleString("es-DO",{dateStyle:"medium",timeStyle:"short"})}</small></div></div>)}</div>}</article>
+              </div>
+            </>}
+          </section>}
+
           {section === "Usuarios" && <section className="users-panel">
             <div className="users-summary"><div><span>USUARIOS REGISTRADOS</span><strong>{users.length}</strong></div><div><span>CUENTAS ACTIVAS</span><strong>{users.filter(user => user.active).length}</strong></div><div><span>ADMINISTRADORES</span><strong>{users.filter(user => user.role === "Administrador").length}</strong></div></div>
             <div className="users-card"><div className="users-card-head"><div><h2>Administración de usuarios</h2><p>Crea cuentas, asigna roles y define las vistas disponibles.</p></div><button className="primary" onClick={()=>setShowCreateUser(true)}>＋ Crear usuario</button></div>
@@ -348,7 +377,7 @@ export default function Home() {
             <div className="technical-card"><div className="users-card-head"><div><h2>Expedientes de cubicación</h2><p>Etapas, responsables y trazabilidad completa.</p></div></div>{measurementsLoading?<div className="users-empty">Cargando cubicaciones…</div>:measurements.length===0?<div className="technical-empty"><strong>No hay cubicaciones registradas</strong><span>Seleccione una obra y registre su primera etapa de cubicación.</span></div>:<div className="users-table-wrap"><table className="measurement-table"><thead><tr><th>CÓDIGO / ETAPA</th><th>OBRA Y SECTOR</th><th>MONTO</th><th>AVANCE</th><th>REGISTRADO POR</th><th>ESTATUS</th><th>ACCIONES</th></tr></thead><tbody>{measurements.map(item=><tr key={item.id}><td><strong>{item.code}</strong><small>Cubicación No. {item.measurement_number}</small></td><td><b>{item.work_name}</b><small>{item.snip_code||"Sin SNIP"} · {item.sector||item.municipality}</small></td><td><b>{money(Number(item.amount))}</b><small>{item.status==="Pagada"?"Aplicado a la obra":"Sin afectar presupuesto"}</small></td><td><b>＋{item.progress_increment}%</b><small>{item.status==="Pagada"?"Avance aplicado":"Pendiente de pago"}</small></td><td>{item.registered_by_name}<small>{new Date(item.created_at).toLocaleDateString("es-DO")}</small></td><td><span className={`measurement-status status-${item.status.toLowerCase()}`}>{item.status}</span></td><td><div className="measurement-actions"><button className="row-action" onClick={()=>setAuditMeasurement(item)}>Auditoría</button>{canAdvanceMeasurement(item.status)&&<button className="advance-action" onClick={()=>advanceMeasurement(item)}>Avanzar →</button>}</div></td></tr>)}</tbody></table></div>}</div>
           </section>}
 
-          <div className={section === "Usuarios" || section === "Catálogos" || section === "Proyectos Técnicos" || section === "Cubicaciones" || section === "Recursos Humanos" || section === "Estructura Organizacional" || section === "Acceso restringido" ? "section-hidden" : ""}>
+          <div className={section === "Resumen" || section === "Usuarios" || section === "Catálogos" || section === "Proyectos Técnicos" || section === "Cubicaciones" || section === "Recursos Humanos" || section === "Estructura Organizacional" || section === "Acceso restringido" ? "section-hidden" : ""}>
 
           <section className="hero-grid">
             <article className="score-card"><div className="score-top"><div><span>ÍNDICE DE DESEMPEÑO</span><strong>78.4</strong><small>/100</small></div><div className="trend">↗ 6.2%</div></div><div className="score-track"><i style={{ width: "78.4%" }} /></div><div className="score-meta"><span>Planificado <b>82%</b></span><span>Ejecutado <b>74%</b></span><span>Eficiencia <b>79%</b></span></div></article>
