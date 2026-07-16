@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import {readFile} from "node:fs/promises";
 import {nextMeasurementStatus,paidTotal,paymentWithinAppropriation,permissionGranted} from "../app/lib/business-rules.mjs";
 
 test("un usuario sin permiso no puede editar proyectos",()=>{
@@ -23,4 +24,11 @@ test("solo las cubicaciones pagadas afectan el total pagado",()=>{
 test("un pago no puede exceder la apropiación disponible",()=>{
   assert.equal(paymentWithinAppropriation(1000,999),true);
   assert.equal(paymentWithinAppropriation(1000,1001),false);
+});
+
+test("los módulos no utilizan almacenamiento local para datos institucionales",async()=>{
+  const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
+  assert.equal(page.includes("localStorage"),false);
+  assert.equal(page.includes("sessionStorage"),false);
+  assert.equal(page.includes("/api/projects/institutional"),true);
 });

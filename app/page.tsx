@@ -23,6 +23,8 @@ type CompleteAudit={id:number;actor_name:string;action:string;module:string;enti
 type AppNotification={id:string;title:string;message:string;notification_type:"CUBICACION"|"PRESUPUESTO"|"CONTRATO"|"OBRA"|"PAGO"|"DOCUMENTO";severity:"critical"|"high"|"medium"|"low";project_id:string|null;measurement_id:string|null;action_section:string;email_status:string;read_at:string|null;created_at:string};
 type SystemStatus={status:"operational"|"degraded";environment:string;version:string;deploymentId:string;database:string;responseTimeMs:number;checkedAt:string};
 type TechnicalError={id:number;environment:string;source:string;error_code:string;message:string;technical_detail:string;request_path:string;deployment_id:string;created_at:string};
+type OrganizationUnitRecord={id:string;parent_id:string|null;unit_code:string;unit_name:string;unit_type:string;active:boolean;sort_order:number};
+type HrEmployee={id:string;employee_code:string;document_number:string|null;full_name:string;position_name:string;employment_status:string;hire_date:string|null;organization_unit_id:string;unit_name:string;app_user_id:string|null;created_at:string};
 
 const permissionGroups:{title:string;description:string;items:{key:keyof Permissions;label:string}[]}[]=[
  {title:"Acciones críticas",description:"Controles separados para eliminar, aprobar y auditar.",items:[{key:"eliminar_proyectos",label:"Eliminar proyectos institucionales"},{key:"aprobar_proyectos",label:"Aprobar proyectos institucionales"},{key:"eliminar_proyectos_tecnicos",label:"Eliminar proyectos y obras"},{key:"aprobar_proyectos_tecnicos",label:"Aprobar proyectos y obras"},{key:"eliminar_cubicaciones",label:"Eliminar cubicaciones"},{key:"eliminar_catalogos",label:"Eliminar catálogos"},{key:"ver_auditoria_seguridad",label:"Consultar auditoría de seguridad"}]},
@@ -61,16 +63,7 @@ const organizationalStructure:OrganizationUnit={name:"Dirección General",childr
 function OrganizationBranch({unit,level=0}:{unit:OrganizationUnit;level?:number}){return <div className={`organization-branch level-${Math.min(level,3)}`}><div className="organization-unit"><i>{level===0?"DG":level===1?"D":"•"}</i><span>{unit.name}</span>{unit.children&&<b>{unit.children.length}</b>}</div>{unit.children&&<div className="organization-children">{unit.children.map(child=><OrganizationBranch key={child.name} unit={child} level={level+1}/>)}</div>}</div>}
 
 type Area = "Todos" | "Institucional" | "Gestión Humana" | "Financiera" | "Técnica" | "Comercial";
-type Project = { id: number; code: string; name: string; area: Exclude<Area, "Todos">; owner: string; progress: number; budget: number; spent: number; status: "En curso" | "En riesgo" | "Completado"; due: string };
-
-const initialProjects: Project[] = [
-  { id: 1, code: "PI-026", name: "Plan estratégico institucional 2026", area: "Institucional", owner: "Dirección Ejecutiva", progress: 72, budget: 3800000, spent: 2460000, status: "En curso", due: "30 Sep" },
-  { id: 2, code: "GH-014", name: "Evaluación de desempeño y competencias", area: "Gestión Humana", owner: "Laura Méndez", progress: 58, budget: 1250000, spent: 710000, status: "En curso", due: "18 Ago" },
-  { id: 3, code: "GF-031", name: "Automatización presupuestaria", area: "Financiera", owner: "Carlos Peralta", progress: 43, budget: 5600000, spent: 3190000, status: "En riesgo", due: "12 Ago" },
-  { id: 4, code: "GT-019", name: "Rehabilitación red de distribución norte", area: "Técnica", owner: "Ing. Mariel Soto", progress: 81, budget: 18400000, spent: 14230000, status: "En curso", due: "05 Oct" },
-  { id: 5, code: "GC-022", name: "Actualización del catastro de usuarios", area: "Comercial", owner: "Samuel Peña", progress: 66, budget: 7900000, spent: 4810000, status: "En curso", due: "22 Sep" },
-  { id: 6, code: "GT-011", name: "Optimización estación de bombeo central", area: "Técnica", owner: "José Rosario", progress: 100, budget: 9200000, spent: 8940000, status: "Completado", due: "Completado" },
-];
+type Project = { id:string; code:string; name:string; area:Exclude<Area,"Todos">; owner:string; progress:number; budget:number; spent:number; status:"En curso"|"En riesgo"|"Completado"|"Suspendido"|"Cancelado"; due:string|null; description?:string };
 
 const areaData = [
   { name: "Institucional", icon: "⌂", color: "blue", metric: "12", label: "iniciativas activas", progress: 74 },
@@ -127,7 +120,12 @@ export default function Home() {
   const [section, setSection] = useState("Resumen");
   const [filter, setFilter] = useState<Area>("Todos");
   const [query, setQuery] = useState("");
-  const [projects, setProjects] = useState<Project[]>(initialProjects);
+  const [projects,setProjects]=useState<Project[]>([]);
+  const [projectsLoading,setProjectsLoading]=useState(false);
+  const [projectMessage,setProjectMessage]=useState("");
+  const [organizationUnits,setOrganizationUnits]=useState<OrganizationUnitRecord[]>([]);
+  const [hrEmployees,setHrEmployees]=useState<HrEmployee[]>([]);
+  const [hrLoading,setHrLoading]=useState(false);
   const [showForm, setShowForm] = useState(false);
   const [notice, setNotice] = useState(0);
   const [notifications,setNotifications]=useState<AppNotification[]>([]);
@@ -193,6 +191,9 @@ export default function Home() {
   useEffect(()=>{if(section==="Reportes")loadReports()},[section,reportYear]);
   useEffect(()=>{if(section==="Auditoría")loadCompleteAudit()},[section]);
   useEffect(()=>{if(section==="Registro Técnico")loadTechnicalErrors()},[section]);
+  useEffect(()=>{if(currentUser&&(section==="Resumen"||section==="Proyectos"))loadInstitutionalProjects()},[section,currentUser?.id]);
+  useEffect(()=>{if(currentUser&&section==="Estructura Organizacional")loadOrganizationUnits()},[section,currentUser?.id]);
+  useEffect(()=>{if(currentUser&&section==="Recursos Humanos")loadHrEmployees()},[section,currentUser?.id]);
 
   useEffect(()=>{
     if(section!=="Resumen"||!currentUser)return;
@@ -240,29 +241,23 @@ export default function Home() {
   async function loadCatalogs(){const response=await fetch("/api/catalogs",{cache:"no-store"});const data=await response.json();if(response.ok)setCatalogs(data.catalogs||{accounts:[],processes:[],suppliers:[],municipalities:[],districts:[],sectors:[],fundingSources:[],workTypes:[],workStatuses:[]});}
   async function loadNotifications(active=true){setNotificationsLoading(true);const response=await fetch("/api/notifications",{cache:"no-store"});const data=response.ok?await response.json():null;if(active){const items:AppNotification[]=data?.items||[];setNotifications(items);setNotice(items.filter(item=>!item.read_at).length);setNotificationsLoading(false);}}
   async function loadTechnicalErrors(){setTechnicalErrorsLoading(true);const response=await fetch("/api/system/errors?limit=200",{cache:"no-store"});const data=await response.json();if(response.ok)setTechnicalErrors(data.items||[]);setTechnicalErrorsLoading(false);}
+  async function loadInstitutionalProjects(){setProjectsLoading(true);const response=await fetch("/api/projects/institutional",{cache:"no-store"});const data=await response.json();if(response.ok)setProjects(data.projects||[]);else setProjectMessage(data.error||"No fue posible cargar los proyectos.");setProjectsLoading(false);}
+  async function loadOrganizationUnits(){const response=await fetch("/api/organization",{cache:"no-store"});const data=await response.json();if(response.ok)setOrganizationUnits(data.units||[]);}
+  async function loadHrEmployees(){setHrLoading(true);const response=await fetch("/api/hr",{cache:"no-store"});const data=await response.json();if(response.ok)setHrEmployees(data.employees||[]);setHrLoading(false);}
   async function markNotificationRead(item?:AppNotification){await fetch("/api/notifications",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:item?.id||null})});if(item?.action_section)setSection(item.action_section);await loadNotifications();if(item)setNotificationsOpen(false);}
 
-  useEffect(() => {
-    const saved = window.localStorage.getItem("coraamoca-projects");
-    if (saved) {
-      try { setProjects(JSON.parse(saved)); } catch { /* keep the institutional sample data */ }
-    }
-  }, []);
-
-  useEffect(() => {
-    window.localStorage.setItem("coraamoca-projects", JSON.stringify(projects));
-  }, [projects]);
-
   const filtered = useMemo(() => projects.filter(p => (filter === "Todos" || p.area === filter) && `${p.name} ${p.code} ${p.owner}`.toLowerCase().includes(query.toLowerCase())), [projects, filter, query]);
-  const totals = useMemo(() => ({ budget: projects.reduce((a, p) => a + p.budget, 0), spent: projects.reduce((a, p) => a + p.spent, 0), avg: Math.round(projects.reduce((a, p) => a + p.progress, 0) / projects.length) }), [projects]);
+  const totals = useMemo(() => ({ budget:projects.reduce((a,p)=>a+Number(p.budget),0),spent:projects.reduce((a,p)=>a+Number(p.spent),0),avg:projects.length?Math.round(projects.reduce((a,p)=>a+Number(p.progress),0)/projects.length):0 }), [projects]);
 
-  function addProject(e: React.FormEvent<HTMLFormElement>) {
+  async function addProject(e:React.FormEvent<HTMLFormElement>){
     e.preventDefault();
-    if (!canView("crear_proyectos")) { setShowForm(false); return; }
-    const fd = new FormData(e.currentTarget);
-    const area = fd.get("area") as Project["area"];
-    setProjects(prev => [{ id: Date.now(), code: `${area.slice(0, 2).toUpperCase()}-${String(prev.length + 1).padStart(3, "0")}`, name: String(fd.get("name")), area, owner: String(fd.get("owner")), progress: 0, budget: Number(fd.get("budget")), spent: 0, status: "En curso", due: String(fd.get("due")) }, ...prev]);
-    setShowForm(false);
+    if(!canView("crear_proyectos")){setShowForm(false);return;}
+    const fd=new FormData(e.currentTarget);
+    const payload={name:String(fd.get("name")),area:String(fd.get("area")),owner:String(fd.get("owner")),budget:Number(fd.get("budget")),due:String(fd.get("due")),progress:0,spent:0,status:"En curso"};
+    const response=await fetch("/api/projects/institutional",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+    const result=await response.json();
+    if(!response.ok){setProjectMessage(result.error||"No fue posible crear el proyecto.");return;}
+    setShowForm(false);setProjectMessage("Proyecto institucional guardado en Supabase.");await loadInstitutionalProjects();
   }
 
   async function handleAuth(e: React.FormEvent<HTMLFormElement>) {
@@ -449,8 +444,8 @@ export default function Home() {
             {type:"work_status",title:"Estados de obras",description:"Estados operativos permitidos.",items:catalogs.workStatuses}
           ] as {type:CatalogType;title:string;description:string;items:CatalogItem[]}[]).map(group=><div className="users-card catalog-module" key={group.type}><div className="users-card-head"><div><h2>{group.title}</h2><p>{group.description}</p></div>{canView("gestionar_catalogos")&&<button className="primary" onClick={()=>setShowCatalogForm(group.type)}>＋ Agregar</button>}</div><div className="catalog-count"><strong>{group.items.length}</strong><span>registros</span></div><div className="users-table-wrap"><table className="users-table"><thead><tr><th>CÓDIGO / NOMBRE</th><th>DESCRIPCIÓN</th><th>ESTADO</th></tr></thead><tbody>{group.items.map(item=><tr key={item.id}><td><strong>{item.code||item.name}</strong></td><td>{item.description||"—"}</td><td>{canView("gestionar_catalogos")?<button className={`user-status ${item.active?"is-active":"is-inactive"}`} onClick={()=>toggleCatalog(group.type,item)}>{item.active?"● Activo":"● Inactivo"}</button>:<span className={`user-status ${item.active?"is-active":"is-inactive"}`}>{item.active?"● Activo":"● Inactivo"}</span>}</td></tr>)}</tbody></table></div></div>)}</div></section>}
           {section==="Acceso restringido"&&<section className="technical-empty"><strong>Sin vistas asignadas</strong><span>Solicita al administrador que habilite los módulos correspondientes a tu función.</span></section>}
-          {section==="Recursos Humanos"&&<section className="technical-panel"><div className="direction-strip"><strong>DIRECCIÓN RESPONSABLE</strong><span>Dirección de Recursos Humanos</span></div><div className="technical-card"><div className="users-card-head"><div><h2>Gestión de Recursos Humanos</h2><p>Espacio jerárquico para empleados, expedientes, asistencia, licencias, desempeño y nómina.</p></div></div><div className="technical-empty"><strong>Módulo estructurado por dirección</strong><span>Los componentes operativos de Recursos Humanos se incorporarán dentro de esta área sin mezclarse con las demás direcciones.</span></div></div></section>}
-          {section==="Estructura Organizacional"&&<section className="organization-panel"><div className="direction-strip"><strong>DIRECCIÓN RESPONSABLE</strong><span>Dirección de Recursos Humanos</span><i>＋</i><strong>ÁMBITO</strong><span>Estructura institucional completa</span></div><div className="organization-head"><div><span className="eyebrow">ESTRUCTURA ORGANIZACIONAL</span><h2>Organigrama institucional</h2><p>Distribución jerárquica de las direcciones, departamentos, divisiones, oficinas y secciones que dependen de la Dirección General.</p></div><div><strong>{organizationalStructure.children?.length||0}</strong><span>dependencias directas</span></div></div><div className="organization-tree"><OrganizationBranch unit={organizationalStructure}/></div></section>}
+          {section==="Recursos Humanos"&&<section className="technical-panel"><div className="direction-strip"><strong>DIRECCIÓN RESPONSABLE</strong><span>Dirección de Recursos Humanos</span></div><div className="technical-kpis"><article><span>EMPLEADOS REGISTRADOS</span><strong>{hrEmployees.length}</strong></article><article><span>ACTIVOS</span><strong>{hrEmployees.filter(item=>item.employment_status==="Activo").length}</strong></article><article><span>UNIDADES RELACIONADAS</span><strong>{new Set(hrEmployees.map(item=>item.organization_unit_id)).size}</strong></article><article><span>EXPEDIENTES</span><strong>Supabase</strong></article></div><div className="technical-card"><div className="users-card-head"><div><h2>Gestión de Recursos Humanos</h2><p>Empleados vinculados con su unidad organizacional, usuario institucional y expediente.</p></div></div>{hrLoading?<div className="users-empty">Cargando empleados…</div>:hrEmployees.length===0?<div className="technical-empty"><strong>No hay empleados registrados</strong><span>La tabla relacional ya está preparada en Supabase para iniciar el registro.</span></div>:<div className="users-table-wrap"><table className="users-table"><thead><tr><th>CÓDIGO / EMPLEADO</th><th>UNIDAD</th><th>CARGO</th><th>ESTADO</th><th>INGRESO</th></tr></thead><tbody>{hrEmployees.map(item=><tr key={item.id}><td><strong>{item.employee_code}</strong><small>{item.full_name}</small></td><td>{item.unit_name}</td><td>{item.position_name}</td><td><span className={`user-status ${item.employment_status==="Activo"?"is-active":"is-inactive"}`}>{item.employment_status}</span></td><td>{item.hire_date?new Date(item.hire_date).toLocaleDateString("es-DO"):"—"}</td></tr>)}</tbody></table></div>}</div></section>}
+          {section==="Estructura Organizacional"&&<section className="organization-panel"><div className="direction-strip"><strong>DIRECCIÓN RESPONSABLE</strong><span>Dirección de Recursos Humanos</span><i>＋</i><strong>REGISTROS EN SUPABASE</strong><span>{organizationUnits.length} unidades</span></div><div className="organization-head"><div><span className="eyebrow">ESTRUCTURA ORGANIZACIONAL</span><h2>Organigrama institucional</h2><p>La representación jerárquica se encuentra respaldada por la tabla de unidades organizacionales y sus relaciones padre-dependiente.</p></div><div><strong>{organizationUnits.filter(item=>!item.parent_id).length||1}</strong><span>unidad raíz</span></div></div><div className="organization-tree"><OrganizationBranch unit={organizationalStructure}/></div></section>}
 
           {section==="Gestión Presupuestaria"&&<section className="budget-panel">
             <div className="budget-toolbar"><div><span>GESTIÓN PRESUPUESTARIA</span><h2>Ejecución y disponibilidad por proyecto</h2><p>Total pagado = activos fijos + avance del 20 % + cubicaciones pagadas.</p></div><div><select value={budgetYear} onChange={e=>setBudgetYear(Number(e.target.value))}>{Array.from({length:8},(_,index)=>new Date().getFullYear()+1-index).map(year=><option key={year}>{year}</option>)}</select>{budgetClosed?<span className="budget-closed">Año cerrado</span>:canView("cerrar_presupuesto")&&<button className="outline" onClick={closeBudgetYear}>Cerrar año</button>}</div></div>
@@ -497,7 +492,7 @@ export default function Home() {
           <section className="kpis">
             <article><span>Proyectos activos</span><strong>{projects.filter(p => p.status !== "Completado").length}</strong><small className="up">↗ 3 este mes</small></article>
             <article><span>Avance promedio</span><strong>{totals.avg}%</strong><small className="up">↗ 4.1% vs. junio</small></article>
-            <article><span>Presupuesto total</span><strong>RD$ {(totals.budget / 1000000).toFixed(1)}M</strong><small>{Math.round(totals.spent / totals.budget * 100)}% ejecutado</small></article>
+            <article><span>Presupuesto total</span><strong>RD$ {(totals.budget / 1000000).toFixed(1)}M</strong><small>{totals.budget?Math.round(totals.spent/totals.budget*100):0}% ejecutado</small></article>
             <article><span>Requieren atención</span><strong className="danger">{projects.filter(p => p.status === "En riesgo").length}</strong><small className="danger">Revisar hoy</small></article>
           </section>
 
@@ -505,7 +500,8 @@ export default function Home() {
           <section className="area-grid">{areaData.map(a => <article key={a.name} onClick={() => { setSection("Proyectos"); setFilter(a.name as Area); }}><div className={`area-icon ${a.color}`}>{a.icon}</div><div className="area-copy"><strong>{a.name}</strong><span>{a.metric}</span><small>{a.label}</small></div><div className="area-progress"><div><span>Progreso</span><b>{a.progress}%</b></div><i><em style={{ width: `${a.progress}%` }} /></i></div></article>)}</section>
 
           <div className="section-title project-title"><div><h2>Cartera de proyectos</h2><p>Estado de las iniciativas institucionales</p></div><select value={filter} onChange={e => setFilter(e.target.value as Area)}>{["Todos", ...areaData.map(a => a.name)].map(x => <option key={x}>{x}</option>)}</select></div>
-          <section className="table-card"><div className="table-wrap"><table><thead><tr><th>PROYECTO</th><th>ÁREA</th><th>RESPONSABLE</th><th>AVANCE</th><th>PRESUPUESTO</th><th>ESTADO</th><th>ENTREGA</th></tr></thead><tbody>{filtered.map(p => <tr key={p.id}><td><b>{p.code}</b><strong>{p.name}</strong></td><td><span className="area-pill">{p.area}</span></td><td>{p.owner}</td><td><div className="progress-cell"><i><em style={{ width: `${p.progress}%` }} /></i></div><b>{p.progress}%</b></td><td><b>{money(p.budget)}</b><small>{Math.round(p.spent / p.budget * 100)}% usado</small></td><td><span className={`status ${p.status.replace(" ", "-").toLowerCase()}`}>● {p.status}</span></td><td>{p.due}</td></tr>)}</tbody></table>{filtered.length === 0 && <div className="empty">No se encontraron proyectos con esos criterios.</div>}</div></section>
+          {projectMessage&&<div className={projectMessage.includes("Supabase")?"users-success":"auth-error"}>{projectMessage}</div>}
+          <section className="table-card"><div className="table-wrap">{projectsLoading?<div className="users-empty">Cargando proyectos desde Supabase…</div>:<table><thead><tr><th>PROYECTO</th><th>ÁREA</th><th>RESPONSABLE</th><th>AVANCE</th><th>PRESUPUESTO</th><th>ESTADO</th><th>ENTREGA</th></tr></thead><tbody>{filtered.map(p => <tr key={p.id}><td><b>{p.code}</b><strong>{p.name}</strong></td><td><span className="area-pill">{p.area}</span></td><td>{p.owner}</td><td><div className="progress-cell"><i><em style={{ width: `${p.progress}%` }} /></i></div><b>{p.progress}%</b></td><td><b>{money(Number(p.budget))}</b><small>{Number(p.budget)?Math.round(Number(p.spent)/Number(p.budget)*100):0}% usado</small></td><td><span className={`status ${p.status.replace(" ", "-").toLowerCase()}`}>● {p.status}</span></td><td>{p.due?new Date(p.due).toLocaleDateString("es-DO"):"—"}</td></tr>)}</tbody></table>}{!projectsLoading&&filtered.length===0&&<div className="empty">No se encontraron proyectos registrados en Supabase.</div>}</div></section>
           </div>
         </div>
       </main>
