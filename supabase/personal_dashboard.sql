@@ -31,8 +31,8 @@ begin
   from (values
     ('ver_resumen','Resumen',1),('ver_proyectos','Proyectos institucionales',2),
     ('ver_proyectos_tecnicos','Proyectos y obras',3),('ver_cubicaciones','Cubicaciones',4),
-    ('ver_catalogos','Compras, cuentas y proveedores',5),('ver_reportes','Reportes',6),
-    ('ver_recursos_humanos','Recursos Humanos',7),('ver_estructura_organizacional','Estructura organizacional',8)
+    ('ver_gestion_presupuestaria','Gestión presupuestaria',5),('ver_catalogos','Compras, cuentas y proveedores',6),('ver_reportes','Reportes',7),
+    ('ver_recursos_humanos','Recursos Humanos',8),('ver_estructura_organizacional','Estructura organizacional',9)
   ) m(key,label,sort_order)
   where v_user.role='Administrador' or coalesce((v_user.permissions->>key)::boolean,false);
 

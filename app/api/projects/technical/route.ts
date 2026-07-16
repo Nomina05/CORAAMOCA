@@ -43,5 +43,14 @@ export async function POST(request: Request) {
   if (paymentResult.error || !paymentResult.data?.success) {
     return NextResponse.json({ error: paymentResult.data?.error || "El proyecto se guardó, pero no fue posible actualizar el pago de activos fijos." }, { status: 400 });
   }
+  const commitmentResult = await database.rpc("set_project_financial_commitments", {
+    p_token: token,
+    p_project_id: projectId,
+    p_committed: Number(project.committed_amount || 0),
+    p_advance: Number(project.advance_20_amount || 0),
+  });
+  if (commitmentResult.error || !commitmentResult.data?.success) {
+    return NextResponse.json({ error: commitmentResult.data?.error || "El proyecto se guardó, pero no fue posible actualizar sus compromisos financieros." }, { status: 400 });
+  }
   return NextResponse.json({ success: true, id: projectId });
 }

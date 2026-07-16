@@ -84,8 +84,8 @@ begin
   values(v_m.id,case when upper(p_action)='RETURN' then 'Devolución' else 'Cambio de estatus' end,v_m.status,v_target,v_user.id,p_comments,v_m.amount);
   update public.app_notifications set read_at=now() where measurement_id=v_m.id and user_id=v_user.id and read_at is null;
   if v_target='Pagada' then
-    update public.technical_projects set total_measured=total_measured+v_m.amount,total_paid=total_paid+v_m.amount,
-      work_progress=least(100,work_progress+v_m.progress_increment),measurement_status='Pagada',updated_at=now() where id=v_m.project_id;
+    update public.technical_projects set work_progress=least(100,work_progress+v_m.progress_increment),
+      measurement_status='Pagada',updated_at=now() where id=v_m.project_id;
   else
     update public.technical_projects set measurement_status=v_target,updated_at=now() where id=v_m.project_id;
     perform public.notify_measurement_next_step(v_m.id,v_target);
