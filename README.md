@@ -30,6 +30,10 @@ Configure en Settings → Secrets and variables → Actions:
 
 El flujo `Copia de seguridad Supabase` genera diariamente un archivo `pg_dump` y lo conserva como artefacto privado durante 14 días. También puede ejecutarse manualmente desde GitHub Actions. Verifique periódicamente la restauración en el ambiente de pruebas; un respaldo sin prueba de restauración no debe considerarse validado.
 
+## Migraciones automáticas
+
+El flujo `Aplicar migraciones Supabase` se ejecuta al publicar cambios SQL en `main`. Requiere el secreto protegido `SUPABASE_DB_URL` y aplica las migraciones institucionales en orden, deteniéndose ante cualquier error. Al finalizar verifica la existencia de las tablas principales.
+
 ## Migraciones más recientes
 
 Ejecute en Supabase SQL Editor, respetando el orden:

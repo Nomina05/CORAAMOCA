@@ -1,0 +1,67 @@
+name: Aplicar migraciones Supabase
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "supabase/**.sql"
+      - ".github/workflows/supabase-migrate.yml"
+
+concurrency:
+  group: supabase-production-migrations
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verificar conexión protegida
+        shell: bash
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "::error::Falta el secreto SUPABASE_DB_URL en GitHub."
+            exit 1
+          fi
+
+      - name: Aplicar migraciones en orden
+        shell: bash
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          migrations=(
+            "supabase/complete_audit.sql"
+            "supabase/institutional_notifications.sql"
+            "supabase/technical_operations.sql"
+            "supabase/integrated_module_persistence.sql"
+          )
+          for migration in "${migrations[@]}"; do
+            echo "Aplicando $migration"
+            psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f "$migration"
+          done
+
+      - name: Confirmar tablas principales
+        shell: bash
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -c "
+            select table_name
+            from information_schema.tables
+            where table_schema='public'
+              and table_name in (
+                'complete_audit_log',
+                'app_notifications',
+                'technical_error_log',
+                'organization_units',
+                'institutional_projects',
+                'hr_employees',
+                'hr_employee_files'
+              )
+            order by table_name;"
