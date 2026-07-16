@@ -1,0 +1,21 @@
+name: Copia de seguridad Supabase
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * *"
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Crear respaldo cifrado por GitHub
+        run: pg_dump "${SUPABASE_DB_URL}" --format=custom --no-owner --file=supabase-backup.dump
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: supabase-backup-${{ github.run_id }}
+          path: supabase-backup.dump
+          retention-days: 14

@@ -21,6 +21,8 @@ type ProjectDossier={project:TechnicalProject;documents:{id:string;category:stri
 type ReportsData={generated_at:string;investment:{municipality:string;sector:string;projects:number;total_investment:number;total_paid:number}[];projectsByYearStatus:{project_year:number;work_status:string;projects:number;budget:number;paid:number}[];budgetExecution:{id:string;work_name:string;snip_code:string;project_year:number;budgeted_amount:number;appropriation_amount:number;committed_amount:number;awarded_amount:number;total_measured:number;total_paid:number;pending_balance:number;financial_progress:number}[];pendingMeasurements:{id:string;code:string;status:string;amount:number;created_at:string;work_name:string;municipality:string;sector:string;pending_step:string}[];supplierPayments:{supplier:string;projects:number;awarded:number;total_paid:number}[];delayedProjects:{id:string;work_name:string;snip_code:string;municipality:string;sector:string;planned_end_date:string;work_status:string;work_progress:number;delayed_days:number}[];physicalFinancial:{id:string;work_name:string;snip_code:string;physical_progress:number;financial_progress:number}[]};
 type CompleteAudit={id:number;actor_name:string;action:string;module:string;entity_type:string;entity_id:string|null;project_id:string|null;measurement_id:string|null;previous_value:Record<string,unknown>|null;new_value:Record<string,unknown>|null;reason:string;ip_address:string;session_fingerprint:string;created_at:string};
 type AppNotification={id:string;title:string;message:string;notification_type:"CUBICACION"|"PRESUPUESTO"|"CONTRATO"|"OBRA"|"PAGO"|"DOCUMENTO";severity:"critical"|"high"|"medium"|"low";project_id:string|null;measurement_id:string|null;action_section:string;email_status:string;read_at:string|null;created_at:string};
+type SystemStatus={status:"operational"|"degraded";environment:string;version:string;deploymentId:string;database:string;responseTimeMs:number;checkedAt:string};
+type TechnicalError={id:number;environment:string;source:string;error_code:string;message:string;technical_detail:string;request_path:string;deployment_id:string;created_at:string};
 
 const permissionGroups:{title:string;description:string;items:{key:keyof Permissions;label:string}[]}[]=[
  {title:"Acciones críticas",description:"Controles separados para eliminar, aprobar y auditar.",items:[{key:"eliminar_proyectos",label:"Eliminar proyectos institucionales"},{key:"aprobar_proyectos",label:"Aprobar proyectos institucionales"},{key:"eliminar_proyectos_tecnicos",label:"Eliminar proyectos y obras"},{key:"aprobar_proyectos_tecnicos",label:"Aprobar proyectos y obras"},{key:"eliminar_cubicaciones",label:"Eliminar cubicaciones"},{key:"eliminar_catalogos",label:"Eliminar catálogos"},{key:"ver_auditoria_seguridad",label:"Consultar auditoría de seguridad"}]},
@@ -40,7 +42,7 @@ const institutionalDirections:InstitutionalDirection[]=[
  {name:"Dirección Técnica",shortName:"Dirección Técnica",icon:"⌁",area:"Técnica",modules:[{label:"Proyectos y obras",section:"Proyectos Técnicos",icon:"▤",permission:"ver_proyectos_tecnicos"},{label:"Cubicaciones",section:"Cubicaciones",icon:"▧",permission:"ver_cubicaciones"}]},
  {name:"Dirección de Planificación y Desarrollo",shortName:"Planificación y Desarrollo",icon:"◇",modules:[{label:"Proyectos institucionales",section:"Proyectos",icon:"▤",permission:"ver_proyectos"},{label:"Indicadores y reportes",section:"Reportes",icon:"▥",permission:"ver_reportes"}]},
  {name:"Dirección Administrativa y Financiera",shortName:"Administrativa y Financiera",icon:"$",area:"Financiera",modules:[{label:"Presupuesto y ejecución",section:"Gestión Presupuestaria",icon:"$",permission:"ver_gestion_presupuestaria"},{label:"Compras, cuentas y proveedores",section:"Catálogos",icon:"▣",permission:"ver_catalogos"},{label:"Libramientos y pagos",section:"Cubicaciones",icon:"▧",permission:"ver_cubicaciones"}]},
- {name:"Configuración",shortName:"Configuración",icon:"⚙",modules:[{label:"Usuarios y roles",section:"Usuarios",icon:"♙",adminOnly:true},{label:"Auditoría completa",section:"Auditoría",icon:"⌕",permission:"ver_auditoria_seguridad"}]},
+ {name:"Configuración",shortName:"Configuración",icon:"⚙",modules:[{label:"Usuarios y roles",section:"Usuarios",icon:"♙",adminOnly:true},{label:"Auditoría completa",section:"Auditoría",icon:"⌕",permission:"ver_auditoria_seguridad"},{label:"Registro técnico",section:"Registro Técnico",icon:"⚠",adminOnly:true}]},
 ];
 
 const organizationalStructure:OrganizationUnit={name:"Dirección General",children:[
@@ -131,6 +133,9 @@ export default function Home() {
   const [notifications,setNotifications]=useState<AppNotification[]>([]);
   const [notificationsOpen,setNotificationsOpen]=useState(false);
   const [notificationsLoading,setNotificationsLoading]=useState(false);
+  const [systemStatus,setSystemStatus]=useState<SystemStatus|null>(null);
+  const [technicalErrors,setTechnicalErrors]=useState<TechnicalError[]>([]);
+  const [technicalErrorsLoading,setTechnicalErrorsLoading]=useState(false);
   const [dashboard,setDashboard]=useState<DashboardData|null>(null);
   const [dashboardLoading,setDashboardLoading]=useState(false);
   const [budgetProjects,setBudgetProjects]=useState<BudgetProject[]>([]);
@@ -187,6 +192,7 @@ export default function Home() {
   useEffect(()=>{if(section==="Gestión Presupuestaria")loadBudget()},[section,budgetYear]);
   useEffect(()=>{if(section==="Reportes")loadReports()},[section,reportYear]);
   useEffect(()=>{if(section==="Auditoría")loadCompleteAudit()},[section]);
+  useEffect(()=>{if(section==="Registro Técnico")loadTechnicalErrors()},[section]);
 
   useEffect(()=>{
     if(section!=="Resumen"||!currentUser)return;
@@ -208,6 +214,15 @@ export default function Home() {
     return()=>{active=false;window.clearInterval(interval)};
   },[currentUser?.id]);
 
+  useEffect(()=>{
+    if(!currentUser)return;
+    let active=true;
+    const refresh=()=>fetch("/api/system/status",{cache:"no-store"}).then(response=>response.ok?response.json():null).then(data=>{if(active)setSystemStatus(data)});
+    refresh();
+    const interval=window.setInterval(refresh,60000);
+    return()=>{active=false;window.clearInterval(interval)};
+  },[currentUser?.id]);
+
   useEffect(()=>{if(!currentUser||currentUser.role==="Administrador")return;const views:Array<[string,keyof Permissions]>=[["Resumen","ver_resumen"],["Proyectos","ver_proyectos"],["Proyectos Técnicos","ver_proyectos_tecnicos"],["Cubicaciones","ver_cubicaciones"],["Gestión Presupuestaria","ver_gestion_presupuestaria"],["Calendario","ver_calendario"],["Reportes","ver_reportes"],["Auditoría","ver_auditoria_seguridad"],["Recursos Humanos","ver_recursos_humanos"],["Estructura Organizacional","ver_estructura_organizacional"],["Catálogos","ver_catalogos"]];const allowed=views.filter(([,key])=>Boolean(currentUser.permissions?.[key])).map(([name])=>name);if(!allowed.includes(section))setSection(allowed[0]||"Acceso restringido");},[currentUser,section]);
 
   async function loadTechnicalProjects() {
@@ -224,6 +239,7 @@ export default function Home() {
   async function loadCompleteAudit(){setAuditLoading(true);const response=await fetch("/api/security/audit?limit=500",{cache:"no-store"});const data=await response.json();if(response.ok)setCompleteAudit(data.items||[]);setAuditLoading(false);}
   async function loadCatalogs(){const response=await fetch("/api/catalogs",{cache:"no-store"});const data=await response.json();if(response.ok)setCatalogs(data.catalogs||{accounts:[],processes:[],suppliers:[],municipalities:[],districts:[],sectors:[],fundingSources:[],workTypes:[],workStatuses:[]});}
   async function loadNotifications(active=true){setNotificationsLoading(true);const response=await fetch("/api/notifications",{cache:"no-store"});const data=response.ok?await response.json():null;if(active){const items:AppNotification[]=data?.items||[];setNotifications(items);setNotice(items.filter(item=>!item.read_at).length);setNotificationsLoading(false);}}
+  async function loadTechnicalErrors(){setTechnicalErrorsLoading(true);const response=await fetch("/api/system/errors?limit=200",{cache:"no-store"});const data=await response.json();if(response.ok)setTechnicalErrors(data.items||[]);setTechnicalErrorsLoading(false);}
   async function markNotificationRead(item?:AppNotification){await fetch("/api/notifications",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:item?.id||null})});if(item?.action_section)setSection(item.action_section);await loadNotifications();if(item)setNotificationsOpen(false);}
 
   useEffect(() => {
@@ -382,6 +398,7 @@ export default function Home() {
           <div className="mobile-brand">CORAAMOCA</div>
           <label className="search"><span>⌕</span><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar proyectos, responsables..." /><kbd>⌘ K</kbd></label>
           <div className="header-actions">
+            {systemStatus&&<div className={`deployment-status ${systemStatus.status}`} title={`Base de datos: ${systemStatus.database} · Respuesta: ${systemStatus.responseTimeMs} ms`}><i/><div><span>{systemStatus.environment==="production"?"PRODUCCIÓN":systemStatus.environment.toUpperCase()}</span><strong>{systemStatus.status==="operational"?"Operativo":"Con incidencias"} · {systemStatus.version}</strong></div></div>}
             <div className="notification-center">
               <button className={`icon-btn ${notificationsOpen?"active":""}`} title="Notificaciones y alertas" onClick={()=>{setNotificationsOpen(open=>!open);if(!notificationsOpen)loadNotifications()}}>♧{notice>0&&<b>{notice>99?"99+":notice}</b>}</button>
               {notificationsOpen&&<div className="notification-panel">
@@ -451,6 +468,7 @@ export default function Home() {
           </section>}
 
           {section==="Auditoría"&&<section className="audit-panel"><div className="audit-header"><div><span>AUDITORÍA INSTITUCIONAL</span><h2>Trazabilidad completa de operaciones</h2><p>Registro inmutable de usuarios, cambios, proyectos, cubicaciones, IP y sesión.</p></div><strong>{completeAudit.length}<small>eventos consultados</small></strong></div><div className="technical-card">{auditLoading?<div className="users-empty">Consultando bitácora…</div>:<div className="users-table-wrap"><table className="complete-audit-table"><thead><tr><th>FECHA Y USUARIO</th><th>ACCIÓN</th><th>ENTIDAD AFECTADA</th><th>VALOR ANTERIOR</th><th>VALOR NUEVO</th><th>MOTIVO</th><th>IP / SESIÓN</th></tr></thead><tbody>{completeAudit.map(item=><tr key={item.id}><td><strong>{item.actor_name||"Sistema"}</strong><small>{new Date(item.created_at).toLocaleString("es-DO",{dateStyle:"medium",timeStyle:"medium"})}</small></td><td><span className="audit-action">{item.action.replaceAll("_"," ")}</span><small>{item.module}</small></td><td><b>{item.entity_type}</b><small>{item.entity_id||item.project_id||item.measurement_id||"—"}</small></td><td><code>{item.previous_value?JSON.stringify(item.previous_value):"—"}</code></td><td><code>{item.new_value?JSON.stringify(item.new_value):"—"}</code></td><td>{item.reason||"Sin observación"}</td><td><b>{item.ip_address||"No disponible"}</b><small>Sesión: {item.session_fingerprint||"—"}</small></td></tr>)}</tbody></table></div>}</div></section>}
+          {section==="Registro Técnico"&&<section className="audit-panel"><div className="audit-header"><div><span>OPERACIÓN Y SOPORTE</span><h2>Registro técnico de fallos</h2><p>Incidentes de interfaz y servidor relacionados con cada ambiente y despliegue.</p></div><strong>{technicalErrors.length}<small>fallos consultados</small></strong></div><div className="technical-card">{technicalErrorsLoading?<div className="users-empty">Consultando incidentes…</div>:technicalErrors.length===0?<div className="technical-empty"><strong>Sin fallos registrados</strong><span>El sistema no ha reportado incidentes técnicos.</span></div>:<div className="users-table-wrap"><table className="technical-error-table"><thead><tr><th>FECHA</th><th>AMBIENTE / VERSIÓN</th><th>ORIGEN</th><th>MENSAJE</th><th>RUTA</th><th>DETALLE TÉCNICO</th></tr></thead><tbody>{technicalErrors.map(item=><tr key={item.id}><td>{new Date(item.created_at).toLocaleString("es-DO")}</td><td><strong>{item.environment||"—"}</strong><small>{item.deployment_id||"Sin identificador"}</small></td><td><b>{item.source}</b><small>{item.error_code}</small></td><td>{item.message}</td><td><code>{item.request_path||"—"}</code></td><td><code>{item.technical_detail||"—"}</code></td></tr>)}</tbody></table></div>}</div></section>}
 
           {section === "Proyectos Técnicos" && <section className="technical-panel">
             <div className="direction-strip"><strong>Dirección líder</strong><span>Dirección Técnica</span><i>＋</i><strong>Direcciones participantes</strong><span>Administrativa y Financiera</span><span>Planificación y Desarrollo</span></div>
@@ -469,7 +487,7 @@ export default function Home() {
             <div className="technical-card"><div className="users-card-head"><div><h2>Expedientes de cubicación</h2><p>Etapas, responsables, documentos y trazabilidad completa.</p></div></div>{measurementsLoading?<div className="users-empty">Cargando cubicaciones…</div>:measurements.length===0?<div className="technical-empty"><strong>No hay cubicaciones registradas</strong><span>Seleccione una obra y registre su primera etapa de cubicación.</span></div>:<div className="users-table-wrap"><table className="measurement-table"><thead><tr><th>CÓDIGO / ETAPA</th><th>OBRA Y SECTOR</th><th>MONTO</th><th>AVANCE</th><th>REGISTRADO POR</th><th>ESTATUS</th><th>ACCIONES</th></tr></thead><tbody>{measurements.map(item=><tr key={item.id}><td><strong>{item.code}</strong><small>Cubicación No. {item.measurement_number}</small></td><td><b>{item.work_name}</b><small>{item.snip_code||"Sin SNIP"} · {item.sector||item.municipality}</small></td><td><b>{money(Number(item.amount))}</b><small>{item.status==="Pagada"?"Aplicado a la obra":"Sin afectar presupuesto"}</small></td><td><b>＋{item.progress_increment}%</b><small>{item.status==="Pagada"?"Avance aplicado":"Pendiente de pago"}</small></td><td>{item.registered_by_name}<small>{new Date(item.created_at).toLocaleDateString("es-DO")} · {item.documents?.length||0} docs.</small></td><td><span className={`measurement-status status-${item.status.toLowerCase()}`}>{item.status}</span></td><td><div className="measurement-actions"><button className="row-action" onClick={()=>setAuditMeasurement(item)}>Auditoría</button><button className="row-action" onClick={()=>addMeasurementDocument(item)}>＋ Documento</button>{canReturnMeasurement(item.status)&&<button className="return-action" onClick={()=>transitionMeasurement(item,"RETURN")}>Devolver</button>}{canAdvanceMeasurement(item.status)&&<button className="advance-action" onClick={()=>transitionMeasurement(item,"ADVANCE")}>Avanzar →</button>}</div></td></tr>)}</tbody></table></div>}</div>
           </section>}
 
-          <div className={section === "Resumen" || section === "Usuarios" || section === "Catálogos" || section === "Proyectos Técnicos" || section === "Cubicaciones" || section === "Gestión Presupuestaria" || section === "Reportes" || section === "Auditoría" || section === "Recursos Humanos" || section === "Estructura Organizacional" || section === "Acceso restringido" ? "section-hidden" : ""}>
+          <div className={section === "Resumen" || section === "Usuarios" || section === "Catálogos" || section === "Proyectos Técnicos" || section === "Cubicaciones" || section === "Gestión Presupuestaria" || section === "Reportes" || section === "Auditoría" || section === "Registro Técnico" || section === "Recursos Humanos" || section === "Estructura Organizacional" || section === "Acceso restringido" ? "section-hidden" : ""}>
 
           <section className="hero-grid">
             <article className="score-card"><div className="score-top"><div><span>ÍNDICE DE DESEMPEÑO</span><strong>78.4</strong><small>/100</small></div><div className="trend">↗ 6.2%</div></div><div className="score-track"><i style={{ width: "78.4%" }} /></div><div className="score-meta"><span>Planificado <b>82%</b></span><span>Ejecutado <b>74%</b></span><span>Eficiencia <b>79%</b></span></div></article>

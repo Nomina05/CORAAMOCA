@@ -1,10 +1,14 @@
 import { createClient } from "@supabase/supabase-js";
+import {validateEnvironment} from "../../lib/environment";
 
-export const authDatabase = () => createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+export const authDatabase = () => {
+  const environment=validateEnvironment();
+  return createClient(
+  environment.supabaseUrl,
+  environment.publishableKey,
   { auth: { persistSession: false, autoRefreshToken: false } },
-);
+  );
+};
 
 export const sessionCookie = "coraamoca_session";
 export const cookieOptions = {
