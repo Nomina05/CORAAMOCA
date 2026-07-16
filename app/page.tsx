@@ -75,6 +75,22 @@ const areaData = [
 
 const money = (value: number) => new Intl.NumberFormat("es-DO", { style: "currency", currency: "DOP", maximumFractionDigits: 0 }).format(value);
 const safeArray = <T,>(value: unknown): T[] => Array.isArray(value) ? value as T[] : [];
+const emptyCatalogs = (): ProjectCatalogs => ({accounts:[],processes:[],suppliers:[],municipalities:[],districts:[],sectors:[],fundingSources:[],workTypes:[],workStatuses:[]});
+
+function normalizeCatalogs(value: unknown): ProjectCatalogs {
+  const catalogs = value && typeof value === "object" ? value as Record<string,unknown> : {};
+  return {
+    accounts: safeArray(catalogs.accounts),
+    processes: safeArray(catalogs.processes),
+    suppliers: safeArray(catalogs.suppliers),
+    municipalities: safeArray(catalogs.municipalities),
+    districts: safeArray(catalogs.districts),
+    sectors: safeArray(catalogs.sectors),
+    fundingSources: safeArray(catalogs.fundingSources ?? catalogs.funding_sources),
+    workTypes: safeArray(catalogs.workTypes ?? catalogs.work_types),
+    workStatuses: safeArray(catalogs.workStatuses ?? catalogs.work_statuses),
+  };
+}
 
 function normalizeDashboard(data: unknown): DashboardData | null {
   if (!data || typeof data !== "object" || !(data as {success?:boolean}).success) return null;
@@ -118,7 +134,7 @@ export default function Home() {
   const [usersMessage, setUsersMessage] = useState("");
   const [showCreateUser,setShowCreateUser]=useState(false);
   const [permissionUser,setPermissionUser]=useState<ManagedUser|null>(null);
-  const [catalogs,setCatalogs]=useState<ProjectCatalogs>({accounts:[],processes:[],suppliers:[],municipalities:[],districts:[],sectors:[],fundingSources:[],workTypes:[],workStatuses:[]});
+  const [catalogs,setCatalogs]=useState<ProjectCatalogs>(emptyCatalogs);
   const [catalogMessage,setCatalogMessage]=useState("");
   const [showCatalogForm,setShowCatalogForm]=useState<CatalogType|null>(null);
   const [expandedDirection,setExpandedDirection]=useState("Dirección General");
@@ -192,7 +208,8 @@ export default function Home() {
     setUsersLoading(true);
     fetch("/api/users", { cache: "no-store" })
       .then(response => response.json())
-      .then(data => setUsers(data.users || []))
+      .then(data => setUsers(safeArray<ManagedUser>(data.users)))
+      .catch(()=>setUsers([]))
       .finally(() => setUsersLoading(false));
   }, [section, currentUser?.role]);
 
@@ -259,12 +276,12 @@ export default function Home() {
   async function loadBudget(){setBudgetLoading(true);const response=await fetch(`/api/budget?year=${budgetYear}`,{cache:"no-store"});const data=await response.json();if(response.ok){setBudgetProjects(data.projects||[]);setBudgetClosed(Boolean(data.year_closed))}else setBudgetMessage(data.error||"No fue posible cargar el presupuesto.");setBudgetLoading(false);}
   async function loadReports(){setReportsLoading(true);try{const response=await fetch(`/api/reports${reportYear==="Todos"?"":`?year=${reportYear}`}`,{cache:"no-store"});const data=await response.json();if(response.ok)setReports({...data,investment:safeArray(data.investment),projectsByYearStatus:safeArray(data.projectsByYearStatus),budgetExecution:safeArray(data.budgetExecution),pendingMeasurements:safeArray(data.pendingMeasurements),supplierPayments:safeArray(data.supplierPayments),delayedProjects:safeArray(data.delayedProjects),physicalFinancial:safeArray(data.physicalFinancial)});else setReports(null);}catch{setReports(null);}finally{setReportsLoading(false);}}
   async function loadCompleteAudit(){setAuditLoading(true);const response=await fetch("/api/security/audit?limit=500",{cache:"no-store"});const data=await response.json();if(response.ok)setCompleteAudit(data.items||[]);setAuditLoading(false);}
-  async function loadCatalogs(){const response=await fetch("/api/catalogs",{cache:"no-store"});const data=await response.json();if(response.ok)setCatalogs(data.catalogs||{accounts:[],processes:[],suppliers:[],municipalities:[],districts:[],sectors:[],fundingSources:[],workTypes:[],workStatuses:[]});}
+  async function loadCatalogs(){try{const response=await fetch("/api/catalogs",{cache:"no-store"});const data=await response.json();if(response.ok)setCatalogs(normalizeCatalogs(data.catalogs));else{setCatalogs(emptyCatalogs());setCatalogMessage(data.error||"No fue posible cargar los catálogos.");}}catch{setCatalogs(emptyCatalogs());setCatalogMessage("No fue posible conectar con el módulo de catálogos.");}}
   async function loadNotifications(active=true){setNotificationsLoading(true);const response=await fetch("/api/notifications",{cache:"no-store"});const data=response.ok?await response.json():null;if(active){const items:AppNotification[]=data?.items||[];setNotifications(items);setNotice(items.filter(item=>!item.read_at).length);setNotificationsLoading(false);}}
   async function loadTechnicalErrors(){setTechnicalErrorsLoading(true);const response=await fetch("/api/system/errors?limit=200",{cache:"no-store"});const data=await response.json();if(response.ok)setTechnicalErrors(data.items||[]);setTechnicalErrorsLoading(false);}
   async function loadInstitutionalProjects(){setProjectsLoading(true);const response=await fetch("/api/projects/institutional",{cache:"no-store"});const data=await response.json();if(response.ok)setProjects(data.projects||[]);else setProjectMessage(data.error||"No fue posible cargar los proyectos.");setProjectsLoading(false);}
-  async function loadOrganizationUnits(){const response=await fetch("/api/organization",{cache:"no-store"});const data=await response.json();if(response.ok)setOrganizationUnits(data.units||[]);}
-  async function loadHrEmployees(){setHrLoading(true);const response=await fetch("/api/hr",{cache:"no-store"});const data=await response.json();if(response.ok)setHrEmployees(data.employees||[]);setHrLoading(false);}
+  async function loadOrganizationUnits(){try{const response=await fetch("/api/organization",{cache:"no-store"});const data=await response.json();setOrganizationUnits(response.ok?safeArray<OrganizationUnitRecord>(data.units):[]);}catch{setOrganizationUnits([]);}}
+  async function loadHrEmployees(){setHrLoading(true);try{const response=await fetch("/api/hr",{cache:"no-store"});const data=await response.json();setHrEmployees(response.ok?safeArray<HrEmployee>(data.employees):[]);}catch{setHrEmployees([]);}finally{setHrLoading(false);}}
   async function markNotificationRead(item?:AppNotification){await fetch("/api/notifications",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:item?.id||null})});if(item?.action_section)setSection(item.action_section);await loadNotifications();if(item)setNotificationsOpen(false);}
 
   const filtered = useMemo(() => projects.filter(p => (filter === "Todos" || p.area === filter) && `${p.name} ${p.code} ${p.owner}`.toLowerCase().includes(query.toLowerCase())), [projects, filter, query]);
