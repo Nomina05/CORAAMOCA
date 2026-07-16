@@ -52,6 +52,15 @@ export async function POST(request: Request) {
   if (commitmentResult.error || !commitmentResult.data?.success) {
     return NextResponse.json({ error: commitmentResult.data?.error || "El proyecto se guardó, pero no fue posible actualizar sus compromisos financieros." }, { status: 400 });
   }
+  const classificationResult = await database.rpc("set_project_administrative_classification", {
+    p_token: token,
+    p_project_id: projectId,
+    p_funding_source: project.funding_source || "",
+    p_work_type: project.work_type || "",
+  });
+  if (classificationResult.error || !classificationResult.data?.success) {
+    return NextResponse.json({ error: classificationResult.data?.error || "El proyecto se guardó, pero no fue posible actualizar su clasificación administrativa." }, { status: 400 });
+  }
   await database.rpc("record_project_change", {
     p_token: token,
     p_project_id: projectId,
