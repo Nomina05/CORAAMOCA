@@ -152,5 +152,5 @@ end $$;
 do $$ declare r record; begin for r in select id from public.technical_projects loop perform public.recalculate_project_financials(r.id); end loop; end $$;
 
 grant execute on function public.get_budget_management(text,integer),public.add_budget_modification(text,uuid,text,numeric,text,text),
-  public.close_budget_year(text,integer),public.set_project_fixed_asset_payment(text,uuid,numeric) to anon,authenticated;
+  public.close_budget_year(text,integer,text),public.set_project_fixed_asset_payment(text,uuid,numeric) to anon,authenticated;
 grant execute on function public.set_project_financial_commitments(text,uuid,numeric,numeric) to anon,authenticated;
