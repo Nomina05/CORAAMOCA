@@ -166,6 +166,7 @@ export default function Home() {
 
   function addProject(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (!canView("crear_proyectos")) { setShowForm(false); return; }
     const fd = new FormData(e.currentTarget);
     const area = fd.get("area") as Project["area"];
     setProjects(prev => [{ id: Date.now(), code: `${area.slice(0, 2).toUpperCase()}-${String(prev.length + 1).padStart(3, "0")}`, name: String(fd.get("name")), area, owner: String(fd.get("owner")), progress: 0, budget: Number(fd.get("budget")), spent: 0, status: "En curso", due: String(fd.get("due")) }, ...prev]);
@@ -233,6 +234,12 @@ export default function Home() {
 
   async function saveTechnicalProject(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault(); setTechnicalMessage("");
+    const requiredPermission = editingTechnical ? "editar_proyectos_tecnicos" : "crear_proyectos_tecnicos";
+    if (!canView(requiredPermission)) {
+      setTechnicalMessage(editingTechnical ? "No posee permiso para editar proyectos." : "No posee permiso para crear proyectos.");
+      setShowTechnicalForm(false);
+      return;
+    }
     const fd = new FormData(e.currentTarget);
     const numeric = ["project_year","population","linear_meters","budgeted_amount","appropriation_amount","awarded_amount","advance_20_amount","fixed_asset_paid_amount","measurement_count","total_measured","total_paid","work_progress"];
     const data: Record<string, string | number | boolean | null> = {};
@@ -310,7 +317,7 @@ export default function Home() {
             <div className="technical-kpis"><article><span>PROYECTOS</span><strong>{technicalProjects.length}</strong></article><article><span>MONTO PRESUPUESTADO</span><strong>{money(technicalProjects.reduce((sum,p)=>sum+Number(p.budgeted_amount),0))}</strong></article><article><span>TOTAL CUBICADO</span><strong>{money(technicalProjects.reduce((sum,p)=>sum+Number(p.total_measured),0))}</strong></article><article><span>TOTAL PAGADO</span><strong>{money(technicalProjects.reduce((sum,p)=>sum+Number(p.total_paid),0))}</strong></article></div>
             {technicalMessage && <div className={technicalMessage.startsWith("Proyecto guardado") ? "users-success" : "auth-error"}>{technicalMessage}</div>}
             <div className="technical-card"><div className="users-card-head"><div><h2>Cartera de obras y proyectos técnicos</h2><p>Control presupuestario, contractual, territorial y de ejecución.</p></div>{canView("crear_proyectos_tecnicos")&&<button className="primary" onClick={()=>{setEditingTechnical(null);setShowTechnicalForm(true)}}>＋ Registrar proyecto</button>}</div>
-              {technicalLoading ? <div className="users-empty">Cargando proyectos…</div> : technicalProjects.length===0 ? <div className="technical-empty"><strong>No hay proyectos técnicos registrados</strong><span>Registra la primera obra para iniciar el seguimiento interdireccional.</span></div> : <div className="users-table-wrap"><table className="technical-table"><thead><tr><th>OBRA / SNIP</th><th>UBICACIÓN</th><th>CONTRATISTA</th><th>PRESUPUESTO</th><th>CUBICADO / PAGADO</th><th>AVANCE</th><th>ESTATUS</th><th></th></tr></thead><tbody>{technicalProjects.map(project=><tr key={project.id}><td><strong>{project.work_name}</strong><small>{project.snip_code || "Sin código SNIP"} · {project.project_year}</small></td><td><b>{project.municipality}</b><small>{[project.district,project.sector].filter(Boolean).join(" · ")}</small></td><td>{project.supplier_contractor}</td><td><b>{money(Number(project.budgeted_amount))}</b><small>Adjudicado: {money(Number(project.awarded_amount))}</small></td><td><b>{money(Number(project.total_measured))}</b><small>Pagado: {money(Number(project.total_paid))}</small></td><td><div className="tech-progress"><i><em style={{width:`${project.work_progress}%`}} /></i><b>{project.work_progress}%</b></div></td><td><span className="work-status">{project.work_status}</span><small>{project.measurement_status}</small></td><td><button className="row-action" onClick={()=>{setEditingTechnical(project);setShowTechnicalForm(true)}}>Editar</button></td></tr>)}</tbody></table></div>}
+              {technicalLoading ? <div className="users-empty">Cargando proyectos…</div> : technicalProjects.length===0 ? <div className="technical-empty"><strong>No hay proyectos técnicos registrados</strong><span>Registra la primera obra para iniciar el seguimiento interdireccional.</span></div> : <div className="users-table-wrap"><table className="technical-table"><thead><tr><th>OBRA / SNIP</th><th>UBICACIÓN</th><th>CONTRATISTA</th><th>PRESUPUESTO</th><th>CUBICADO / PAGADO</th><th>AVANCE</th><th>ESTATUS</th><th></th></tr></thead><tbody>{technicalProjects.map(project=><tr key={project.id}><td><strong>{project.work_name}</strong><small>{project.snip_code || "Sin código SNIP"} · {project.project_year}</small></td><td><b>{project.municipality}</b><small>{[project.district,project.sector].filter(Boolean).join(" · ")}</small></td><td>{project.supplier_contractor}</td><td><b>{money(Number(project.budgeted_amount))}</b><small>Adjudicado: {money(Number(project.awarded_amount))}</small></td><td><b>{money(Number(project.total_measured))}</b><small>Pagado: {money(Number(project.total_paid))}</small></td><td><div className="tech-progress"><i><em style={{width:`${project.work_progress}%`}} /></i><b>{project.work_progress}%</b></div></td><td><span className="work-status">{project.work_status}</span><small>{project.measurement_status}</small></td><td>{canView("editar_proyectos_tecnicos")&&<button className="row-action" onClick={()=>{setEditingTechnical(project);setShowTechnicalForm(true)}}>Editar</button>}</td></tr>)}</tbody></table></div>}
             </div>
           </section>}
 
