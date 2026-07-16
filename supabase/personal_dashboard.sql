@@ -48,11 +48,11 @@ begin
 
   select coalesce(jsonb_agg(to_jsonb(x) order by x.created_at),'[]'::jsonb) into v_tasks from (
     select m.id,m.code,m.status,m.amount,m.created_at,p.work_name,p.municipality,p.sector,
-      case m.status when 'Registrada' then 'Revisar cubicación' when 'Revisada' then 'Enviar a libramiento'
+      case m.status when 'Cubicada' then 'Revisar cubicación' when 'Revisada' then 'Enviar a libramiento'
         when 'Libramiento' then 'Registrar pago' end task_label
     from public.project_measurements m join public.technical_projects p on p.id=m.project_id
     where (v_user.role='Administrador'
-      or (m.status='Registrada' and coalesce((v_user.permissions->>'revisar_cubicaciones')::boolean,false))
+      or (m.status='Cubicada' and coalesce((v_user.permissions->>'revisar_cubicaciones')::boolean,false))
       or (m.status='Revisada' and coalesce((v_user.permissions->>'libramiento_cubicaciones')::boolean,false))
       or (m.status='Libramiento' and coalesce((v_user.permissions->>'pagar_cubicaciones')::boolean,false)))
       and (v_user.role='Administrador' or p.responsible_user_id=v_user.id or p.lead_direction=v_direction or v_direction=any(p.participating_directions))
