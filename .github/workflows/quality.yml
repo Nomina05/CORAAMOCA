@@ -14,7 +14,10 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      - name: Sincronizar dependencias
+        run: npm install --package-lock-only --ignore-scripts
+      - name: Instalación limpia
+        run: npm ci
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
