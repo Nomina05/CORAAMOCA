@@ -74,6 +74,21 @@ const areaData = [
 ];
 
 const money = (value: number) => new Intl.NumberFormat("es-DO", { style: "currency", currency: "DOP", maximumFractionDigits: 0 }).format(value);
+const safeArray = <T,>(value: unknown): T[] => Array.isArray(value) ? value as T[] : [];
+
+function normalizeDashboard(data: unknown): DashboardData | null {
+  if (!data || typeof data !== "object" || !(data as {success?:boolean}).success) return null;
+  const value = data as Partial<DashboardData>;
+  return {
+    direction: String(value.direction || "Sin dirección asignada"),
+    department: value.department ? String(value.department) : undefined,
+    modules: safeArray(value.modules),
+    tasks: safeArray(value.tasks),
+    projects: safeArray(value.projects),
+    alerts: safeArray(value.alerts),
+    activity: safeArray(value.activity),
+  };
+}
 
 function TechnicalProjectModal({ project,catalogs,onClose,onSubmit }: { project: TechnicalProject | null;catalogs:ProjectCatalogs;onClose: () => void; onSubmit: (e: React.FormEvent<HTMLFormElement>) => void }) {
   return <div className="modal-backdrop technical-backdrop" onMouseDown={onClose}><form key={project?.id || "new"} className="modal technical-modal" onSubmit={onSubmit} onMouseDown={e=>e.stopPropagation()}><div className="modal-head"><div><span className="eyebrow">DIRECCIÓN TÉCNICA</span><h2>{project ? "Editar proyecto" : "Registrar proyecto institucional"}</h2></div><button type="button" onClick={onClose}>×</button></div>
@@ -201,7 +216,8 @@ export default function Home() {
     setDashboardLoading(true);
     fetch("/api/dashboard",{cache:"no-store"})
       .then(response=>response.ok?response.json():null)
-      .then(data=>{if(active)setDashboard(data?.success?data:null);})
+      .then(data=>{if(active)setDashboard(normalizeDashboard(data));})
+      .catch(()=>{if(active)setDashboard(null);})
       .finally(()=>{if(active)setDashboardLoading(false);});
     return()=>{active=false;};
   },[section,currentUser?.id,currentUser?.permissions_version]);
@@ -228,15 +244,20 @@ export default function Home() {
 
   async function loadTechnicalProjects() {
     setTechnicalLoading(true);
-    const response = await fetch("/api/projects/technical", { cache: "no-store" });
-    const data = await response.json();
-    setTechnicalProjects(data.projects || []);
-    setTechnicalLoading(false);
+    try {
+      const response = await fetch("/api/projects/technical", { cache: "no-store" });
+      const data = await response.json();
+      setTechnicalProjects(safeArray<TechnicalProject>(data.projects));
+      if(!response.ok)setTechnicalMessage(data.error||"No fue posible cargar los proyectos técnicos.");
+    } catch {
+      setTechnicalProjects([]);
+      setTechnicalMessage("No fue posible conectar con el módulo de proyectos técnicos.");
+    } finally { setTechnicalLoading(false); }
   }
 
-  async function loadMeasurements(){setMeasurementsLoading(true);const response=await fetch("/api/cubicaciones",{cache:"no-store"});const data=await response.json();setMeasurements(data.measurements||[]);setMeasurementsLoading(false);}
+  async function loadMeasurements(){setMeasurementsLoading(true);try{const response=await fetch("/api/cubicaciones",{cache:"no-store"});const data=await response.json();setMeasurements(safeArray<Measurement>(data.measurements).map(item=>({...item,audit:safeArray<AuditEntry>(item.audit),documents:safeArray<MeasurementDocument>(item.documents)})));if(!response.ok)setMeasurementMessage(data.error||"No fue posible cargar las cubicaciones.");}catch{setMeasurements([]);setMeasurementMessage("No fue posible conectar con el módulo de cubicaciones.");}finally{setMeasurementsLoading(false);}}
   async function loadBudget(){setBudgetLoading(true);const response=await fetch(`/api/budget?year=${budgetYear}`,{cache:"no-store"});const data=await response.json();if(response.ok){setBudgetProjects(data.projects||[]);setBudgetClosed(Boolean(data.year_closed))}else setBudgetMessage(data.error||"No fue posible cargar el presupuesto.");setBudgetLoading(false);}
-  async function loadReports(){setReportsLoading(true);const response=await fetch(`/api/reports${reportYear==="Todos"?"":`?year=${reportYear}`}`,{cache:"no-store"});const data=await response.json();if(response.ok)setReports(data);setReportsLoading(false);}
+  async function loadReports(){setReportsLoading(true);try{const response=await fetch(`/api/reports${reportYear==="Todos"?"":`?year=${reportYear}`}`,{cache:"no-store"});const data=await response.json();if(response.ok)setReports({...data,investment:safeArray(data.investment),projectsByYearStatus:safeArray(data.projectsByYearStatus),budgetExecution:safeArray(data.budgetExecution),pendingMeasurements:safeArray(data.pendingMeasurements),supplierPayments:safeArray(data.supplierPayments),delayedProjects:safeArray(data.delayedProjects),physicalFinancial:safeArray(data.physicalFinancial)});else setReports(null);}catch{setReports(null);}finally{setReportsLoading(false);}}
   async function loadCompleteAudit(){setAuditLoading(true);const response=await fetch("/api/security/audit?limit=500",{cache:"no-store"});const data=await response.json();if(response.ok)setCompleteAudit(data.items||[]);setAuditLoading(false);}
   async function loadCatalogs(){const response=await fetch("/api/catalogs",{cache:"no-store"});const data=await response.json();if(response.ok)setCatalogs(data.catalogs||{accounts:[],processes:[],suppliers:[],municipalities:[],districts:[],sectors:[],fundingSources:[],workTypes:[],workStatuses:[]});}
   async function loadNotifications(active=true){setNotificationsLoading(true);const response=await fetch("/api/notifications",{cache:"no-store"});const data=response.ok?await response.json():null;if(active){const items:AppNotification[]=data?.items||[];setNotifications(items);setNotice(items.filter(item=>!item.read_at).length);setNotificationsLoading(false);}}
@@ -323,7 +344,7 @@ export default function Home() {
   async function addMeasurementDocument(measurement:Measurement){const documentName=window.prompt("Nombre del documento:")?.trim();if(!documentName)return;const documentUrl=window.prompt("Enlace HTTPS del documento:")?.trim();if(!documentUrl)return;const response=await fetch("/api/cubicaciones",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:measurement.id,documentName,documentUrl})});const result=await response.json();if(!response.ok)setMeasurementMessage(result.error||"No fue posible adjuntar el documento.");else{setMeasurementMessage("Documento agregado al expediente.");await loadMeasurements();}}
   async function addBudgetModification(project:BudgetProject){const type=window.prompt("Tipo: PRESUPUESTO o APROPIACION","APROPIACION")?.trim().toUpperCase();if(!type)return;const amount=Number(window.prompt("Monto de la modificación (use negativo para reducción):","0"));const description=window.prompt("Justificación de la modificación:")?.trim()||"";const reference=window.prompt("Referencia o documento de soporte:")?.trim()||"";const response=await fetch("/api/budget",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({projectId:project.id,type,amount,description,reference})});const result=await response.json();if(!response.ok)setBudgetMessage(result.error||"No fue posible registrar la modificación.");else{setBudgetMessage("Modificación presupuestaria registrada.");await loadBudget();}}
   async function closeBudgetYear(){if(!window.confirm(`¿Confirma el cierre presupuestario del año ${budgetYear}? Esta acción impedirá nuevas modificaciones.`))return;const notes=window.prompt("Observaciones del cierre:")||"";const response=await fetch("/api/budget",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"close",year:budgetYear,notes})});const result=await response.json();if(!response.ok)setBudgetMessage(result.error||"No fue posible cerrar el año.");else{setBudgetMessage(`Año ${budgetYear} cerrado correctamente.`);await loadBudget();}}
-  async function openDossier(project:TechnicalProject){const response=await fetch(`/api/projects/dossier?projectId=${project.id}`,{cache:"no-store"});const result=await response.json();if(!response.ok){setTechnicalMessage(result.error||"No fue posible cargar el expediente.");return;}setDossier(result);}
+  async function openDossier(project:TechnicalProject){const response=await fetch(`/api/projects/dossier?projectId=${project.id}`,{cache:"no-store"});const result=await response.json();if(!response.ok){setTechnicalMessage(result.error||"No fue posible cargar el expediente.");return;}setDossier({...result,documents:safeArray(result.documents),measurements:safeArray(result.measurements),history:safeArray(result.history)});}
   async function addDossierDocument(){if(!dossier)return;const category=window.prompt(`Categoría:\n${Object.keys(dossierCategories).join(", ")}`,"CONTRATO")?.trim().toUpperCase();if(!category)return;const name=window.prompt("Nombre del documento:")?.trim();const url=window.prompt("Enlace HTTPS del documento:")?.trim();if(!name||!url)return;const description=window.prompt("Descripción:")||"";const documentDate=window.prompt("Fecha del documento (AAAA-MM-DD):",new Date().toISOString().slice(0,10))||null;const response=await fetch("/api/projects/dossier",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({projectId:dossier.project.id,category,name,url,description,documentDate})});const result=await response.json();if(!response.ok){setTechnicalMessage(result.error||"No fue posible agregar el documento.");return;}await openDossier(dossier.project);}
   function reportRows(){if(!reports)return[];return reportType==="investment"?reports.investment:reportType==="projects"?reports.projectsByYearStatus:reportType==="budget"?reports.budgetExecution:reportType==="pending"?reports.pendingMeasurements:reportType==="suppliers"?reports.supplierPayments:reportType==="delayed"?reports.delayedProjects:reports.physicalFinancial;}
   function reportTitle(){return({investment:"Inversión por municipio y sector",projects:"Proyectos por año y estado",budget:"Ejecución presupuestaria",pending:"Cubicaciones pendientes",suppliers:"Pagos por proveedor",delayed:"Proyectos atrasados",progress:"Avance físico frente al financiero"})[reportType];}
@@ -415,7 +436,7 @@ export default function Home() {
               <div className="dashboard-welcome"><div><span>ESPACIO DE TRABAJO PERSONAL</span><h2>Buenos días, {userName.split(" ")[0]}</h2><p>{dashboard.direction}{dashboard.department?` · ${dashboard.department}`:""} · {currentUser.role}</p></div><div><strong>{dashboard.tasks.length}</strong><span>tareas pendientes</span></div></div>
               <div className="dashboard-modules"><div><span>SU DIRECCIÓN Y MÓDULOS AUTORIZADOS</span><strong>{dashboard.direction}</strong></div>{dashboard.modules.map(module=><button key={module.key} onClick={()=>{const sections:Record<string,string>={ver_resumen:"Resumen",ver_proyectos:"Proyectos",ver_proyectos_tecnicos:"Proyectos Técnicos",ver_cubicaciones:"Cubicaciones",ver_gestion_presupuestaria:"Gestión Presupuestaria",ver_catalogos:"Catálogos",ver_reportes:"Reportes",ver_recursos_humanos:"Recursos Humanos",ver_estructura_organizacional:"Estructura Organizacional"};setSection(sections[module.key]||"Resumen")}}>{module.label}<b>→</b></button>)}</div>
               <div className="dashboard-grid">
-                <article className="dashboard-card dashboard-tasks"><div className="dashboard-card-head"><div><span>PENDIENTES</span><h3>Trabajo que requiere su intervención</h3></div><b>{dashboard.tasks.length}</b></div>{dashboard.tasks.length===0?<div className="dashboard-empty">No tiene cubicaciones pendientes.</div>:dashboard.tasks.map(task=><button key={task.id} onClick={()=>setSection("Cubicaciones")}><i className={`task-${task.status.toLowerCase()}`}/><div><strong>{task.task_label}</strong><span>{task.code} · {task.work_name}</span><small>{[task.municipality,task.sector].filter(Boolean).join(" · ")} · {money(Number(task.amount))}</small></div><b>→</b></button>)}</article>
+                <article className="dashboard-card dashboard-tasks"><div className="dashboard-card-head"><div><span>PENDIENTES</span><h3>Trabajo que requiere su intervención</h3></div><b>{dashboard.tasks.length}</b></div>{dashboard.tasks.length===0?<div className="dashboard-empty">No tiene cubicaciones pendientes.</div>:dashboard.tasks.map(task=><button key={task.id} onClick={()=>setSection("Cubicaciones")}><i className={`task-${String(task.status||"pendiente").toLowerCase()}`}/><div><strong>{task.task_label}</strong><span>{task.code} · {task.work_name}</span><small>{[task.municipality,task.sector].filter(Boolean).join(" · ")} · {money(Number(task.amount))}</small></div><b>→</b></button>)}</article>
                 <article className="dashboard-card dashboard-alerts"><div className="dashboard-card-head"><div><span>CONTROL PRESUPUESTARIO</span><h3>Alertas que requieren atención</h3></div><b>{dashboard.alerts.length}</b></div>{dashboard.alerts.length===0?<div className="dashboard-empty">No existen alertas presupuestarias.</div>:dashboard.alerts.map(alert=><div className={`budget-alert alert-${alert.severity}`} key={`${alert.id}-${alert.message}`}><i>!</i><div><strong>{alert.work_name}</strong><span>{alert.message}</span></div></div>)}</article>
               </div>
               <div className="dashboard-grid dashboard-bottom">
@@ -501,7 +522,7 @@ export default function Home() {
 
           <div className="section-title project-title"><div><h2>Cartera de proyectos</h2><p>Estado de las iniciativas institucionales</p></div><select value={filter} onChange={e => setFilter(e.target.value as Area)}>{["Todos", ...areaData.map(a => a.name)].map(x => <option key={x}>{x}</option>)}</select></div>
           {projectMessage&&<div className={projectMessage.includes("Supabase")?"users-success":"auth-error"}>{projectMessage}</div>}
-          <section className="table-card"><div className="table-wrap">{projectsLoading?<div className="users-empty">Cargando proyectos desde Supabase…</div>:<table><thead><tr><th>PROYECTO</th><th>ÁREA</th><th>RESPONSABLE</th><th>AVANCE</th><th>PRESUPUESTO</th><th>ESTADO</th><th>ENTREGA</th></tr></thead><tbody>{filtered.map(p => <tr key={p.id}><td><b>{p.code}</b><strong>{p.name}</strong></td><td><span className="area-pill">{p.area}</span></td><td>{p.owner}</td><td><div className="progress-cell"><i><em style={{ width: `${p.progress}%` }} /></i></div><b>{p.progress}%</b></td><td><b>{money(Number(p.budget))}</b><small>{Number(p.budget)?Math.round(Number(p.spent)/Number(p.budget)*100):0}% usado</small></td><td><span className={`status ${p.status.replace(" ", "-").toLowerCase()}`}>● {p.status}</span></td><td>{p.due?new Date(p.due).toLocaleDateString("es-DO"):"—"}</td></tr>)}</tbody></table>}{!projectsLoading&&filtered.length===0&&<div className="empty">No se encontraron proyectos registrados en Supabase.</div>}</div></section>
+          <section className="table-card"><div className="table-wrap">{projectsLoading?<div className="users-empty">Cargando proyectos desde Supabase…</div>:<table><thead><tr><th>PROYECTO</th><th>ÁREA</th><th>RESPONSABLE</th><th>AVANCE</th><th>PRESUPUESTO</th><th>ESTADO</th><th>ENTREGA</th></tr></thead><tbody>{filtered.map(p => <tr key={p.id}><td><b>{p.code}</b><strong>{p.name}</strong></td><td><span className="area-pill">{p.area}</span></td><td>{p.owner}</td><td><div className="progress-cell"><i><em style={{ width: `${p.progress}%` }} /></i></div><b>{p.progress}%</b></td><td><b>{money(Number(p.budget))}</b><small>{Number(p.budget)?Math.round(Number(p.spent)/Number(p.budget)*100):0}% usado</small></td><td><span className={`status ${String(p.status||"sin-estado").replaceAll(" ", "-").toLowerCase()}`}>● {p.status||"Sin estado"}</span></td><td>{p.due?new Date(p.due).toLocaleDateString("es-DO"):"—"}</td></tr>)}</tbody></table>}{!projectsLoading&&filtered.length===0&&<div className="empty">No se encontraron proyectos registrados en Supabase.</div>}</div></section>
           </div>
         </div>
       </main>
