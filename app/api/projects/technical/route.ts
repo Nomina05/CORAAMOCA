@@ -52,5 +52,10 @@ export async function POST(request: Request) {
   if (commitmentResult.error || !commitmentResult.data?.success) {
     return NextResponse.json({ error: commitmentResult.data?.error || "El proyecto se guardó, pero no fue posible actualizar sus compromisos financieros." }, { status: 400 });
   }
+  await database.rpc("record_project_change", {
+    p_token: token,
+    p_project_id: projectId,
+    p_action: id ? "UPDATE" : "CREATE",
+  });
   return NextResponse.json({ success: true, id: projectId });
 }
