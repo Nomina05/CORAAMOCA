@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 52">
+  <defs><linearGradient id="g" x1="0" x2="1"><stop stop-color="#0ca575"/><stop offset="1" stop-color="#1268e8"/></linearGradient></defs>
+  <rect width="48" height="48" x="2" y="2" rx="12" fill="url(#g)"/>
+  <path d="M26 11c-8 8-13 14-13 22a13 13 0 0 0 26 0c0-8-5-14-13-22Z" fill="#fff" opacity=".96"/>
+  <path d="M18 33c4 3 12 3 16 0" fill="none" stroke="#0b6f9f" stroke-width="2.5" stroke-linecap="round"/>
+  <text x="58" y="24" font-family="Arial,sans-serif" font-size="16" font-weight="800" fill="#0c2743">CORAAMOCA</text>
+  <text x="58" y="39" font-family="Arial,sans-serif" font-size="8.5" font-weight="600" letter-spacing=".8" fill="#557084">GESTIÓN INSTITUCIONAL</text>
+</svg>

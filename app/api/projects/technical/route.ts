@@ -61,6 +61,14 @@ export async function POST(request: Request) {
   if (classificationResult.error || !classificationResult.data?.success) {
     return NextResponse.json({ error: classificationResult.data?.error || "El proyecto se guardó, pero no fue posible actualizar su clasificación administrativa." }, { status: 400 });
   }
+  const deadlineResult = await database.rpc("set_project_planned_end_date", {
+    p_token: token,
+    p_project_id: projectId,
+    p_date: project.planned_end_date || null,
+  });
+  if (deadlineResult.error || !deadlineResult.data?.success) {
+    return NextResponse.json({ error: deadlineResult.data?.error || "El proyecto se guardó, pero no fue posible actualizar su fecha prevista." }, { status: 400 });
+  }
   await database.rpc("record_project_change", {
     p_token: token,
     p_project_id: projectId,
