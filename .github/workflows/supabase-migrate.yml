@@ -40,6 +40,7 @@ jobs:
             "supabase/institutional_notifications.sql"
             "supabase/technical_operations.sql"
             "supabase/integrated_module_persistence.sql"
+            "supabase/system_module_integration.sql"
           )
           for migration in "${migrations[@]}"; do
             echo "Aplicando $migration"
@@ -63,5 +64,7 @@ jobs:
                 'institutional_projects',
                 'hr_employees',
                 'hr_employee_files'
+                ,'administrative_catalogs'
+                ,'technical_projects'
               )
             order by table_name;"

@@ -42,6 +42,7 @@ Ejecute en Supabase SQL Editor, respetando el orden:
 2. `supabase/institutional_notifications.sql`
 3. `supabase/technical_operations.sql`
 4. `supabase/integrated_module_persistence.sql`
+5. `supabase/system_module_integration.sql`
 
 ## Estado técnico
 
