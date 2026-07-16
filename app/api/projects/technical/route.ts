@@ -70,6 +70,15 @@ export async function POST(request: Request) {
   if (deadlineResult.error || !deadlineResult.data?.success) {
     return NextResponse.json({ error: deadlineResult.data?.error || "El proyecto se guardó, pero no fue posible actualizar su fecha prevista." }, { status: 400 });
   }
+  const contractResult = await database.rpc("set_project_contract_end_date", {
+    p_token: token,
+    p_project_id: projectId,
+    p_date: project.contract_end_date || null,
+  });
+  const contractMigrationPending=contractResult.error?.message?.includes("function public.set_project_contract_end_date");
+  if (!contractMigrationPending&&(contractResult.error || !contractResult.data?.success)) {
+    return NextResponse.json({ error: contractResult.data?.error || "El proyecto se guardó, pero no fue posible actualizar el vencimiento contractual." }, { status: 400 });
+  }
   await database.rpc("record_project_change", {
     p_token: token,
     p_project_id: projectId,
