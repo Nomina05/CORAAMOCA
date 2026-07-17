@@ -6,7 +6,27 @@ export async function GET(request:Request){
   const token=(await cookies()).get(sessionCookie)?.value;
   if(!token)return NextResponse.json({error:"No autorizado."},{status:401});
   const value=new URL(request.url).searchParams.get("year");
-  const {data,error}=await authDatabase().rpc("get_institutional_reports",{p_token:token,p_year:value?Number(value):null});
+  const database=authDatabase();
+  const {data,error}=await database.rpc("get_institutional_reports",{p_token:token,p_year:value?Number(value):null});
   if(error||!data?.success)return NextResponse.json({error:data?.error||"No fue posible generar los reportes."},{status:403});
-  return NextResponse.json(data);
+  let publicInvestment=Array.isArray(data.publicInvestment)?data.publicInvestment:[];
+  if(publicInvestment.length===0){
+    const projectsResult=await database.rpc("list_technical_projects",{p_token:token});
+    const projects=Array.isArray(projectsResult.data?.projects)?projectsResult.data.projects:[];
+    publicInvestment=projects
+      .filter((project:Record<string,unknown>)=>!value||Number(project.project_year)===Number(value))
+      .map((project:Record<string,unknown>)=>({
+        id:project.id,snip_code:project.snip_code||"",work_type:project.work_type||project.work_name||"Obra",
+        work_name:project.work_name||"Obra sin nombre",municipality:project.municipality||"",district:project.district||"",
+        location_name:project.district||project.municipality||"Sin ubicación",
+        location_type:project.district?"Distrito":"Municipio",sector:project.sector||"Sin sector",
+        population:Number(project.population||0),linear_meters:Number(project.linear_meters||0),
+        awarded_amount:Number(project.awarded_amount||0),advance_20_amount:Number(project.advance_20_amount||0),
+        measurement_status:project.measurement_status||"Pendiente",total_measured:Number(project.total_measured||0),
+        total_paid:Number(project.total_paid||0),work_status:project.work_status||"Sin estatus",
+        work_percentage:Number(project.awarded_amount||0)>0?Math.round(Number(project.total_paid||0)*10000/Number(project.awarded_amount))/100:0,
+        project_year:Number(project.project_year||0),
+      }));
+  }
+  return NextResponse.json({...data,publicInvestment});
 }
