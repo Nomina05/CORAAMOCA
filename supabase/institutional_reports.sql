@@ -52,7 +52,8 @@ begin
 
   select coalesce(jsonb_agg(to_jsonb(x) order by x.location_name,x.sector,x.work_name),'[]'::jsonb)
   into v_public_investment from (
-    select p.id,p.snip_code,coalesce(nullif(p.fixed_assets,''),nullif(p.work_type,''),p.work_name) work_type,p.work_name,
+    select p.id,case when trim(coalesce(p.fixed_assets,''))<>'' and lower(trim(p.fixed_assets)) not in ('no','n/a','ninguno','0') then 'ACTIVO_FIJO' else 'OBRA' end record_type,
+      p.snip_code,case when trim(coalesce(p.fixed_assets,''))<>'' and lower(trim(p.fixed_assets)) not in ('no','n/a','ninguno','0') then p.fixed_assets else coalesce(nullif(p.work_type,''),p.work_name) end work_type,p.work_name,
       p.municipality,p.district,coalesce(nullif(p.district,''),p.municipality,'Sin ubicación') location_name,
       case when nullif(p.district,'') is null then 'Municipio' else 'Distrito' end location_type,
       coalesce(nullif(p.sector,''),'Sin sector') sector,coalesce(p.population,0) population,

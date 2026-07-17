@@ -10,13 +10,13 @@ export async function GET(request:Request){
   const {data,error}=await database.rpc("get_institutional_reports",{p_token:token,p_year:value?Number(value):null});
   if(error||!data?.success)return NextResponse.json({error:data?.error||"No fue posible generar los reportes."},{status:403});
   let publicInvestment=Array.isArray(data.publicInvestment)?data.publicInvestment:[];
-  if(publicInvestment.length===0){
-    const projectsResult=await database.rpc("list_technical_projects",{p_token:token});
-    const projects=Array.isArray(projectsResult.data?.projects)?projectsResult.data.projects:[];
+  const projectsResult=await database.rpc("list_technical_projects",{p_token:token});
+  const projects=Array.isArray(projectsResult.data?.projects)?projectsResult.data.projects:[];
+  if(projects.length>0){
     publicInvestment=projects
       .filter((project:Record<string,unknown>)=>!value||Number(project.project_year)===Number(value))
-      .map((project:Record<string,unknown>)=>({
-        id:project.id,snip_code:project.snip_code||"",work_type:project.fixed_assets||project.work_type||project.work_name||"Obra o activo",
+      .map((project:Record<string,unknown>)=>{const fixedAsset=String(project.fixed_assets||"").trim();const isAsset=Boolean(fixedAsset&&!/^(no|n\/a|ninguno|0)$/i.test(fixedAsset));return {
+        id:project.id,record_type:isAsset?"ACTIVO_FIJO":"OBRA",snip_code:project.snip_code||"",work_type:isAsset?fixedAsset:project.work_type||project.work_name||"Obra",
         work_name:project.work_name||"Obra sin nombre",municipality:project.municipality||"",district:project.district||"",
         location_name:project.district||project.municipality||"Sin ubicación",
         location_type:project.district?"Distrito":"Municipio",sector:project.sector||"Sin sector",
@@ -26,7 +26,7 @@ export async function GET(request:Request){
         total_paid:Number(project.total_paid||0),work_status:project.work_status||"Sin estatus",
         work_progress:Number(project.work_progress||0),
         project_year:Number(project.project_year||0),
-      }));
+      }});
   }
   return NextResponse.json({...data,publicInvestment});
 }
