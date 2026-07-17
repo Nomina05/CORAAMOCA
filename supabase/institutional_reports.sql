@@ -52,15 +52,14 @@ begin
 
   select coalesce(jsonb_agg(to_jsonb(x) order by x.location_name,x.sector,x.work_name),'[]'::jsonb)
   into v_public_investment from (
-    select p.id,p.snip_code,coalesce(nullif(p.work_type,''),p.work_name) work_type,p.work_name,
+    select p.id,p.snip_code,coalesce(nullif(p.fixed_assets,''),nullif(p.work_type,''),p.work_name) work_type,p.work_name,
       p.municipality,p.district,coalesce(nullif(p.district,''),p.municipality,'Sin ubicación') location_name,
       case when nullif(p.district,'') is null then 'Municipio' else 'Distrito' end location_type,
       coalesce(nullif(p.sector,''),'Sin sector') sector,coalesce(p.population,0) population,
-      coalesce(p.linear_meters,0) linear_meters,coalesce(p.awarded_amount,0) awarded_amount,
+      coalesce(p.linear_meters,0) linear_meters,coalesce(p.budgeted_amount,0) budgeted_amount,coalesce(p.awarded_amount,0) awarded_amount,
       coalesce(p.advance_20_amount,0) advance_20_amount,coalesce(p.measurement_status,'Pendiente') measurement_status,
       coalesce(p.total_measured,0) total_measured,coalesce(p.total_paid,0) total_paid,
-      coalesce(p.work_status,'Sin estatus') work_status,
-      case when coalesce(p.awarded_amount,0)>0 then round(p.total_paid*100/p.awarded_amount,2) else 0 end work_percentage,
+      coalesce(p.work_status,'Sin estatus') work_status,coalesce(p.work_progress,0) work_progress,
       p.project_year
     from public.technical_projects p where p_year is null or p.project_year=p_year
   )x;

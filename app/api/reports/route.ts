@@ -16,15 +16,15 @@ export async function GET(request:Request){
     publicInvestment=projects
       .filter((project:Record<string,unknown>)=>!value||Number(project.project_year)===Number(value))
       .map((project:Record<string,unknown>)=>({
-        id:project.id,snip_code:project.snip_code||"",work_type:project.work_type||project.work_name||"Obra",
+        id:project.id,snip_code:project.snip_code||"",work_type:project.fixed_assets||project.work_type||project.work_name||"Obra o activo",
         work_name:project.work_name||"Obra sin nombre",municipality:project.municipality||"",district:project.district||"",
         location_name:project.district||project.municipality||"Sin ubicación",
         location_type:project.district?"Distrito":"Municipio",sector:project.sector||"Sin sector",
         population:Number(project.population||0),linear_meters:Number(project.linear_meters||0),
-        awarded_amount:Number(project.awarded_amount||0),advance_20_amount:Number(project.advance_20_amount||0),
+        budgeted_amount:Number(project.budgeted_amount||0),awarded_amount:Number(project.awarded_amount||0),advance_20_amount:Number(project.advance_20_amount||0),
         measurement_status:project.measurement_status||"Pendiente",total_measured:Number(project.total_measured||0),
         total_paid:Number(project.total_paid||0),work_status:project.work_status||"Sin estatus",
-        work_percentage:Number(project.awarded_amount||0)>0?Math.round(Number(project.total_paid||0)*10000/Number(project.awarded_amount))/100:0,
+        work_progress:Number(project.work_progress||0),
         project_year:Number(project.project_year||0),
       }));
   }
