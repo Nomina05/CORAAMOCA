@@ -57,7 +57,7 @@ begin
       p.municipality,p.district,coalesce(nullif(p.district,''),p.municipality,'Sin ubicación') location_name,
       case when nullif(p.district,'') is null then 'Municipio' else 'Distrito' end location_type,
       coalesce(nullif(p.sector,''),'Sin sector') sector,coalesce(p.population,0) population,
-      coalesce(p.linear_meters,0) linear_meters,coalesce(p.budgeted_amount,0) budgeted_amount,coalesce(p.awarded_amount,0) awarded_amount,
+      coalesce(p.linear_meters,0) linear_meters,coalesce(p.budgeted_amount,0) budgeted_amount,coalesce(p.appropriation_amount,0) appropriation_amount,coalesce(p.committed_amount,0) committed_amount,coalesce(p.awarded_amount,0) awarded_amount,
       coalesce(p.advance_20_amount,0) advance_20_amount,coalesce(p.measurement_status,'Pendiente') measurement_status,
       coalesce(p.total_measured,0) total_measured,coalesce(p.total_paid,0) total_paid,
       coalesce(p.work_status,'Sin estatus') work_status,coalesce(p.work_progress,0) work_progress,

@@ -21,7 +21,7 @@ export async function GET(request:Request){
         location_name:project.district||project.municipality||"Sin ubicación",
         location_type:project.district?"Distrito":"Municipio",sector:project.sector||"Sin sector",
         population:Number(project.population||0),linear_meters:Number(project.linear_meters||0),
-        budgeted_amount:Number(project.budgeted_amount||0),awarded_amount:Number(project.awarded_amount||0),advance_20_amount:Number(project.advance_20_amount||0),
+        budgeted_amount:Number(project.budgeted_amount||0),appropriation_amount:Number(project.appropriation_amount||0),committed_amount:Number(project.committed_amount||0),awarded_amount:Number(project.awarded_amount||0),advance_20_amount:Number(project.advance_20_amount||0),
         measurement_status:project.measurement_status||"Pendiente",total_measured:Number(project.total_measured||0),
         total_paid:Number(project.total_paid||0),work_status:project.work_status||"Sin estatus",
         work_progress:Number(project.work_progress||0),
