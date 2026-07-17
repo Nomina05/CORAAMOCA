@@ -22,17 +22,18 @@ jobs:
       - name: Verificar conexión protegida
         shell: bash
         env:
-          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
-          if [ -z "$SUPABASE_DB_URL" ]; then
-            echo "::error::Falta el secreto SUPABASE_DB_URL en GitHub."
+          if [ -z "$PGPASSWORD" ]; then
+            echo "::error::Falta el secreto SUPABASE_DB_PASSWORD en GitHub."
             exit 1
           fi
 
       - name: Aplicar migraciones en orden
         shell: bash
         env:
-          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          PGSSLMODE: require
         run: |
           set -euo pipefail
           migrations=(
@@ -46,15 +47,16 @@ jobs:
           )
           for migration in "${migrations[@]}"; do
             echo "Aplicando $migration"
-            psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f "$migration"
+            psql -h aws-1-us-west-2.pooler.supabase.com -p 5432 -U postgres.tytbnwhrxznxmfjcrfdx -d postgres -v ON_ERROR_STOP=1 -f "$migration"
           done
 
       - name: Confirmar tablas principales
         shell: bash
         env:
-          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          PGSSLMODE: require
         run: |
-          psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -c "
+          psql -h aws-1-us-west-2.pooler.supabase.com -p 5432 -U postgres.tytbnwhrxznxmfjcrfdx -d postgres -v ON_ERROR_STOP=1 -c "
             select table_name
             from information_schema.tables
             where table_schema='public'
