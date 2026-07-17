@@ -6,7 +6,7 @@ alter table public.technical_projects add column if not exists planned_end_date 
 create or replace function public.get_institutional_reports(p_token text,p_year integer default null)
 returns jsonb language plpgsql security definer set search_path=public,extensions as $$
 declare v_user public.app_users%rowtype; v_investment jsonb; v_projects jsonb; v_budget jsonb;
-  v_pending jsonb; v_suppliers jsonb; v_delayed jsonb; v_progress jsonb;
+  v_pending jsonb; v_suppliers jsonb; v_delayed jsonb; v_progress jsonb; v_public_investment jsonb;
 begin
   select u.* into v_user from public.app_users u join public.app_user_sessions s on s.user_id=u.id
   where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.expires_at>now() and u.active=true and u.suspended_at is null;
@@ -50,9 +50,24 @@ begin
       case when budgeted_amount>0 then round(total_paid*100/budgeted_amount,2) else 0 end financial_progress
     from public.technical_projects where p_year is null or project_year=p_year)x;
 
+  select coalesce(jsonb_agg(to_jsonb(x) order by x.location_name,x.sector,x.work_name),'[]'::jsonb)
+  into v_public_investment from (
+    select p.id,p.snip_code,coalesce(nullif(p.work_type,''),p.work_name) work_type,p.work_name,
+      p.municipality,p.district,coalesce(nullif(p.district,''),p.municipality,'Sin ubicación') location_name,
+      case when nullif(p.district,'') is null then 'Municipio' else 'Distrito' end location_type,
+      coalesce(nullif(p.sector,''),'Sin sector') sector,coalesce(p.population,0) population,
+      coalesce(p.linear_meters,0) linear_meters,coalesce(p.awarded_amount,0) awarded_amount,
+      coalesce(p.advance_20_amount,0) advance_20_amount,coalesce(p.measurement_status,'Pendiente') measurement_status,
+      coalesce(p.total_measured,0) total_measured,coalesce(p.total_paid,0) total_paid,
+      coalesce(p.work_status,'Sin estatus') work_status,
+      case when coalesce(p.awarded_amount,0)>0 then round(p.total_paid*100/p.awarded_amount,2) else 0 end work_percentage,
+      p.project_year
+    from public.technical_projects p where p_year is null or p.project_year=p_year
+  )x;
+
   return jsonb_build_object('success',true,'year',p_year,'investment',v_investment,'projectsByYearStatus',v_projects,
     'budgetExecution',v_budget,'pendingMeasurements',v_pending,'supplierPayments',v_suppliers,
-    'delayedProjects',v_delayed,'physicalFinancial',v_progress,'generated_at',now());
+    'delayedProjects',v_delayed,'physicalFinancial',v_progress,'publicInvestment',v_public_investment,'generated_at',now());
 end $$;
 
 grant execute on function public.get_institutional_reports(text,integer) to anon,authenticated;

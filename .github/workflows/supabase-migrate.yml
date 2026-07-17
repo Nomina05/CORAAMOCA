@@ -42,6 +42,7 @@ jobs:
             "supabase/integrated_module_persistence.sql"
             "supabase/system_module_integration.sql"
             "supabase/project_catalog_relations.sql"
+            "supabase/institutional_reports.sql"
           )
           for migration in "${migrations[@]}"; do
             echo "Aplicando $migration"
