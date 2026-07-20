@@ -42,6 +42,7 @@ jobs:
             "supabase/technical_operations.sql"
             "supabase/integrated_module_persistence.sql"
             "supabase/hr_payroll_budget.sql"
+            "supabase/hr_payroll_execution.sql"
             "supabase/system_module_integration.sql"
             "supabase/project_catalog_relations.sql"
             "supabase/institutional_reports.sql"
@@ -71,6 +72,8 @@ jobs:
                 'hr_employee_files'
                 ,'hr_payroll_budget_lines'
                 ,'hr_payroll_budget_caps'
+                ,'hr_payroll_runs'
+                ,'hr_payroll_run_lines'
                 ,'administrative_catalogs'
                 ,'technical_projects'
                 ,'budget_account_catalog'
