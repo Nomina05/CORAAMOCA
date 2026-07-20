@@ -11,7 +11,7 @@ export async function GET(request:Request){
   if(!token)return NextResponse.json({error:"No autorizado."},{status:401});
   const url=new URL(request.url),year=Number(url.searchParams.get("year")||2026),month=url.searchParams.get("month");
   const {data,error}=await authDatabase().rpc("list_hr_payroll_runs",{p_token:token,p_year:year,p_month:month?Number(month):null});
-  if(error||!data?.success)return NextResponse.json({error:data?.error||"No fue posible consultar la ejecución de nómina."},{status:403});
+  if(error||!data?.success)return NextResponse.json({error:data?.error||error?.message||"No fue posible consultar la ejecución de nómina."},{status:403});
   return NextResponse.json({runs:data.runs||[],lines:data.lines||[]});
 }
 
@@ -32,6 +32,6 @@ export async function POST(request:Request){
   if(rows.length!==lines.length-1)return NextResponse.json({error:`${lines.length-1-rows.length} registros están incompletos o poseen salario inválido.`},{status:400});
   if(new Set(rows.map(row=>row.document_number)).size!==rows.length)return NextResponse.json({error:"La nómina contiene cédulas duplicadas."},{status:400});
   const {data,error}=await authDatabase().rpc("import_hr_payroll_run",{p_token:token,p_year:year,p_month:month,p_source_name:file.name,p_rows:rows});
-  if(error||!data?.success)return NextResponse.json({error:data?.error||"No fue posible importar la nómina."},{status:400});
+  if(error||!data?.success)return NextResponse.json({error:data?.error||error?.message||"No fue posible importar la nómina."},{status:400});
   return NextResponse.json(data);
 }
