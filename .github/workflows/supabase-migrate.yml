@@ -74,6 +74,7 @@ jobs:
                 ,'hr_payroll_budget_caps'
                 ,'hr_payroll_runs'
                 ,'hr_payroll_run_lines'
+                ,'hr_employee_history'
                 ,'administrative_catalogs'
                 ,'technical_projects'
                 ,'budget_account_catalog'
