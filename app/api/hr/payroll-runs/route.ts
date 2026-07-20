@@ -4,7 +4,7 @@ import {authDatabase,sessionCookie} from "../../auth/_supabase";
 
 const clean=(value:string|undefined)=>String(value||"").trim();
 const numberValue=(value:string|undefined)=>Number(clean(value).replaceAll(",","").replace(/[^0-9.-]/g,""))||0;
-const isoDate=(value:string|undefined)=>{const raw=clean(value);if(!raw)return null;const parts=raw.split("/").map(Number);if(parts.length!==3||parts.some(Number.isNaN))return null;return `${parts[2].toString().padStart(4,"0")}-${parts[0].toString().padStart(2,"0")}-${parts[1].toString().padStart(2,"0")}`;};
+const isoDate=(value:string|undefined)=>{const raw=clean(value);if(!raw)return null;const [month,day,year]=raw.split("/").map(Number);if(!year||year<1900||month<1||month>12||day<1||day>new Date(year,month,0).getDate())return null;return `${year.toString().padStart(4,"0")}-${month.toString().padStart(2,"0")}-${day.toString().padStart(2,"0")}`;};
 
 export async function GET(request:Request){
   const token=(await cookies()).get(sessionCookie)?.value;
