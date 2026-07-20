@@ -41,6 +41,7 @@ jobs:
             "supabase/institutional_notifications.sql"
             "supabase/technical_operations.sql"
             "supabase/integrated_module_persistence.sql"
+            "supabase/hr_payroll_budget.sql"
             "supabase/system_module_integration.sql"
             "supabase/project_catalog_relations.sql"
             "supabase/institutional_reports.sql"
@@ -68,6 +69,8 @@ jobs:
                 'institutional_projects',
                 'hr_employees',
                 'hr_employee_files'
+                ,'hr_payroll_budget_lines'
+                ,'hr_payroll_budget_caps'
                 ,'administrative_catalogs'
                 ,'technical_projects'
                 ,'budget_account_catalog'
