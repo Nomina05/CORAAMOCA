@@ -41,6 +41,7 @@ jobs:
             "supabase/institutional_notifications.sql"
             "supabase/technical_operations.sql"
             "supabase/integrated_module_persistence.sql"
+            "supabase/hr_organization_hierarchy.sql"
             "supabase/hr_payroll_budget.sql"
             "supabase/hr_payroll_execution.sql"
             "supabase/hr_payroll_processing.sql"

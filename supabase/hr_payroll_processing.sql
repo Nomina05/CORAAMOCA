@@ -88,6 +88,13 @@ returns numeric language sql immutable as $$
   when greatest((p_gross-p_employee_tss)*12,0)<=867123 then (31216+(greatest((p_gross-p_employee_tss)*12,0)-624329)*0.20)/12
   else (79776+(greatest((p_gross-p_employee_tss)*12,0)-867123)*0.25)/12 end,2) $$;
 
+create or replace function public.hr_unit_is_descendant(p_parent_name text,p_child_name text,p_type text)
+returns boolean language sql stable security definer set search_path=public as $$
+ with recursive tree as (
+  select id,parent_id,unit_name,unit_type from public.organization_units where unit_name=p_parent_name and active
+  union all select child.id,child.parent_id,child.unit_name,child.unit_type from public.organization_units child join tree parent on child.parent_id=parent.id where child.active
+ ) select case when nullif(trim(coalesce(p_child_name,'')),'') is null then true else exists(select 1 from tree where unit_name=p_child_name and unit_type=p_type and unit_name<>p_parent_name) end $$;
+
 create or replace function public.list_hr_payroll_processing(p_token text,p_year integer,p_month integer,p_type text default 'NOMINA')
 returns jsonb language plpgsql security definer set search_path=public,extensions as $$
 declare v_user public.app_users; v_batch uuid;
@@ -150,6 +157,10 @@ returns jsonb language plpgsql security definer set search_path=public,extension
 declare v_user public.app_users;v_id uuid;v_code text;begin v_user:=public.hr_authenticated_user(p_token);
  if v_user.id is null or (v_user.role<>'Administrador' and not coalesce((v_user.permissions->>'editar_recursos_humanos')::boolean,false) and not coalesce((v_user.permissions->>'crear_recursos_humanos')::boolean,false)) then return jsonb_build_object('success',false,'error','No posee permiso para guardar empleados.'); end if;
  if nullif(regexp_replace(coalesce(p_data->>'document_number',''),'\D','','g'),'') is null then return jsonb_build_object('success',false,'error','La cédula es obligatoria y debe contener solo números.'); end if;
+ if not exists(select 1 from public.organization_units where unit_name=p_data->>'direction_name' and unit_type='Dirección' and active) then return jsonb_build_object('success',false,'error','Seleccione una dirección válida de la estructura institucional.');end if;
+ if not public.hr_unit_is_descendant(p_data->>'direction_name',p_data->>'department_name','Departamento') then return jsonb_build_object('success',false,'error','El departamento no pertenece a la dirección seleccionada.');end if;
+ if not public.hr_unit_is_descendant(coalesce(nullif(p_data->>'department_name',''),p_data->>'direction_name'),p_data->>'division_name','División') then return jsonb_build_object('success',false,'error','La división no pertenece al nivel superior seleccionado.');end if;
+ if not public.hr_unit_is_descendant(coalesce(nullif(p_data->>'division_name',''),nullif(p_data->>'department_name',''),p_data->>'direction_name'),p_data->>'section_name','Sección') then return jsonb_build_object('success',false,'error','La sección no pertenece al nivel superior seleccionado.');end if;
  v_id:=nullif(p_data->>'id','')::uuid; v_code:=coalesce(nullif(p_data->>'employee_code',''),'EMP-'||lpad(nextval('public.hr_employee_code_seq')::text,6,'0'));
  insert into public.hr_employees(id,employee_code,document_number,full_name,position_name,employment_status,hire_date,birth_date,academic_level,cell_phone,landline_phone,driver_license,blood_type,home_address,occupational_group,immediate_supervisor,direction_name,department_name,division_name,section_name,center_name,monthly_salary,created_by)
  values(coalesce(v_id,gen_random_uuid()),v_code,regexp_replace(p_data->>'document_number','\D','','g'),trim(p_data->>'full_name'),p_data->>'position_name',p_data->>'employment_status',nullif(p_data->>'hire_date','')::date,nullif(p_data->>'birth_date','')::date,p_data->>'academic_level',p_data->>'cell_phone',p_data->>'landline_phone',p_data->>'driver_license',p_data->>'blood_type',p_data->>'home_address',p_data->>'occupational_group',p_data->>'immediate_supervisor',p_data->>'direction_name',p_data->>'department_name',p_data->>'division_name',p_data->>'section_name',p_data->>'center_name',coalesce((p_data->>'monthly_salary')::numeric,0),v_user.id)
@@ -159,4 +170,4 @@ declare v_user public.app_users;v_id uuid;v_code text;begin v_user:=public.hr_au
  insert into public.hr_employee_benefits(employee_id,benefit_type,default_amount) select v_id,x->>'type',coalesce((x->>'amount')::numeric,0) from jsonb_array_elements(coalesce(p_data->'benefits','[]'))x where coalesce((x->>'active')::boolean,true);
  return jsonb_build_object('success',true,'id',v_id,'employee_code',v_code);end $$;
 
-grant execute on function public.hr_authenticated_user(text),public.hr_calculate_monthly_isr_2026(numeric,numeric),public.list_hr_payroll_processing(text,integer,integer,text),public.generate_hr_payroll(text,integer,integer,text,text),public.update_hr_payroll_line_isr(text,uuid,numeric),public.save_hr_employee_profile(text,jsonb) to anon,authenticated;
+grant execute on function public.hr_authenticated_user(text),public.hr_calculate_monthly_isr_2026(numeric,numeric),public.hr_unit_is_descendant(text,text,text),public.list_hr_payroll_processing(text,integer,integer,text),public.generate_hr_payroll(text,integer,integer,text,text),public.update_hr_payroll_line_isr(text,uuid,numeric),public.save_hr_employee_profile(text,jsonb) to anon,authenticated;
