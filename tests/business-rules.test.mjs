@@ -59,6 +59,7 @@ test("la acción de personal se imprime en tamaño carta",async()=>{
   const component=await readFile(new URL("../app/components/PersonnelAction.tsx",import.meta.url),"utf8");
   assert.equal(component.includes("@page{size:letter portrait;margin:0}"),true);
   assert.equal(component.includes("width:8.5in!important;height:11in!important"),true);
+  assert.equal(component.includes(".action-approvals{height:190px!important;min-height:190px!important"),true);
 });
 
 test("las acciones de personal solo se modifican mientras están pendientes",async()=>{
