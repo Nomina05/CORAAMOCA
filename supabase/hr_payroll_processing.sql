@@ -100,6 +100,29 @@ returns numeric language sql immutable as $$
   when greatest((p_gross-p_employee_tss)*12,0)<=867123 then (31216+(greatest((p_gross-p_employee_tss)*12,0)-624329)*0.20)/12
   else (79776+(greatest((p_gross-p_employee_tss)*12,0)-867123)*0.25)/12 end,2) $$;
 
+create or replace function public.hr_calculate_incremental_isr_2026(p_employee_id uuid,p_date date,p_type text)
+returns numeric language sql stable security definer set search_path=public as $$
+ with rates as (
+  select
+   coalesce((select value from public.hr_payroll_parameters where code='EMPLOYEE_PENSION_RATE' and effective_from<=p_date order by effective_from desc limit 1),0) pension_rate,
+   coalesce((select value from public.hr_payroll_parameters where code='EMPLOYEE_SFS_RATE' and effective_from<=p_date order by effective_from desc limit 1),0) sfs_rate,
+   coalesce((select value from public.hr_payroll_parameters where code='PENSION_CAP' and effective_from<=p_date order by effective_from desc limit 1),0) pension_cap,
+   coalesce((select value from public.hr_payroll_parameters where code='SFS_CAP' and effective_from<=p_date order by effective_from desc limit 1),0) sfs_cap
+ ), gross_income as (
+  select 1 priority,'NOMINA_FIJA' payroll_type,coalesce((select a.gross_amount from public.hr_employee_payroll_assignments a where a.employee_id=e.id and a.active and a.payroll_type='FIJA' and (a.start_date is null or a.start_date<=p_date) and (a.end_date is null or a.end_date>=p_date)),e.monthly_salary,0) gross,true applies_tss from public.hr_employees e where e.id=p_employee_id
+  union all select 2,'SUPLENCIA',coalesce((select a.gross_amount from public.hr_employee_payroll_assignments a where a.employee_id=p_employee_id and a.active and a.payroll_type='SUPLENCIA' and (a.start_date is null or a.start_date<=p_date) and (a.end_date is null or a.end_date>=p_date)),0),true
+  union all select 3,'INTERINATO',coalesce((select a.gross_amount from public.hr_employee_payroll_assignments a where a.employee_id=p_employee_id and a.active and a.payroll_type='INTERINATO' and (a.start_date is null or a.start_date<=p_date) and (a.end_date is null or a.end_date>=p_date)),0),true
+  union all select 4,'TEMPORAL',coalesce((select a.gross_amount from public.hr_employee_payroll_assignments a where a.employee_id=p_employee_id and a.active and a.payroll_type='TEMPORAL' and (a.start_date is null or a.start_date<=p_date) and (a.end_date is null or a.end_date>=p_date)),0),true
+  union all select 5,'PRIMA_TRANSPORTE',coalesce((select b.default_amount from public.hr_employee_benefits b where b.employee_id=p_employee_id and b.active and b.benefit_type='PRIMA_TRANSPORTE'),0),false
+  union all select 6,'VIATICOS',coalesce((select b.default_amount from public.hr_employee_benefits b where b.employee_id=p_employee_id and b.active and b.benefit_type='VIATICOS'),0),false
+ ), taxable as (
+  select g.priority,g.payroll_type,g.gross-case when g.applies_tss then round(least(g.gross,r.pension_cap)*r.pension_rate+least(g.gross,r.sfs_cap)*r.sfs_rate,2) else 0 end amount from gross_income g cross join rates r
+ ), target as (select case p_type when 'NOMINA' then 1 when 'NOMINA_FIJA' then 1 when 'SUPLENCIA' then 2 when 'INTERINATO' then 3 when 'TEMPORAL' then 4 when 'PRIMA_TRANSPORTE' then 5 when 'VIATICOS' then 6 else 0 end priority), totals as (
+  select coalesce(sum(t.amount) filter(where t.priority<x.priority),0) before_amount,coalesce(sum(t.amount) filter(where t.priority<=x.priority),0) through_amount,x.priority from taxable t cross join target x group by x.priority
+ )
+ select case when priority=0 then 0 else greatest(public.hr_calculate_monthly_isr_2026(through_amount,0)-public.hr_calculate_monthly_isr_2026(before_amount,0),0) end from totals
+$$;
+
 create or replace function public.hr_unit_is_descendant(p_parent_name text,p_child_name text,p_type text)
 returns boolean language sql stable security definer set search_path=public as $$
  with recursive tree as (
@@ -141,16 +164,17 @@ begin
  returning id into v_batch;
  delete from public.hr_payroll_batch_lines where batch_id=v_batch;
  insert into public.hr_payroll_batch_lines(batch_id,employee_id,employee_code,document_number,employee_name,position_name,gross_salary,isr,insurance,employee_pension,employee_sfs,employer_pension,employer_sfs,employer_labor_risk,other_deductions,total_deductions,net_amount,calculation_snapshot)
-  select v_batch,e.id,e.employee_code,coalesce(e.document_number,''),e.full_name,e.position_name,x.gross,case when p_type in ('NOMINA','NOMINA_FIJA','SUPLENCIA','INTERINATO','TEMPORAL') then public.hr_calculate_monthly_isr_2026(x.gross,round(least(x.gross,v_pc)*v_ep+least(x.gross,v_sc)*v_es,2)) else 0 end,0,
+  select v_batch,e.id,e.employee_code,coalesce(e.document_number,''),e.full_name,e.position_name,x.gross,tax.isr,0,
   case when p_type in ('NOMINA','NOMINA_FIJA','SUPLENCIA','INTERINATO','TEMPORAL') then round(least(x.gross,v_pc)*v_ep,2) else 0 end,
   case when p_type in ('NOMINA','NOMINA_FIJA','SUPLENCIA','INTERINATO','TEMPORAL') then round(least(x.gross,v_sc)*v_es,2) else 0 end,
   round(least(x.gross,v_pc)*v_epr,2),round(least(x.gross,v_sc)*v_esr,2),round(least(x.gross,v_lc)*v_lr,2),
   case when p_type in ('NOMINA','NOMINA_FIJA','SUPLENCIA','INTERINATO','TEMPORAL') then coalesce(d.amount,0) else 0 end,
-  case when p_type in ('NOMINA','NOMINA_FIJA','SUPLENCIA','INTERINATO','TEMPORAL') then round(least(x.gross,v_pc)*v_ep+least(x.gross,v_sc)*v_es,2)+public.hr_calculate_monthly_isr_2026(x.gross,round(least(x.gross,v_pc)*v_ep+least(x.gross,v_sc)*v_es,2))+coalesce(d.amount,0) else 0 end,
-  x.gross-(case when p_type in ('NOMINA','NOMINA_FIJA','SUPLENCIA','INTERINATO','TEMPORAL') then round(least(x.gross,v_pc)*v_ep+least(x.gross,v_sc)*v_es,2)+public.hr_calculate_monthly_isr_2026(x.gross,round(least(x.gross,v_pc)*v_ep+least(x.gross,v_sc)*v_es,2))+coalesce(d.amount,0) else 0 end),
-  jsonb_build_object('employee_pension_rate',v_ep,'employee_sfs_rate',v_es,'employer_pension_rate',v_epr,'employer_sfs_rate',v_esr,'labor_risk_rate',v_lr,'pension_cap',v_pc,'sfs_cap',v_sc,'labor_risk_cap',v_lc)
+  (case when p_type in ('NOMINA','NOMINA_FIJA','SUPLENCIA','INTERINATO','TEMPORAL') then round(least(x.gross,v_pc)*v_ep+least(x.gross,v_sc)*v_es,2)+coalesce(d.amount,0) else 0 end)+tax.isr,
+  x.gross-((case when p_type in ('NOMINA','NOMINA_FIJA','SUPLENCIA','INTERINATO','TEMPORAL') then round(least(x.gross,v_pc)*v_ep+least(x.gross,v_sc)*v_es,2)+coalesce(d.amount,0) else 0 end)+tax.isr),
+  jsonb_build_object('employee_pension_rate',v_ep,'employee_sfs_rate',v_es,'employer_pension_rate',v_epr,'employer_sfs_rate',v_esr,'labor_risk_rate',v_lr,'pension_cap',v_pc,'sfs_cap',v_sc,'labor_risk_cap',v_lc,'isr_method','ACUMULADO_MENSUAL_INCREMENTAL','isr_priority',case p_type when 'NOMINA' then 1 when 'NOMINA_FIJA' then 1 when 'SUPLENCIA' then 2 when 'INTERINATO' then 3 when 'TEMPORAL' then 4 when 'PRIMA_TRANSPORTE' then 5 when 'VIATICOS' then 6 else 0 end)
  from public.hr_employees e
  cross join lateral(select case when p_type in ('NOMINA','NOMINA_FIJA') then coalesce((select a.gross_amount from public.hr_employee_payroll_assignments a where a.employee_id=e.id and a.active and a.payroll_type='FIJA' and (a.start_date is null or a.start_date<=v_date) and (a.end_date is null or a.end_date>=v_date)),e.monthly_salary) when p_type in ('SUPLENCIA','INTERINATO','TEMPORAL') then coalesce((select a.gross_amount from public.hr_employee_payroll_assignments a where a.employee_id=e.id and a.active and a.payroll_type=p_type and (a.start_date is null or a.start_date<=v_date) and (a.end_date is null or a.end_date>=v_date)),0) else coalesce((select b.default_amount from public.hr_employee_benefits b where b.employee_id=e.id and b.active and b.benefit_type=case p_type when 'PRIMA_TRANSPORTE' then 'PRIMA_TRANSPORTE' when 'VIATICOS' then 'VIATICOS' else 'HORAS_EXTRAS' end),0) end gross)x
+ cross join lateral(select public.hr_calculate_incremental_isr_2026(e.id,v_date,p_type) isr)tax
  left join lateral(select sum(monthly_amount) amount from public.hr_employee_deductions d where d.employee_id=e.id and d.active)d on true
  where coalesce(e.payroll_status,e.employment_status,'') not in ('INACTIVO','Inactivo','DESVINCULADO') and x.gross>0;
  insert into public.security_audit_log(actor_user_id,action,module,detail) values(v_user.id,'GENERAR_'||p_type,'Recursos Humanos',jsonb_build_object('batch_id',v_batch,'year',p_year,'month',p_month));
@@ -190,4 +214,4 @@ declare v_user public.app_users;v_id uuid;v_code text;v_existing boolean;begin v
  insert into public.security_audit_log(actor_user_id,action,module,detail) values(v_user.id,case when v_existing then 'EMPLEADO_EDITADO' else 'EMPLEADO_CREADO' end,'Recursos Humanos',jsonb_build_object('employee_id',v_id,'employee_code',v_code,'document_number',regexp_replace(p_data->>'document_number','\D','','g')));
  return jsonb_build_object('success',true,'id',v_id,'employee_code',v_code);end $$;
 
-grant execute on function public.hr_authenticated_user(text),public.hr_calculate_monthly_isr_2026(numeric,numeric),public.hr_unit_is_descendant(text,text,text),public.list_hr_payroll_processing(text,integer,integer,text),public.generate_hr_payroll(text,integer,integer,text,text),public.update_hr_payroll_line_isr(text,uuid,numeric),public.save_hr_employee_profile(text,jsonb) to anon,authenticated;
+grant execute on function public.hr_authenticated_user(text),public.hr_calculate_monthly_isr_2026(numeric,numeric),public.hr_calculate_incremental_isr_2026(uuid,date,text),public.hr_unit_is_descendant(text,text,text),public.list_hr_payroll_processing(text,integer,integer,text),public.generate_hr_payroll(text,integer,integer,text,text),public.update_hr_payroll_line_isr(text,uuid,numeric),public.save_hr_employee_profile(text,jsonb) to anon,authenticated;

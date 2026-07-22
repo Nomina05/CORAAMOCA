@@ -19,3 +19,6 @@ export const monthlyIsr2026=(gross,employeeTss=0)=>{
   const tax=annual<=416220?0:annual<=624329?(annual-416220)*0.15:annual<=867123?31216+(annual-624329)*0.20:79776+(annual-867123)*0.25;
   return Math.round(tax/12*100)/100;
 };
+
+export const incrementalMonthlyIsr2026=({previousGross=0,previousEmployeeTss=0,currentGross=0,currentEmployeeTss=0,withhold=true})=>
+  withhold?Math.max(Math.round((monthlyIsr2026(Number(previousGross)+Number(currentGross),Number(previousEmployeeTss)+Number(currentEmployeeTss))-monthlyIsr2026(previousGross,previousEmployeeTss))*100)/100,0):0;
