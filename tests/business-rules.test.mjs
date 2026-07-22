@@ -54,3 +54,9 @@ test("los módulos no utilizan almacenamiento local para datos institucionales",
   assert.equal(page.includes("sessionStorage"),false);
   assert.equal(page.includes("/api/projects/institutional"),true);
 });
+
+test("la acción de personal se imprime en tamaño carta",async()=>{
+  const component=await readFile(new URL("../app/components/PersonnelAction.tsx",import.meta.url),"utf8");
+  assert.equal(component.includes("@page{size:letter portrait;margin:0}"),true);
+  assert.equal(component.includes("width:8.5in!important;height:11in!important"),true);
+});
