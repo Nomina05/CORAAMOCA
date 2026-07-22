@@ -8,6 +8,16 @@ test("un usuario sin permiso no puede editar proyectos",()=>{
   assert.equal(permissionGranted("Administrador",{},"editar_proyectos_tecnicos"),true);
 });
 
+test("los permisos de Gestión Humana se asignan de forma independiente",()=>{
+  const permissions={ver_permisos_laborales:true,registrar_permisos_laborales:false,ver_amonestaciones:false,ver_vacaciones:true,aprobar_vacaciones:false};
+  assert.equal(permissionGranted("Usuario",permissions,"ver_permisos_laborales"),true);
+  assert.equal(permissionGranted("Usuario",permissions,"registrar_permisos_laborales"),false);
+  assert.equal(permissionGranted("Usuario",permissions,"ver_amonestaciones"),false);
+  assert.equal(permissionGranted("Usuario",permissions,"ver_vacaciones"),true);
+  assert.equal(permissionGranted("Usuario",permissions,"aprobar_vacaciones"),false);
+  assert.equal(permissionGranted("Administrador",{},"aprobar_vacaciones"),true);
+});
+
 test("el flujo de cubicaciones no permite saltar etapas",()=>{
   assert.equal(nextMeasurementStatus("Cubicada"),"Revisada");
   assert.equal(nextMeasurementStatus("Revisada"),"Libramiento");
