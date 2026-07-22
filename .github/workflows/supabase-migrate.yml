@@ -85,6 +85,7 @@ jobs:
                 ,'hr_employee_payroll_assignments'
                 ,'hr_payroll_account_catalog'
                 ,'hr_personnel_actions'
+                ,'hr_vacancies'
                 ,'hr_position_catalog'
                 ,'administrative_catalogs'
                 ,'technical_projects'
