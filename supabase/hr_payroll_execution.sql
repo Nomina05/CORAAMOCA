@@ -105,6 +105,16 @@ create index if not exists hr_employee_history_period_idx on public.hr_employee_
 alter table public.hr_employee_history enable row level security;
 revoke all on public.hr_employee_history from anon,authenticated;
 
+create table if not exists public.hr_employee_payroll_assignments(
+  id uuid primary key default gen_random_uuid(), employee_id uuid not null references public.hr_employees(id) on delete cascade,
+  payroll_type text not null check(payroll_type in ('FIJA','SUPLENCIA','INTERINATO','TEMPORAL')), account_code text not null,
+  position_name text, execution_fund text not null default '30', program integer not null default 1, subproduct integer not null default 0, activity integer not null default 1,
+  gross_amount numeric(18,2) not null check(gross_amount>=0), start_date date, end_date date, active boolean not null default true,
+  created_at timestamptz not null default now(), updated_at timestamptz not null default now(), unique(employee_id,payroll_type)
+);
+alter table public.hr_employee_payroll_assignments enable row level security;
+revoke all on public.hr_employee_payroll_assignments from anon,authenticated;
+
 create or replace function public.import_hr_payroll_run(p_token text,p_year integer,p_month integer,p_source_name text,p_rows jsonb)
 returns jsonb language plpgsql security definer set search_path=public,extensions as $$
 declare v_user public.app_users%rowtype; v_run_id uuid; v_count integer; v_total numeric;
@@ -156,7 +166,7 @@ begin
   if v_user.id is null or (v_user.role<>'Administrador' and coalesce((v_user.permissions->>'ver_recursos_humanos')::boolean,false)=false)
     then return jsonb_build_object('success',false,'error','No posee permiso para consultar empleados.'); end if;
   select coalesce(jsonb_agg(to_jsonb(x) order by x.full_name),'[]'::jsonb) into v_employees from (
-    select e.id,e.employee_code,e.document_number,e.full_name,e.first_names,e.last_names,e.gender,e.birth_date,e.phone,e.academic_level,e.hire_date,e.years_of_service,e.termination_date,e.termination_type,e.bank_account,e.position_name,e.employee_group,e.employment_status,e.payroll_status,e.direction_name,e.department_name,e.division_name,e.section_name,e.center_name,e.execution_fund,e.program,e.subproduct,e.activity,e.monthly_salary,e.last_payroll_year,e.last_payroll_month,e.updated_at,e.cell_phone,e.landline_phone,e.driver_license,e.blood_type,e.home_address,e.occupational_group,e.immediate_supervisor,coalesce((select jsonb_agg(jsonb_build_object('type',b.benefit_type,'amount',b.default_amount,'active',b.active) order by b.benefit_type) from public.hr_employee_benefits b where b.employee_id=e.id),'[]'::jsonb) benefits
+    select e.id,e.employee_code,e.document_number,e.full_name,e.first_names,e.last_names,e.gender,e.birth_date,e.phone,e.academic_level,e.hire_date,e.years_of_service,e.termination_date,e.termination_type,e.bank_account,e.position_name,e.employee_group,e.employment_status,e.payroll_status,e.direction_name,e.department_name,e.division_name,e.section_name,e.center_name,e.execution_fund,e.program,e.subproduct,e.activity,e.monthly_salary,e.last_payroll_year,e.last_payroll_month,e.updated_at,e.cell_phone,e.landline_phone,e.driver_license,e.blood_type,e.home_address,e.occupational_group,e.immediate_supervisor,coalesce((select jsonb_agg(jsonb_build_object('type',b.benefit_type,'amount',b.default_amount,'active',b.active) order by b.benefit_type) from public.hr_employee_benefits b where b.employee_id=e.id),'[]'::jsonb) benefits,coalesce((select jsonb_agg(jsonb_build_object('id',a.id,'payroll_type',a.payroll_type,'account_code',a.account_code,'position_name',a.position_name,'execution_fund',a.execution_fund,'program',a.program,'subproduct',a.subproduct,'activity',a.activity,'gross_amount',a.gross_amount,'start_date',a.start_date,'end_date',a.end_date,'active',a.active) order by a.payroll_type) from public.hr_employee_payroll_assignments a where a.employee_id=e.id),'[]'::jsonb) payroll_assignments
     from public.hr_employees e)x;
   select coalesce(jsonb_agg(to_jsonb(x) order by x.effective_year desc,x.effective_month desc,x.full_name),'[]'::jsonb) into v_history from (
     select h.*,e.document_number,e.full_name from public.hr_employee_history h join public.hr_employees e on e.id=h.employee_id

@@ -82,6 +82,7 @@ jobs:
                 ,'hr_payroll_batches'
                 ,'hr_payroll_batch_lines'
                 ,'hr_employee_benefits'
+                ,'hr_employee_payroll_assignments'
                 ,'hr_payroll_account_catalog'
                 ,'hr_personnel_actions'
                 ,'hr_position_catalog'
