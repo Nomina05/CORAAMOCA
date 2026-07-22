@@ -47,6 +47,7 @@ jobs:
             "supabase/hr_payroll_processing.sql"
             "supabase/hr_position_catalog.sql"
             "supabase/hr_personnel_actions.sql"
+            "supabase/hr_employee_cases.sql"
             "supabase/system_module_integration.sql"
             "supabase/project_catalog_relations.sql"
             "supabase/institutional_reports.sql"
@@ -86,6 +87,7 @@ jobs:
                 ,'hr_payroll_account_catalog'
                 ,'hr_personnel_actions'
                 ,'hr_vacancies'
+                ,'hr_employee_cases'
                 ,'hr_position_catalog'
                 ,'administrative_catalogs'
                 ,'technical_projects'
