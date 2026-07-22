@@ -26,5 +26,13 @@ export default function PersonnelAction({canApprove=false}:{canApprove?:boolean}
    <div className="action-approvals"><section><label>Recomendación<textarea name="recommendation" rows={2}/></label><div><label><input name="recommendation_date" type="date"/>Fecha</label><label><input name="immediate_supervisor" defaultValue={employee?.immediate_supervisor||''}/>Superior Inmediato</label><label><input name="department_date" type="date"/>Fecha</label><label><input name="department_manager"/>Enc. Departamento</label></div></section><section><h4>Visto Bueno</h4><div><label><input name="payroll_date" type="date"/>Fecha</label><label><input name="payroll_officer"/>Enc. Registro Control y Nómina</label><label><input name="director_date" type="date"/>Fecha</label><label><input name="general_director"/>Director General</label></div></section></div>
   </article><div className="no-print modal-actions">{message&&<span className="form-message">{message}</span>}<button className="primary" disabled={!employee||!action}>Guardar acción</button><button type="button" className="outline" disabled={!saved} onClick={()=>window.print()}>Imprimir documento</button></div></form>
   <div className="no-print pending-actions"><div><span>ACCIONES PENDIENTES</span><strong>{items.filter(item=>item.status==='BORRADOR').length}</strong></div>{items.filter(item=>item.status==='BORRADOR').slice(0,8).map(item=><article key={item.id}><div><strong>No. {item.action_number} · {item.full_name}</strong><span>{item.action_type.replaceAll('_',' ')} · Efectiva {new Date(item.effective_date).toLocaleDateString('es-DO')}</span></div>{canApprove?<button className="primary" onClick={()=>approve(item)}>Aprobar y aplicar</button>:<b>Pendiente de aprobación</b>}</article>)}</div>
+  <style jsx global>{`
+   .personnel-action-sheet{box-sizing:border-box!important;width:8.5in!important;height:11in!important;min-height:11in!important;max-height:11in!important}
+   @media print{
+    @page{size:letter portrait;margin:0}
+    html,body{width:8.5in!important;height:11in!important;margin:0!important;padding:0!important;background:#fff!important}
+    .personnel-action-sheet{position:absolute!important;inset:0!important;width:8.5in!important;height:11in!important;min-height:11in!important;max-height:11in!important;margin:0!important;border-radius:0!important;overflow:hidden!important;break-inside:avoid!important;page-break-inside:avoid!important;print-color-adjust:exact!important;-webkit-print-color-adjust:exact!important}
+   }
+  `}</style>
  </section>
 }
