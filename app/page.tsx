@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import PayrollProcessing from "./components/PayrollProcessing";
-import EmployeeProfileForm from "./components/EmployeeProfileForm";
+import EmployeeProfileForm,{type EmployeeProfileData} from "./components/EmployeeProfileForm";
 import PersonnelAction from "./components/PersonnelAction";
 
 type Permissions = { registrar_cubicaciones?:boolean; revisar_cubicaciones?:boolean; libramiento_cubicaciones?:boolean; pagar_cubicaciones?:boolean; eliminar_cubicaciones?:boolean; ver_auditoria_cubicaciones?:boolean; ver_resumen?:boolean; ver_proyectos?:boolean; crear_proyectos?:boolean; editar_proyectos?:boolean; eliminar_proyectos?:boolean; aprobar_proyectos?:boolean; ver_proyectos_tecnicos?:boolean; crear_proyectos_tecnicos?:boolean; editar_proyectos_tecnicos?:boolean; eliminar_proyectos_tecnicos?:boolean; aprobar_proyectos_tecnicos?:boolean; ver_expediente_proyecto?:boolean; gestionar_expediente_proyecto?:boolean; ver_cubicaciones?:boolean; ver_gestion_presupuestaria?:boolean; modificar_presupuesto?:boolean; cerrar_presupuesto?:boolean; ver_calendario?:boolean; ver_reportes?:boolean; ver_recursos_humanos?:boolean; crear_recursos_humanos?:boolean; editar_recursos_humanos?:boolean; eliminar_recursos_humanos?:boolean; aprobar_recursos_humanos?:boolean; ver_estructura_organizacional?:boolean; ver_catalogos?:boolean; gestionar_catalogos?:boolean; eliminar_catalogos?:boolean; ver_auditoria_seguridad?:boolean };
@@ -33,7 +33,7 @@ type PayrollBudgetLine={id:string;budget_year:number;category:"NOMINAS_FIJAS"|"O
 type PayrollBudgetCap={id:string;execution_fund:string;monthly_cap:number;programmed_amount:number};
 type PayrollRun={id:string;payroll_year:number;payroll_month:number;status:string;employee_count:number;total_amount:number;source_name:string;uploaded_at:string;funds:{execution_fund:string;employees:number;amount:number;monthly_cap:number;available:number}[]};
 type PayrollRunLine={id:string;payroll_run_id:string;execution_fund:string;program:number;subproduct:number;activity:number;first_names:string;last_names:string;gender:string;document_number:string;position_name:string;employment_status:string;direction_name:string;department_name:string;monthly_salary:number};
-type EmployeeRegistry={id:string;employee_code:string;document_number:string;full_name:string;first_names:string;last_names:string;gender:string;birth_date:string|null;phone:string;academic_level:string;hire_date:string|null;years_of_service:number;termination_date:string|null;termination_type:string;bank_account:string;position_name:string;employee_group:string;employment_status:string;payroll_status:string;direction_name:string;department_name:string;division_name:string;section_name:string;center_name:string;execution_fund:string;program:number;subproduct:number;activity:number;monthly_salary:number;last_payroll_year:number;last_payroll_month:number;updated_at:string};
+type EmployeeRegistry=EmployeeProfileData&{first_names:string;last_names:string;gender:string;phone:string;years_of_service:number;termination_date:string|null;termination_type:string;bank_account:string;employee_group:string;payroll_status:string;execution_fund:string;program:number;subproduct:number;activity:number;last_payroll_year:number;last_payroll_month:number;updated_at:string};
 type EmployeeHistory={id:string;employee_id:string;document_number:string;full_name:string;effective_year:number;effective_month:number;position_name:string;employment_status:string;payroll_status:string;direction_name:string;department_name:string;execution_fund:string;program:number;subproduct:number;activity:number;monthly_salary:number;change_type:"NUEVO"|"CAMBIO"|"SIN_CAMBIO";created_at:string};
 
 const permissionGroups:{title:string;description:string;items:{key:keyof Permissions;label:string}[]}[]=[
@@ -202,6 +202,7 @@ export default function Home() {
   const [employeeHistory,setEmployeeHistory]=useState<EmployeeHistory[]>([]);
   const [employeeRegistryLoading,setEmployeeRegistryLoading]=useState(false);
   const [employeeRegistryQuery,setEmployeeRegistryQuery]=useState("");
+  const [editingEmployee,setEditingEmployee]=useState<EmployeeRegistry|null>(null);
   const [showForm, setShowForm] = useState(false);
   const [notice, setNotice] = useState(0);
   const [notifications,setNotifications]=useState<AppNotification[]>([]);
@@ -499,7 +500,8 @@ export default function Home() {
         </header>
 
         <div className="content">
-          {section==="Ficha de Empleado"&&<EmployeeProfileForm/>}
+          {section==="Registro de Empleados"&&canView("editar_recursos_humanos")&&<div className="employee-edit-toolbar"><label>Empleado a modificar<select value={editingEmployee?.id||""} onChange={event=>setEditingEmployee(employeeRegistry.find(item=>item.id===event.target.value)||null)}><option value="">Seleccionar empleado</option>{employeeRegistry.map(item=><option key={item.id} value={item.id}>{item.employee_code} · {item.full_name}</option>)}</select></label><button className="primary" disabled={!editingEmployee} onClick={()=>setSection("Ficha de Empleado")}>Editar empleado</button></div>}
+          {section==="Ficha de Empleado"&&<EmployeeProfileForm initial={editingEmployee||undefined} onCancel={()=>{setEditingEmployee(null);setSection("Registro de Empleados")}} onSaved={async()=>{setEditingEmployee(null);await loadEmployeeRegistry();setSection("Registro de Empleados")}}/>}
           {section==="Acción de Personal"&&<PersonnelAction/>}
           {section==="Generar Nómina"&&<PayrollProcessing type="NOMINA"/>}
           {section==="Prima de Transporte"&&<PayrollProcessing type="PRIMA_TRANSPORTE"/>}
