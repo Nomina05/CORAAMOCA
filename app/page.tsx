@@ -502,7 +502,7 @@ export default function Home() {
         <div className="content">
           {section==="Registro de Empleados"&&canView("editar_recursos_humanos")&&<div className="employee-edit-toolbar"><label>Empleado a modificar<select value={editingEmployee?.id||""} onChange={event=>setEditingEmployee(employeeRegistry.find(item=>item.id===event.target.value)||null)}><option value="">Seleccionar empleado</option>{employeeRegistry.map(item=><option key={item.id} value={item.id}>{item.employee_code} · {item.full_name}</option>)}</select></label><button className="primary" disabled={!editingEmployee} onClick={()=>setSection("Ficha de Empleado")}>Editar empleado</button></div>}
           {section==="Ficha de Empleado"&&<EmployeeProfileForm initial={editingEmployee||undefined} onCancel={()=>{setEditingEmployee(null);setSection("Registro de Empleados")}} onSaved={async()=>{setEditingEmployee(null);await loadEmployeeRegistry();setSection("Registro de Empleados")}}/>}
-          {section==="Acción de Personal"&&<PersonnelAction/>}
+          {section==="Acción de Personal"&&<PersonnelAction canApprove={canView("aprobar_recursos_humanos")}/>}
           {section==="Generar Nómina"&&<PayrollProcessing type="NOMINA"/>}
           {section==="Prima de Transporte"&&<PayrollProcessing type="PRIMA_TRANSPORTE"/>}
           {section==="Viáticos"&&<PayrollProcessing type="VIATICOS"/>}
