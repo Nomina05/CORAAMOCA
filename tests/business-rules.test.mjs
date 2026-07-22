@@ -68,4 +68,6 @@ test("las acciones de personal solo se modifican mientras están pendientes",asy
   assert.equal(sql.includes("Solo se pueden modificar acciones pendientes de aprobación"),true);
   assert.equal(component.includes(">Modificar</button>"),true);
   assert.equal(component.includes(">Reimprimir</button>"),true);
+  assert.equal(sql.includes("coalesce(nullif(p_data->>'general_director',''),v_existing.general_director)"),true);
+  assert.equal(sql.includes("v_existing.approval_dates->>'director_date'"),true);
 });
