@@ -60,3 +60,11 @@ test("la acción de personal se imprime en tamaño carta",async()=>{
   assert.equal(component.includes("@page{size:letter portrait;margin:0}"),true);
   assert.equal(component.includes("width:8.5in!important;height:11in!important"),true);
 });
+
+test("las acciones de personal solo se modifican mientras están pendientes",async()=>{
+  const sql=await readFile(new URL("../supabase/hr_personnel_actions.sql",import.meta.url),"utf8");
+  const component=await readFile(new URL("../app/components/PersonnelAction.tsx",import.meta.url),"utf8");
+  assert.equal(sql.includes("Solo se pueden modificar acciones pendientes de aprobación"),true);
+  assert.equal(component.includes(">Modificar</button>"),true);
+  assert.equal(component.includes(">Reimprimir</button>"),true);
+});
