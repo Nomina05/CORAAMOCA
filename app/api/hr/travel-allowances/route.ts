@@ -1,0 +1,7 @@
+import {cookies} from "next/headers";
+import {NextResponse} from "next/server";
+import {authDatabase,sessionCookie} from "../../auth/_supabase";
+async function token(){return (await cookies()).get(sessionCookie)?.value}
+export async function GET(request:Request){const session=await token();if(!session)return NextResponse.json({error:"No autorizado."},{status:401});const q=new URL(request.url).searchParams;const {data,error}=await authDatabase().rpc("list_hr_travel_allowances",{p_token:session,p_year:Number(q.get("year")||new Date().getFullYear())});if(error||!data?.success)return NextResponse.json({error:data?.error||error?.message},{status:403});return NextResponse.json(data)}
+export async function POST(request:Request){const session=await token();if(!session)return NextResponse.json({error:"No autorizado."},{status:401});const {data,error}=await authDatabase().rpc("save_hr_travel_allowance",{p_token:session,p_data:await request.json()});if(error||!data?.success)return NextResponse.json({error:data?.error||error?.message},{status:400});return NextResponse.json(data)}
+export async function PATCH(request:Request){const session=await token();if(!session)return NextResponse.json({error:"No autorizado."},{status:401});const body=await request.json();const {data,error}=await authDatabase().rpc("transition_hr_travel_allowance",{p_token:session,p_id:body.id,p_status:body.status,p_notes:body.notes||""});if(error||!data?.success)return NextResponse.json({error:data?.error||error?.message},{status:400});return NextResponse.json(data)}

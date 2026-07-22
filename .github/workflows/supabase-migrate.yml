@@ -48,6 +48,7 @@ jobs:
             "supabase/hr_position_catalog.sql"
             "supabase/hr_personnel_actions.sql"
             "supabase/hr_employee_cases.sql"
+            "supabase/hr_travel_allowances.sql"
             "supabase/system_module_integration.sql"
             "supabase/project_catalog_relations.sql"
             "supabase/institutional_reports.sql"
@@ -88,6 +89,8 @@ jobs:
                 ,'hr_personnel_actions'
                 ,'hr_vacancies'
                 ,'hr_employee_cases'
+                ,'hr_travel_allowances'
+                ,'hr_travel_allowance_rates'
                 ,'hr_position_catalog'
                 ,'administrative_catalogs'
                 ,'technical_projects'

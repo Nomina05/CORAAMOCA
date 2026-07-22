@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import PayrollProcessing from "./components/PayrollProcessing";
+import TravelAllowanceManagement from "./components/TravelAllowanceManagement";
 import EmployeeProfileForm,{type EmployeeProfileData} from "./components/EmployeeProfileForm";
 import PersonnelAction from "./components/PersonnelAction";
 import VacancyDashboard from "./components/VacancyDashboard";
@@ -517,7 +518,7 @@ export default function Home() {
           {section==="Vacaciones"&&<EmployeeCases type="VACACION" canCreate={canView("registrar_vacaciones")} canApprove={canView("aprobar_vacaciones")}/>}
           {section==="Generar Nómina"&&<PayrollProcessing type="NOMINA"/>}
           {section==="Prima de Transporte"&&<PayrollProcessing type="PRIMA_TRANSPORTE"/>}
-          {section==="Viáticos"&&<PayrollProcessing type="VIATICOS"/>}
+          {section==="Viáticos"&&<TravelAllowanceManagement/>}
           {section==="Horas Extras"&&<PayrollProcessing type="HORAS_EXTRAS"/>}
           <div className="page-head"><div><span className="eyebrow">CENTRO DE OPERACIONES</span><h1>{section === "Resumen" ? "Resumen institucional" : section}</h1><p>Seguimiento integral de metas, recursos y resultados · Julio 2026</p></div><button className="outline" onClick={() => window.print()}>⇩ Exportar reporte</button></div>
 
