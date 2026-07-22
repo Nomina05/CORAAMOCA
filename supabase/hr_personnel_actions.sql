@@ -1,4 +1,34 @@
 -- Acciones de personal vinculadas al expediente maestro del empleado.
+create table if not exists public.hr_vacancies(
+ id uuid primary key default gen_random_uuid(), source_employee_id uuid references public.hr_employees(id), source_action_id uuid,
+ position_name text not null, direction_name text not null default '', department_name text not null default '', division_name text not null default '', section_name text not null default '', center_name text not null default '',
+ execution_fund text not null default '', program integer, subproduct integer, activity integer, monthly_amount numeric(18,2) not null default 0,
+ available_from date not null, status text not null default 'VACANTE' check(status in ('VACANTE','OCUPADA','CANCELADA')),
+ filled_by_employee_id uuid references public.hr_employees(id), filled_at timestamptz, created_at timestamptz not null default now(), updated_at timestamptz not null default now()
+);
+create unique index if not exists hr_vacancies_open_employee_idx on public.hr_vacancies(source_employee_id) where status='VACANTE';
+create index if not exists hr_vacancies_area_idx on public.hr_vacancies(direction_name,department_name,status,available_from);
+alter table public.hr_vacancies enable row level security;
+revoke all on public.hr_vacancies from anon,authenticated;
+
+create or replace function public.hr_sync_employee_vacancy() returns trigger language plpgsql security definer set search_path=public,extensions as $$
+begin
+ if new.employment_status='Desvinculado' and old.employment_status is distinct from 'Desvinculado' then
+  insert into public.hr_vacancies(source_employee_id,position_name,direction_name,department_name,division_name,section_name,center_name,execution_fund,program,subproduct,activity,monthly_amount,available_from)
+  values(new.id,new.position_name,coalesce(new.direction_name,''),coalesce(new.department_name,''),coalesce(new.division_name,''),coalesce(new.section_name,''),coalesce(new.center_name,''),coalesce(new.execution_fund,''),new.program,new.subproduct,new.activity,new.monthly_salary,coalesce(new.termination_date,current_date))
+  on conflict(source_employee_id) where status='VACANTE' do update set position_name=excluded.position_name,direction_name=excluded.direction_name,department_name=excluded.department_name,division_name=excluded.division_name,section_name=excluded.section_name,center_name=excluded.center_name,execution_fund=excluded.execution_fund,program=excluded.program,subproduct=excluded.subproduct,activity=excluded.activity,monthly_amount=excluded.monthly_amount,available_from=excluded.available_from,updated_at=now();
+ elsif new.employment_status<>'Desvinculado' and old.employment_status='Desvinculado' then
+  update public.hr_vacancies set status='OCUPADA',filled_by_employee_id=new.id,filled_at=now(),updated_at=now() where source_employee_id=new.id and status='VACANTE';
+ end if;
+ return new;
+end $$;
+drop trigger if exists hr_employee_vacancy_sync on public.hr_employees;
+create trigger hr_employee_vacancy_sync after update of employment_status on public.hr_employees for each row execute function public.hr_sync_employee_vacancy();
+
+insert into public.hr_vacancies(source_employee_id,position_name,direction_name,department_name,division_name,section_name,center_name,execution_fund,program,subproduct,activity,monthly_amount,available_from)
+select e.id,e.position_name,coalesce(e.direction_name,''),coalesce(e.department_name,''),coalesce(e.division_name,''),coalesce(e.section_name,''),coalesce(e.center_name,''),coalesce(e.execution_fund,''),e.program,e.subproduct,e.activity,e.monthly_salary,coalesce(e.termination_date,current_date)
+from public.hr_employees e where e.employment_status='Desvinculado' and not exists(select 1 from public.hr_vacancies v where v.source_employee_id=e.id and v.status='VACANTE');
+
 create table if not exists public.hr_personnel_actions(
  id uuid primary key default gen_random_uuid(), action_number bigint generated always as identity,
  employee_id uuid not null references public.hr_employees(id), effective_date date not null,
@@ -57,11 +87,28 @@ declare v_user public.app_users;v_action public.hr_personnel_actions;v_employee 
   termination_type=case when v_action.action_type in ('DESPIDO','ABANDONO_TRABAJO','RENUNCIA','RESCISION_CONTRATO') then v_action.exit_cause when v_action.action_type='REINGRESO_TRABAJO' then null else termination_type end,
   employment_status=case when v_action.action_type in ('DESPIDO','ABANDONO_TRABAJO','RENUNCIA','RESCISION_CONTRATO') then 'Desvinculado' when v_action.action_type='REINGRESO_TRABAJO' then 'Activo' else employment_status end,
   payroll_status=case when v_action.action_type in ('DESPIDO','ABANDONO_TRABAJO','RENUNCIA','RESCISION_CONTRATO') then 'DESVINCULADO' when v_action.action_type='REINGRESO_TRABAJO' then coalesce(nullif(payroll_status,'DESVINCULADO'),'FIJO') else payroll_status end,updated_at=now() where id=v_employee.id;
- if v_action.action_type in ('DESPIDO','ABANDONO_TRABAJO','RENUNCIA','RESCISION_CONTRATO') then update public.hr_employee_payroll_assignments set active=false,end_date=coalesce(end_date,v_action.exit_date),updated_at=now() where employee_id=v_employee.id and active;else update public.hr_employee_payroll_assignments set gross_amount=v_salary,position_name=coalesce(nullif(v_action.proposed_state->>'position',''),position_name),updated_at=now() where employee_id=v_employee.id and payroll_type='FIJA';end if;
+ if v_action.action_type in ('DESPIDO','ABANDONO_TRABAJO','RENUNCIA','RESCISION_CONTRATO') then
+  update public.hr_employee_payroll_assignments set active=false,end_date=coalesce(end_date,v_action.exit_date),updated_at=now() where employee_id=v_employee.id and active;
+  insert into public.hr_vacancies(source_employee_id,source_action_id,position_name,direction_name,department_name,division_name,section_name,center_name,execution_fund,program,subproduct,activity,monthly_amount,available_from)
+  values(v_employee.id,v_action.id,v_employee.position_name,coalesce(v_employee.direction_name,''),coalesce(v_employee.department_name,''),coalesce(v_employee.division_name,''),coalesce(v_employee.section_name,''),coalesce(v_employee.center_name,''),coalesce(v_employee.execution_fund,''),v_employee.program,v_employee.subproduct,v_employee.activity,v_employee.monthly_salary,v_action.exit_date)
+  on conflict(source_employee_id) where status='VACANTE' do update set source_action_id=excluded.source_action_id,position_name=excluded.position_name,direction_name=excluded.direction_name,department_name=excluded.department_name,division_name=excluded.division_name,section_name=excluded.section_name,center_name=excluded.center_name,execution_fund=excluded.execution_fund,program=excluded.program,subproduct=excluded.subproduct,activity=excluded.activity,monthly_amount=excluded.monthly_amount,available_from=excluded.available_from,updated_at=now();
+ elsif v_action.action_type='REINGRESO_TRABAJO' then
+  update public.hr_vacancies set status='OCUPADA',filled_by_employee_id=v_employee.id,filled_at=now(),updated_at=now() where source_employee_id=v_employee.id and status='VACANTE';
+ else update public.hr_employee_payroll_assignments set gross_amount=v_salary,position_name=coalesce(nullif(v_action.proposed_state->>'position',''),position_name),updated_at=now() where employee_id=v_employee.id and payroll_type='FIJA';end if;
  insert into public.hr_employee_history(employee_id,effective_year,effective_month,position_name,employment_status,payroll_status,direction_name,department_name,division_name,section_name,center_name,execution_fund,program,subproduct,activity,monthly_salary,change_type)
  select e.id,extract(year from v_action.effective_date)::integer,extract(month from v_action.effective_date)::integer,e.position_name,e.employment_status,e.payroll_status,e.direction_name,e.department_name,e.division_name,e.section_name,e.center_name,e.execution_fund,e.program,e.subproduct,e.activity,e.monthly_salary,'CAMBIO' from public.hr_employees e where e.id=v_employee.id
  on conflict(employee_id,effective_year,effective_month) do update set position_name=excluded.position_name,employment_status=excluded.employment_status,payroll_status=excluded.payroll_status,direction_name=excluded.direction_name,department_name=excluded.department_name,division_name=excluded.division_name,section_name=excluded.section_name,center_name=excluded.center_name,monthly_salary=excluded.monthly_salary,change_type='CAMBIO',created_at=now();
  update public.hr_personnel_actions set status='APROBADA',approved_by=v_user.id,approved_at=now(),updated_at=now() where id=v_action.id;
  insert into public.security_audit_log(actor_user_id,action,module,detail) values(v_user.id,'APROBAR_ACCION_PERSONAL','Recursos Humanos',jsonb_build_object('action_id',v_action.id,'employee_id',v_employee.id,'action_type',v_action.action_type,'previous',v_before,'new',(select to_jsonb(e) from public.hr_employees e where e.id=v_employee.id)));
  return jsonb_build_object('success',true,'id',v_action.id);end $$;
-grant execute on function public.list_hr_personnel_actions(text,uuid),public.save_hr_personnel_action(text,jsonb),public.approve_hr_personnel_action(text,uuid) to anon,authenticated;
+create or replace function public.list_hr_vacancies(p_token text,p_year integer,p_month integer)
+returns jsonb language plpgsql security definer set search_path=public,extensions as $$
+declare v_user public.app_users;v_period_end date;begin
+ v_user:=public.hr_authenticated_user(p_token);
+ if v_user.id is null or (v_user.role<>'Administrador' and not coalesce((v_user.permissions->>'ver_recursos_humanos')::boolean,false)) then return jsonb_build_object('success',false,'error','No posee permiso para consultar vacantes.');end if;
+ v_period_end:=(make_date(p_year,p_month,1)+interval '1 month - 1 day')::date;
+ return jsonb_build_object('success',true,'period_end',v_period_end,
+  'items',coalesce((select jsonb_agg(to_jsonb(v) order by v.direction_name,v.department_name,v.position_name) from public.hr_vacancies v where v.status='VACANTE' and v.available_from<=v_period_end),'[]'::jsonb),
+  'areas',coalesce((select jsonb_agg(to_jsonb(a) order by a.monthly_available desc,a.direction_name,a.department_name) from(select direction_name,department_name,count(*)::integer vacancy_count,sum(monthly_amount)::numeric(18,2) monthly_available from public.hr_vacancies where status='VACANTE' and available_from<=v_period_end group by direction_name,department_name)a),'[]'::jsonb));
+end $$;
+grant execute on function public.list_hr_personnel_actions(text,uuid),public.save_hr_personnel_action(text,jsonb),public.approve_hr_personnel_action(text,uuid),public.list_hr_vacancies(text,integer,integer) to anon,authenticated;
