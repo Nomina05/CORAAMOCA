@@ -510,7 +510,7 @@ export default function Home() {
         <div className="content">
           {section==="Registro de Empleados"&&canView("editar_recursos_humanos")&&<div className="employee-edit-toolbar"><label>Empleado a modificar<select value={editingEmployee?.id||""} onChange={event=>setEditingEmployee(employeeRegistry.find(item=>item.id===event.target.value)||null)}><option value="">Seleccionar empleado</option>{employeeRegistry.map(item=><option key={item.id} value={item.id}>{item.employee_code} · {item.full_name}</option>)}</select></label><button className="primary" disabled={!editingEmployee} onClick={()=>setSection("Ficha de Empleado")}>Editar empleado</button></div>}
           {section==="Ficha de Empleado"&&<EmployeeProfileForm initial={editingEmployee||undefined} onCancel={()=>{setEditingEmployee(null);setSection("Registro de Empleados")}} onSaved={async()=>{setEditingEmployee(null);await loadEmployeeRegistry();setSection("Registro de Empleados")}}/>}
-          {section==="Acción de Personal"&&<PersonnelAction canApprove={canView("aprobar_recursos_humanos")}/>}
+          {section==="Acción de Personal"&&<PersonnelAction canEdit={canView("editar_recursos_humanos")} canApprove={canView("aprobar_recursos_humanos")}/>}
           {section==="Vacantes por Área"&&<VacancyDashboard/>}
           {section==="Permisos Laborales"&&<EmployeeCases type="PERMISO" canCreate={canView("registrar_permisos_laborales")} canApprove={canView("aprobar_permisos_laborales")}/>}
           {section==="Amonestaciones"&&<EmployeeCases type="AMONESTACION" canCreate={canView("registrar_amonestaciones")} canApprove={canView("notificar_amonestaciones")}/>}

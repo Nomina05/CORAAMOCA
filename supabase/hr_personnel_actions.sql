@@ -44,6 +44,7 @@ alter table public.hr_personnel_actions add column if not exists exit_date date;
 alter table public.hr_personnel_actions add column if not exists exit_cause text not null default '';
 alter table public.hr_personnel_actions add column if not exists approved_by uuid references public.app_users(id);
 alter table public.hr_personnel_actions add column if not exists approved_at timestamptz;
+alter table public.hr_personnel_actions add column if not exists approval_dates jsonb not null default '{}'::jsonb;
 alter table public.hr_personnel_actions enable row level security;
 revoke all on public.hr_personnel_actions from anon,authenticated;
 
@@ -56,15 +57,20 @@ declare v_user public.app_users;begin v_user:=public.hr_authenticated_user(p_tok
 
 create or replace function public.save_hr_personnel_action(p_token text,p_data jsonb)
 returns jsonb language plpgsql security definer set search_path=public,extensions as $$
-declare v_user public.app_users;v_id uuid;v_employee public.hr_employees;v_type text:=p_data->>'action_type';v_effective date:=(p_data->>'effective_date')::date;v_exit_cause text;begin v_user:=public.hr_authenticated_user(p_token);
- if v_user.id is null or (v_user.role<>'Administrador' and not coalesce((v_user.permissions->>'crear_recursos_humanos')::boolean,false) and not coalesce((v_user.permissions->>'editar_recursos_humanos')::boolean,false)) then return jsonb_build_object('success',false,'error','No posee permiso para registrar acciones de personal.');end if;
+declare v_user public.app_users;v_id uuid:=nullif(p_data->>'id','')::uuid;v_employee public.hr_employees;v_existing public.hr_personnel_actions;v_type text:=p_data->>'action_type';v_effective date:=(p_data->>'effective_date')::date;v_exit_cause text;begin v_user:=public.hr_authenticated_user(p_token);
+ if v_user.id is null or (v_user.role<>'Administrador' and ((v_id is null and not coalesce((v_user.permissions->>'crear_recursos_humanos')::boolean,false)) or (v_id is not null and not coalesce((v_user.permissions->>'editar_recursos_humanos')::boolean,false)))) then return jsonb_build_object('success',false,'error','No posee permiso para registrar o modificar acciones de personal.');end if;
  select * into v_employee from public.hr_employees where id=(p_data->>'employee_id')::uuid;if v_employee.id is null then return jsonb_build_object('success',false,'error','Empleado no encontrado.');end if;
  v_exit_cause:=case v_type when 'DESPIDO' then 'Despido' when 'ABANDONO_TRABAJO' then 'Abandono del trabajo' when 'RENUNCIA' then 'Renuncia' when 'RESCISION_CONTRATO' then 'Rescisión de contrato' else '' end;
- insert into public.hr_personnel_actions(employee_id,effective_date,action_type,other_action,present_state,proposed_state,observations,recommendation,immediate_supervisor,department_manager,payroll_officer,general_director,exit_date,exit_cause,created_by)
- values(v_employee.id,v_effective,p_data->>'action_type',coalesce(p_data->>'other_action',''),
- jsonb_build_object('direction',v_employee.direction_name,'department',v_employee.department_name,'division',v_employee.division_name,'section',v_employee.section_name,'position',v_employee.position_name,'salary',v_employee.monthly_salary),
- coalesce(p_data->'proposed_state','{}'::jsonb),coalesce(p_data->>'observations',''),coalesce(p_data->>'recommendation',''),coalesce(p_data->>'immediate_supervisor',''),coalesce(p_data->>'department_manager',''),coalesce(p_data->>'payroll_officer',''),coalesce(p_data->>'general_director',''),case when v_exit_cause<>'' then v_effective else null end,v_exit_cause,v_user.id) returning id into v_id;
- insert into public.security_audit_log(actor_user_id,action,module,detail) values(v_user.id,'CREAR_ACCION_PERSONAL','Recursos Humanos',jsonb_build_object('id',v_id,'employee_id',v_employee.id,'type',p_data->>'action_type'));
+ if v_id is not null then
+  select * into v_existing from public.hr_personnel_actions where id=v_id for update;
+  if v_existing.id is null then return jsonb_build_object('success',false,'error','Acción de personal no encontrada.');end if;
+  if v_existing.status<>'BORRADOR' then return jsonb_build_object('success',false,'error','Solo se pueden modificar acciones pendientes de aprobación.');end if;
+  update public.hr_personnel_actions set employee_id=v_employee.id,effective_date=v_effective,action_type=v_type,other_action=coalesce(p_data->>'other_action',''),proposed_state=coalesce(p_data->'proposed_state','{}'::jsonb),observations=coalesce(p_data->>'observations',''),recommendation=coalesce(p_data->>'recommendation',''),immediate_supervisor=coalesce(p_data->>'immediate_supervisor',''),department_manager=coalesce(p_data->>'department_manager',''),payroll_officer=coalesce(p_data->>'payroll_officer',''),general_director=coalesce(p_data->>'general_director',''),approval_dates=coalesce(p_data->'approval_dates','{}'::jsonb),exit_date=case when v_exit_cause<>'' then v_effective else null end,exit_cause=v_exit_cause,updated_at=now() where id=v_id;
+ else
+  insert into public.hr_personnel_actions(employee_id,effective_date,action_type,other_action,present_state,proposed_state,observations,recommendation,immediate_supervisor,department_manager,payroll_officer,general_director,approval_dates,exit_date,exit_cause,created_by)
+  values(v_employee.id,v_effective,v_type,coalesce(p_data->>'other_action',''),jsonb_build_object('direction',v_employee.direction_name,'department',v_employee.department_name,'division',v_employee.division_name,'section',v_employee.section_name,'position',v_employee.position_name,'salary',v_employee.monthly_salary),coalesce(p_data->'proposed_state','{}'::jsonb),coalesce(p_data->>'observations',''),coalesce(p_data->>'recommendation',''),coalesce(p_data->>'immediate_supervisor',''),coalesce(p_data->>'department_manager',''),coalesce(p_data->>'payroll_officer',''),coalesce(p_data->>'general_director',''),coalesce(p_data->'approval_dates','{}'::jsonb),case when v_exit_cause<>'' then v_effective else null end,v_exit_cause,v_user.id) returning id into v_id;
+ end if;
+ insert into public.security_audit_log(actor_user_id,action,module,detail) values(v_user.id,case when v_existing.id is null then 'CREAR_ACCION_PERSONAL' else 'MODIFICAR_ACCION_PERSONAL' end,'Recursos Humanos',jsonb_build_object('id',v_id,'employee_id',v_employee.id,'type',v_type,'previous',case when v_existing.id is null then null else to_jsonb(v_existing) end));
  return jsonb_build_object('success',true,'id',v_id);end $$;
 
 create or replace function public.approve_hr_personnel_action(p_token text,p_action_id uuid)
