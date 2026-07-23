@@ -21,6 +21,7 @@ update public.app_users set permissions=permissions||jsonb_build_object(
 create table if not exists public.hr_employee_cases(
  id uuid primary key default gen_random_uuid(), case_number bigint generated always as identity,
  employee_id uuid not null references public.hr_employees(id), case_type text not null check(case_type in ('PERMISO','VACACION','AMONESTACION')),
+ request_date date not null default current_date,
  category text not null default '', start_date date not null, end_date date not null, day_count integer not null default 1 check(day_count>0),
  paid boolean not null default true, severity text not null default '', reason text not null, observations text not null default '',
  status text not null default 'SOLICITADO' check(status in ('SOLICITADO','APROBADO','RECHAZADO','REGISTRADA','NOTIFICADA','ANULADA')),
@@ -28,6 +29,9 @@ create table if not exists public.hr_employee_cases(
  approved_at timestamptz, created_at timestamptz not null default now(), updated_at timestamptz not null default now(),
  check(end_date>=start_date)
 );
+alter table public.hr_employee_cases add column if not exists request_date date;
+update public.hr_employee_cases set request_date=coalesce(request_date,created_at::date,start_date) where request_date is null;
+alter table public.hr_employee_cases alter column request_date set default current_date,alter column request_date set not null;
 create index if not exists hr_employee_cases_employee_idx on public.hr_employee_cases(employee_id,case_type,start_date desc);
 create index if not exists hr_employee_cases_status_idx on public.hr_employee_cases(case_type,status,start_date desc);
 alter table public.hr_employee_cases enable row level security;
@@ -46,13 +50,13 @@ declare v_user public.app_users;v_permission text;v_register_permission text;beg
  'items',coalesce((select jsonb_agg(to_jsonb(x) order by x.start_date desc,x.case_number desc) from(
   select c.*,e.employee_code,e.document_number,e.full_name,e.position_name,e.direction_name,e.department_name,u.full_name created_by_name,a.full_name approved_by_name
   from public.hr_employee_cases c join public.hr_employees e on e.id=c.employee_id join public.app_users u on u.id=c.created_by left join public.app_users a on a.id=c.approved_by
-  where c.case_type=p_case_type and (p_year is null or extract(year from c.start_date)=p_year)
+  where c.case_type=p_case_type and (p_year is null or extract(year from c.request_date)=p_year)
  )x),'[]'::jsonb));
 end $$;
 
 create or replace function public.save_hr_employee_case(p_token text,p_data jsonb)
 returns jsonb language plpgsql security definer set search_path=public,extensions as $$
-declare v_user public.app_users;v_type text:=p_data->>'case_type';v_permission text;v_start date;v_end date;v_id uuid;v_employee public.hr_employees;begin
+declare v_user public.app_users;v_type text:=p_data->>'case_type';v_permission text;v_start date;v_end date;v_request date;v_id uuid;v_employee public.hr_employees;begin
  v_user:=public.hr_authenticated_user(p_token);
  if v_type not in ('PERMISO','VACACION','AMONESTACION') then return jsonb_build_object('success',false,'error','Tipo de registro inválido.');end if;
  v_permission:=case v_type when 'PERMISO' then 'registrar_permisos_laborales' when 'VACACION' then 'registrar_vacaciones' else 'registrar_amonestaciones' end;
@@ -60,12 +64,13 @@ declare v_user public.app_users;v_type text:=p_data->>'case_type';v_permission t
  select * into v_employee from public.hr_employees where id=(p_data->>'employee_id')::uuid;
  if v_employee.id is null then return jsonb_build_object('success',false,'error','Empleado no encontrado.');end if;
  if v_employee.employment_status='Desvinculado' then return jsonb_build_object('success',false,'error','No se pueden registrar novedades para un empleado desvinculado.');end if;
- v_start:=(p_data->>'start_date')::date;v_end:=coalesce(nullif(p_data->>'end_date','')::date,v_start);
+ v_start:=(p_data->>'start_date')::date;v_end:=coalesce(nullif(p_data->>'end_date','')::date,v_start);v_request:=case when v_type in('PERMISO','VACACION') then (p_data->>'request_date')::date else v_start end;
+ if v_request is null then return jsonb_build_object('success',false,'error','La fecha de solicitud es obligatoria.');end if;
  if v_end<v_start then return jsonb_build_object('success',false,'error','La fecha final no puede ser anterior a la inicial.');end if;
  if v_type in ('PERMISO','VACACION') and exists(select 1 from public.hr_employee_cases where employee_id=v_employee.id and case_type=v_type and status in ('SOLICITADO','APROBADO') and daterange(start_date,end_date,'[]')&&daterange(v_start,v_end,'[]')) then return jsonb_build_object('success',false,'error','El empleado ya posee un registro de este tipo que coincide con las fechas seleccionadas.');end if;
- insert into public.hr_employee_cases(employee_id,case_type,category,start_date,end_date,day_count,paid,severity,reason,observations,status,created_by)
- values(v_employee.id,v_type,coalesce(p_data->>'category',''),v_start,v_end,(v_end-v_start)+1,coalesce((p_data->>'paid')::boolean,true),coalesce(p_data->>'severity',''),trim(p_data->>'reason'),coalesce(p_data->>'observations',''),case when v_type='AMONESTACION' then 'REGISTRADA' else 'SOLICITADO' end,v_user.id) returning id into v_id;
- insert into public.security_audit_log(actor_user_id,action,module,detail) values(v_user.id,'CREAR_'||v_type,'Recursos Humanos',jsonb_build_object('id',v_id,'employee_id',v_employee.id,'start_date',v_start,'end_date',v_end));
+ insert into public.hr_employee_cases(employee_id,case_type,request_date,category,start_date,end_date,day_count,paid,severity,reason,observations,status,created_by)
+ values(v_employee.id,v_type,v_request,coalesce(p_data->>'category',''),v_start,v_end,(v_end-v_start)+1,coalesce((p_data->>'paid')::boolean,true),coalesce(p_data->>'severity',''),trim(p_data->>'reason'),coalesce(p_data->>'observations',''),case when v_type='AMONESTACION' then 'REGISTRADA' else 'SOLICITADO' end,v_user.id) returning id into v_id;
+ insert into public.security_audit_log(actor_user_id,action,module,detail) values(v_user.id,'CREAR_'||v_type,'Recursos Humanos',jsonb_build_object('id',v_id,'employee_id',v_employee.id,'request_date',v_request,'start_date',v_start,'end_date',v_end));
  return jsonb_build_object('success',true,'id',v_id);exception when invalid_text_representation or not_null_violation then return jsonb_build_object('success',false,'error','Complete correctamente los campos obligatorios.');end $$;
 
 create or replace function public.decide_hr_employee_case(p_token text,p_case_id uuid,p_decision text,p_notes text default '')
