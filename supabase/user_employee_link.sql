@@ -64,4 +64,35 @@ begin
   return jsonb_build_object('success',true,'users',v_users);
 end $$;
 
-grant execute on function public.admin_create_employee_user(text,uuid,text,text,text,jsonb),public.admin_list_users(text) to anon,authenticated;
+create or replace function public.admin_link_user_employee(p_token text,p_user_id uuid,p_employee_id uuid)
+returns jsonb language plpgsql security definer set search_path=public,extensions as $$
+declare
+  v_admin public.app_users%rowtype;
+  v_target public.app_users%rowtype;
+  v_employee public.hr_employees%rowtype;
+  v_unit public.organization_units%rowtype;
+  v_area text;
+begin
+  select u.* into v_admin from public.app_users u join public.app_user_sessions s on s.user_id=u.id
+  where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.expires_at>now()
+    and u.active=true and u.suspended_at is null and u.role='Administrador';
+  if v_admin.id is null then return jsonb_build_object('success',false,'error','No autorizado.'); end if;
+  select * into v_target from public.app_users where id=p_user_id for update;
+  if v_target.id is null then return jsonb_build_object('success',false,'error','Usuario no encontrado.'); end if;
+  select * into v_employee from public.hr_employees where id=p_employee_id for update;
+  if v_employee.id is null then return jsonb_build_object('success',false,'error','Empleado no encontrado.'); end if;
+  if v_employee.employment_status in ('Desvinculado','Suspendido') then return jsonb_build_object('success',false,'error','Solo se pueden vincular empleados activos.'); end if;
+  if v_employee.app_user_id is not null and v_employee.app_user_id<>p_user_id then return jsonb_build_object('success',false,'error','Este empleado ya está vinculado a otro usuario.'); end if;
+  select * into v_unit from public.organization_units where id=v_employee.organization_unit_id;
+  v_area:=coalesce(nullif(trim(v_employee.direction_name),''),nullif(trim(v_unit.unit_name),''),'Institucional');
+  update public.hr_employees set app_user_id=null,updated_at=now() where app_user_id=p_user_id and id<>p_employee_id;
+  update public.hr_employees set app_user_id=p_user_id,updated_at=now() where id=p_employee_id;
+  update public.app_users set full_name=v_employee.full_name,area=v_area,department=coalesce(v_unit.unit_name,''),updated_at=now() where id=p_user_id;
+  insert into public.security_audit_log(actor_user_id,target_user_id,action,module,detail)
+  values(v_admin.id,p_user_id,'USER_EMPLOYEE_LINKED','Usuarios',jsonb_build_object('employee_id',v_employee.id,'employee_code',v_employee.employee_code,'organization_unit_id',v_employee.organization_unit_id));
+  return jsonb_build_object('success',true,'user',jsonb_build_object(
+    'id',p_user_id,'employee_id',v_employee.id,'employee_code',v_employee.employee_code,'full_name',v_employee.full_name,
+    'area',v_area,'department',coalesce(v_unit.unit_name,''),'employee_status',v_employee.employment_status,'organization_unit',coalesce(v_unit.unit_name,'')));
+end $$;
+
+grant execute on function public.admin_create_employee_user(text,uuid,text,text,text,jsonb),public.admin_link_user_employee(text,uuid,uuid),public.admin_list_users(text) to anon,authenticated;
