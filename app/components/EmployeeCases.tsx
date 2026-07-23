@@ -1,5 +1,6 @@
 "use client";
 import {FormEvent,useCallback,useEffect,useMemo,useState} from "react";
+import SearchableEmployeeSelect from "./SearchableEmployeeSelect";
 
 type CaseType="PERMISO"|"VACACION"|"AMONESTACION";
 type Employee={id:string;employee_code:string;full_name:string;position_name:string;employment_status:string};
@@ -14,10 +15,10 @@ const date=(value:string)=>new Date(`${value}T12:00:00`).toLocaleDateString("es-
 export default function EmployeeCases({type,canCreate=false,canApprove=false}:{type:CaseType;canCreate?:boolean;canApprove?:boolean}){
  const current=configs[type];
  const [employees,setEmployees]=useState<Employee[]>([]),[items,setItems]=useState<Item[]>([]),[year,setYear]=useState<string>(String(new Date().getFullYear()));
- const [message,setMessage]=useState(""),[busy,setBusy]=useState(false),[query,setQuery]=useState("");
+ const [message,setMessage]=useState(""),[busy,setBusy]=useState(false),[query,setQuery]=useState(""),[selectedEmployee,setSelectedEmployee]=useState("");
  const load=useCallback(async()=>{setBusy(true);try{const response=await fetch(`/api/hr/employee-cases?type=${type}&year=${year}`,{cache:"no-store"}),data=await response.json();setItems(response.ok&&Array.isArray(data.items)?data.items:[]);setEmployees(response.ok&&Array.isArray(data.employees)?data.employees:[]);if(!response.ok)setMessage(data.error||"No fue posible cargar los registros.")}finally{setBusy(false)}},[type,year]);
  useEffect(()=>{load()},[load]);
- async function save(event:FormEvent<HTMLFormElement>){event.preventDefault();setBusy(true);const form=event.currentTarget,data=Object.fromEntries(new FormData(form));const response=await fetch("/api/hr/employee-cases",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...data,case_type:type,paid:data.paid==="true"})}),body=await response.json();setMessage(response.ok?"Registro guardado correctamente.":body.error);if(response.ok){form.reset();await load()}else setBusy(false)}
+ async function save(event:FormEvent<HTMLFormElement>){event.preventDefault();setBusy(true);const form=event.currentTarget,data=Object.fromEntries(new FormData(form));const response=await fetch("/api/hr/employee-cases",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...data,employee_id:selectedEmployee,case_type:type,paid:data.paid==="true"})}),body=await response.json();setMessage(response.ok?"Registro guardado correctamente.":body.error);if(response.ok){form.reset();setSelectedEmployee("");await load()}else setBusy(false)}
  async function decide(item:Item,decision:"APROBAR"|"RECHAZAR"){const notes=window.prompt(decision==="RECHAZAR"?"Motivo obligatorio del rechazo:":"Observación de la decisión (opcional):","");if(notes===null||(decision==="RECHAZAR"&&!notes.trim()))return;setBusy(true);const response=await fetch("/api/hr/employee-cases",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:item.id,decision,notes})}),body=await response.json();setMessage(response.ok?"Registro actualizado correctamente.":body.error);await load()}
  const filtered=useMemo(()=>items.filter(item=>`${item.full_name} ${item.employee_code} ${item.reason} ${item.direction_name}`.toLowerCase().includes(query.toLowerCase())),[items,query]);
  const pending=items.filter(i=>i.status==="SOLICITADO"||i.status==="REGISTRADA").length;
@@ -29,7 +30,7 @@ export default function EmployeeCases({type,canCreate=false,canApprove=false}:{t
   <div className="technical-kpis"><article><span>{year==="ALL"?"REGISTROS HISTÓRICOS":"REGISTROS DEL AÑO"}</span><strong>{items.length}</strong></article><article><span>PENDIENTES</span><strong>{pending}</strong></article><article><span>{type==="AMONESTACION"?"NOTIFICADAS":"APROBADOS"}</span><strong>{approved}</strong></article><article><span>{type==="AMONESTACION"?"EMPLEADOS RELACIONADOS":"DÍAS APROBADOS"}</span><strong>{type==="AMONESTACION"?new Set(items.map(i=>i.employee_code)).size:days}</strong></article></div>
   {message&&<div className="form-message">{message}</div>}
   {canCreate&&<form className="case-form" onSubmit={save}>
-   <label>Colaborador<select name="employee_id" required><option value="">Seleccionar empleado</option>{employees.map(e=><option value={e.id} key={e.id}>{e.employee_code} · {e.full_name} · {e.position_name}</option>)}</select></label>
+   <SearchableEmployeeSelect employees={employees} value={selectedEmployee} onChange={setSelectedEmployee} required label="Colaborador"/>
    <label>Tipo o categoría<select name="category" required><option value="">Seleccionar</option>{current.categories.map(c=><option key={c}>{c}</option>)}</select></label>
    {type!=="AMONESTACION"&&<label>Fecha de solicitud<input name="request_date" type="date" required/></label>}
    <label>{type==="AMONESTACION"?"Fecha del hecho":"Fecha inicial"}<input name="start_date" type="date" required/></label>
