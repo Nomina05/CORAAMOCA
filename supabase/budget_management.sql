@@ -98,14 +98,18 @@ end $$;
 
 create or replace function public.set_project_financial_commitments(p_token text,p_project_id uuid,p_committed numeric,p_advance numeric)
 returns jsonb language plpgsql security definer set search_path=public,extensions as $$
-declare v_user public.app_users%rowtype; v_year integer;
+declare v_user public.app_users%rowtype; v_year integer; v_supplier text; v_awarded numeric;
 begin
   select u.* into v_user from public.app_users u join public.app_user_sessions s on s.user_id=u.id
   where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.expires_at>now() and u.active=true and u.suspended_at is null;
   if v_user.id is null or (v_user.role<>'Administrador' and coalesce((v_user.permissions->>'editar_proyectos_tecnicos')::boolean,false)=false)
     then return jsonb_build_object('success',false,'error','No posee permiso para actualizar los compromisos financieros.'); end if;
-  select project_year into v_year from public.technical_projects where id=p_project_id;
+  select project_year,supplier_contractor,awarded_amount into v_year,v_supplier,v_awarded from public.technical_projects where id=p_project_id;
   if exists(select 1 from public.budget_year_closures where budget_year=v_year) then return jsonb_build_object('success',false,'error','El año presupuestario está cerrado.'); end if;
+  if coalesce(p_advance,0)>0 and (coalesce(trim(v_supplier),'')='' or coalesce(v_awarded,0)<=0)
+    then return jsonb_build_object('success',false,'error','Debe asignar un proveedor y un monto adjudicado antes de pagar el avance inicial.'); end if;
+  if coalesce(p_advance,0)>coalesce(v_awarded,0)
+    then return jsonb_build_object('success',false,'error','El avance inicial no puede superar el monto adjudicado.'); end if;
   update public.technical_projects set committed_amount=greatest(coalesce(p_committed,0),0),
     advance_20_amount=greatest(coalesce(p_advance,0),0),updated_at=now() where id=p_project_id;
   if not found then return jsonb_build_object('success',false,'error','Proyecto no encontrado.'); end if;

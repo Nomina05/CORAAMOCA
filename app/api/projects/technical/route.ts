@@ -28,6 +28,19 @@ export async function POST(request: Request) {
     );
   }
 
+  const advancePercentage = Number(project.advance_percentage || 0);
+  const awardedAmount = Number(project.awarded_amount || 0);
+  const supplier = String(project.supplier_contractor || "").trim();
+  if (![0, 20, 30].includes(advancePercentage)) {
+    return NextResponse.json({ error: "El avance inicial solo puede ser de 20 % o 30 %." }, { status: 400 });
+  }
+  if (advancePercentage > 0 && (!supplier || awardedAmount <= 0)) {
+    return NextResponse.json({ error: "Debe asignar un proveedor y un monto adjudicado antes de pagar el avance inicial." }, { status: 400 });
+  }
+  project.supplier_contractor = supplier;
+  project.advance_20_amount = Number((awardedAmount * advancePercentage / 100).toFixed(2));
+  delete project.advance_percentage;
+
   const { data, error } = await database.rpc("save_technical_project", {
     p_token: token,
     p_project_id: id || null,
