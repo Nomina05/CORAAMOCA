@@ -49,6 +49,7 @@ jobs:
             "supabase/hr_personnel_actions.sql"
             "supabase/hr_employee_cases.sql"
             "supabase/hr_travel_allowances.sql"
+            "supabase/user_employee_link.sql"
             "supabase/system_module_integration.sql"
             "supabase/project_catalog_relations.sql"
             "supabase/budget_management.sql"
