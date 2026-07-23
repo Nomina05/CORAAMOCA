@@ -33,12 +33,14 @@ revoke all on public.project_budget_modifications,public.budget_year_closures fr
 
 create or replace function public.recalculate_project_financials(p_project_id uuid)
 returns void language plpgsql security definer set search_path=public,extensions as $$
-declare v_paid numeric; v_measured numeric;
+declare v_paid numeric; v_measured numeric; v_paid_progress numeric;
 begin
   select coalesce(sum(amount),0) into v_paid from public.project_measurements where project_id=p_project_id and status='Pagada';
   select coalesce(sum(amount),0) into v_measured from public.project_measurements where project_id=p_project_id;
+  select coalesce(sum(progress_increment),0) into v_paid_progress from public.project_measurements where project_id=p_project_id and status='Pagada';
   update public.technical_projects set paid_measurements_amount=v_paid,
-    total_measured=v_measured,total_paid=coalesce(fixed_asset_paid_amount,0)+coalesce(advance_20_amount,0)+v_paid,updated_at=now()
+    total_measured=v_measured,total_paid=coalesce(fixed_asset_paid_amount,0)+coalesce(advance_20_amount,0)+v_paid,
+    work_progress=least(100,case when coalesce(awarded_amount,0)>0 then round(coalesce(advance_20_amount,0)*100/awarded_amount,2) else 0 end+v_paid_progress),updated_at=now()
   where id=p_project_id;
 end $$;
 
@@ -51,6 +53,12 @@ end $$;
 drop trigger if exists trg_sync_measurement_financials on public.project_measurements;
 create trigger trg_sync_measurement_financials after insert or update or delete on public.project_measurements
 for each row execute function public.sync_measurement_financials();
+
+do $$ declare v_project record; begin
+  for v_project in select id from public.technical_projects loop
+    perform public.recalculate_project_financials(v_project.id);
+  end loop;
+end $$;
 
 create or replace function public.get_budget_management(p_token text,p_year integer default null)
 returns jsonb language plpgsql security definer set search_path=public,extensions as $$
