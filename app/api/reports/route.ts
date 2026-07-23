@@ -15,8 +15,8 @@ export async function GET(request:Request){
   if(projects.length>0){
     publicInvestment=projects
       .filter((project:Record<string,unknown>)=>!value||Number(project.project_year)===Number(value))
-      .map((project:Record<string,unknown>)=>{const fixedAsset=String(project.fixed_assets||"").trim();const isAsset=Boolean(fixedAsset&&!/^(no|n\/a|ninguno|0)$/i.test(fixedAsset));return {
-        id:project.id,record_type:isAsset?"ACTIVO_FIJO":"OBRA",snip_code:project.snip_code||"",work_type:isAsset?fixedAsset:project.work_type||project.work_name||"Obra",
+      .map((project:Record<string,unknown>)=>{const fixedAsset=String(project.fixed_assets||"").trim();const normalizedFixedAsset=fixedAsset.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();const isAsset=/\bactivos?\s+fijos?\b/.test(normalizedFixedAsset);const isGenericAsset=/^activos?\s+fijos?$/.test(normalizedFixedAsset);const registeredType=project.work_type||project.work_name;return {
+        id:project.id,record_type:isAsset?"ACTIVO_FIJO":"OBRA",snip_code:project.snip_code||"",work_type:isAsset&&!isGenericAsset?fixedAsset:registeredType||(isAsset?"Tipo de activo no especificado":"Tipo de obra no especificado"),
         work_name:project.work_name||"Obra sin nombre",municipality:project.municipality||"",district:project.district||"",
         location_name:project.district||project.municipality||"Sin ubicación",
         location_type:project.district?"Distrito":"Municipio",sector:project.sector||"Sin sector",
