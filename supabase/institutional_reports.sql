@@ -36,7 +36,17 @@ begin
     where m.status<>'Pagada' and (p_year is null or p.project_year=p_year))x;
 
   select coalesce(jsonb_agg(to_jsonb(x) order by x.total_paid desc),'[]'::jsonb) into v_suppliers from (
-    select supplier_contractor supplier,count(*) projects,sum(awarded_amount) awarded,sum(total_paid) total_paid
+    select supplier_contractor supplier,count(*) projects,sum(awarded_amount) awarded,sum(total_paid) total_paid,
+      jsonb_agg(jsonb_build_object(
+        'id',id,'snip_code',coalesce(snip_code,''),'procurement_process',coalesce(procurement_process,''),
+        'project_type',case when lower(trim(coalesce(fixed_assets,''))) ~ '(^|[^[:alpha:]])activos?[[:space:]]+fijos?([^[:alpha:]]|$)'
+          then coalesce(nullif(work_type,''),nullif(work_name,''),'Activo fijo') else coalesce(nullif(work_type,''),nullif(work_name,''),'Obra') end,
+        'record_type',case when lower(trim(coalesce(fixed_assets,''))) ~ '(^|[^[:alpha:]])activos?[[:space:]]+fijos?([^[:alpha:]]|$)' then 'ACTIVO_FIJO' else 'OBRA' end,
+        'awarded_amount',coalesce(awarded_amount,0),'measurement_count',coalesce(measurement_count,0),
+        'total_measured',coalesce(total_measured,0),'total_paid',coalesce(total_paid,0),
+        'payment_percentage',case when coalesce(awarded_amount,0)>0 then round(coalesce(total_paid,0)*100/awarded_amount,2) else 0 end,
+        'remaining_payment',greatest(coalesce(awarded_amount,0)-coalesce(total_paid,0),0)
+      ) order by snip_code,work_name) history
     from public.technical_projects where p_year is null or project_year=p_year group by supplier_contractor)x;
 
   select coalesce(jsonb_agg(to_jsonb(x) order by x.planned_end_date),'[]'::jsonb) into v_delayed from (
