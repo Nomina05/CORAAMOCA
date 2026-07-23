@@ -28,8 +28,14 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   const token = (await cookies()).get(sessionCookie)?.value;
   if (!token) return NextResponse.json({ error: "No autorizado." }, { status: 401 });
-  const { id, role, area, department, active, suspensionReason, permissions } = await request.json();
+  const { id, role, area, department, active, suspensionReason, permissions, employeeId } = await request.json();
   const database = authDatabase();
+  if(employeeId){
+    const {data,error}=await database.rpc("admin_link_user_employee",{p_token:token,p_user_id:id,p_employee_id:employeeId});
+    if(error||!data?.success)return NextResponse.json({error:data?.error||"No fue posible vincular el empleado."},{status:400});
+    await recordAudit(request,token,{action:"EMPLEADO_VINCULADO",module:"Usuarios",entityType:"Usuario",entityId:id,next:{employeeId}});
+    return NextResponse.json({success:true,user:data.user});
+  }
   let result = permissions
     ? await database.rpc("admin_set_user_permissions", { p_token: token, p_user_id: id, p_permissions: permissions })
     : await database.rpc("admin_update_user", {
