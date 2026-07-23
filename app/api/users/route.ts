@@ -16,14 +16,13 @@ export async function POST(request: Request) {
   if (!token) return NextResponse.json({ error: "No autorizado." }, { status: 401 });
   const body = await request.json();
   const database=authDatabase();
-  const { data, error } = await database.rpc("admin_create_user", {
-    p_token: token, p_username: body.username, p_temp_password: body.password,
-    p_full_name: body.fullName, p_area: body.area, p_role: body.role, p_permissions: body.permissions || {},
+  const { data, error } = await database.rpc("admin_create_employee_user", {
+    p_token: token, p_employee_id: body.employeeId, p_username: body.username, p_temp_password: body.password,
+    p_role: body.role, p_permissions: body.permissions || {},
   });
   if (error || !data?.success) return NextResponse.json({ error: data?.error || "No fue posible crear el usuario." }, { status: 400 });
-  if(body.department&&data.user?.id)await database.rpc("admin_update_user",{p_token:token,p_user_id:data.user.id,p_role:body.role,p_area:body.area,p_active:true,p_department:body.department,p_suspension_reason:""});
-  await recordAudit(request,token,{action:"USUARIO_CREADO",module:"Usuarios",entityType:"Usuario",entityId:data.user?.id,next:{username:body.username,fullName:body.fullName,area:body.area,role:body.role}});
-  return NextResponse.json({ success: true, user: {...data.user,department:body.department||""} });
+  await recordAudit(request,token,{action:"USUARIO_CREADO",module:"Usuarios",entityType:"Usuario",entityId:data.user?.id,next:{username:body.username,employeeId:body.employeeId,role:body.role}});
+  return NextResponse.json({ success: true, user:data.user });
 }
 
 export async function PATCH(request: Request) {
