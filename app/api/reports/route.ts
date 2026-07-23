@@ -9,6 +9,10 @@ export async function GET(request:Request){
   const database=authDatabase();
   const {data,error}=await database.rpc("get_institutional_reports",{p_token:token,p_year:value?Number(value):null});
   if(error||!data?.success)return NextResponse.json({error:data?.error||"No fue posible generar los reportes."},{status:403});
+  const sessionResult=await database.rpc("get_app_session",{p_token:token});
+  const sessionUser=sessionResult.data?.user as {role?:string;permissions?:Record<string,boolean>}|undefined;
+  const permissions=sessionUser?.permissions||{};
+  const allowed=(permission:string)=>sessionUser?.role==="Administrador"||(Object.prototype.hasOwnProperty.call(permissions,permission)?Boolean(permissions[permission]):Boolean(permissions.ver_reportes));
   let publicInvestment=Array.isArray(data.publicInvestment)?data.publicInvestment:[];
   const projectsResult=await database.rpc("list_technical_projects",{p_token:token});
   const projects=Array.isArray(projectsResult.data?.projects)?projectsResult.data.projects:[];
@@ -28,5 +32,15 @@ export async function GET(request:Request){
         project_year:Number(project.project_year||0),
       }});
   }
-  return NextResponse.json({...data,publicInvestment});
+  return NextResponse.json({
+    ...data,
+    publicInvestment:allowed("ver_reporte_inversion_publica")?publicInvestment:[],
+    investment:allowed("ver_reporte_inversion_territorial")?data.investment:[],
+    projectsByYearStatus:allowed("ver_reporte_proyectos_estado")?data.projectsByYearStatus:[],
+    budgetExecution:allowed("ver_reporte_ejecucion_presupuestaria")?data.budgetExecution:[],
+    pendingMeasurements:allowed("ver_reporte_cubicaciones_pendientes")?data.pendingMeasurements:[],
+    supplierPayments:allowed("ver_reporte_pagos_proveedor")?data.supplierPayments:[],
+    delayedProjects:allowed("ver_reporte_proyectos_atrasados")?data.delayedProjects:[],
+    physicalFinancial:allowed("ver_reporte_avance_financiero")?data.physicalFinancial:[],
+  });
 }
