@@ -9,6 +9,7 @@ update public.app_users set permissions=permissions||jsonb_build_object(
  'ver_vacaciones',coalesce((permissions->>'ver_vacaciones')::boolean,(permissions->>'ver_recursos_humanos')::boolean,false),
  'registrar_vacaciones',coalesce((permissions->>'registrar_vacaciones')::boolean,(permissions->>'crear_recursos_humanos')::boolean,false),
  'aprobar_vacaciones',coalesce((permissions->>'aprobar_vacaciones')::boolean,(permissions->>'aprobar_recursos_humanos')::boolean,false)
+ ,'limitar_novedades_area',coalesce((permissions->>'limitar_novedades_area')::boolean,false)
 ) where role<>'Administrador';
 
 -- Toda acción operativa implica la vista mínima de su propio módulo, nunca la vista general de Gestión Humana.
@@ -37,6 +38,13 @@ create index if not exists hr_employee_cases_status_idx on public.hr_employee_ca
 alter table public.hr_employee_cases enable row level security;
 revoke all on public.hr_employee_cases from anon,authenticated;
 
+create or replace function public.hr_employee_in_user_scope(p_user public.app_users,p_employee public.hr_employees)
+returns boolean language sql stable set search_path=public as $$
+ select not coalesce((p_user.permissions->>'limitar_novedades_area')::boolean,false)
+ or case when trim(coalesce(p_user.department,''))<>'' then lower(trim(p_user.department)) in(lower(trim(coalesce(p_employee.direction_name,''))),lower(trim(coalesce(p_employee.department_name,''))),lower(trim(coalesce(p_employee.division_name,''))),lower(trim(coalesce(p_employee.section_name,''))),lower(trim(coalesce(p_employee.center_name,''))))
+ else lower(trim(coalesce(p_user.area,''))) in(lower(trim(coalesce(p_employee.direction_name,''))),lower(trim(coalesce(p_employee.department_name,''))),lower(trim(coalesce(p_employee.division_name,''))),lower(trim(coalesce(p_employee.section_name,''))),lower(trim(coalesce(p_employee.center_name,'')))) end
+$$;
+
 create or replace function public.list_hr_employee_cases(p_token text,p_case_type text,p_year integer default null)
 returns jsonb language plpgsql security definer set search_path=public,extensions as $$
 declare v_user public.app_users;v_permission text;v_register_permission text;begin
@@ -46,11 +54,11 @@ declare v_user public.app_users;v_permission text;v_register_permission text;beg
  v_register_permission:=case p_case_type when 'PERMISO' then 'registrar_permisos_laborales' when 'VACACION' then 'registrar_vacaciones' else 'registrar_amonestaciones' end;
  if v_user.id is null or (v_user.role<>'Administrador' and not coalesce((v_user.permissions->>v_permission)::boolean,false)) then return jsonb_build_object('success',false,'error','No posee permiso para consultar este módulo.');end if;
  return jsonb_build_object('success',true,
- 'employees',case when v_user.role='Administrador' or coalesce((v_user.permissions->>v_register_permission)::boolean,false) then coalesce((select jsonb_agg(jsonb_build_object('id',e.id,'employee_code',e.employee_code,'full_name',e.full_name,'position_name',e.position_name,'employment_status',e.employment_status) order by e.full_name) from public.hr_employees e where e.employment_status<>'Desvinculado'),'[]'::jsonb) else '[]'::jsonb end,
+ 'employees',case when v_user.role='Administrador' or coalesce((v_user.permissions->>v_register_permission)::boolean,false) then coalesce((select jsonb_agg(jsonb_build_object('id',e.id,'employee_code',e.employee_code,'full_name',e.full_name,'position_name',e.position_name,'employment_status',e.employment_status) order by e.full_name) from public.hr_employees e where e.employment_status<>'Desvinculado' and (v_user.role='Administrador' or public.hr_employee_in_user_scope(v_user,e))),'[]'::jsonb) else '[]'::jsonb end,
  'items',coalesce((select jsonb_agg(to_jsonb(x) order by x.start_date desc,x.case_number desc) from(
   select c.*,e.employee_code,e.document_number,e.full_name,e.position_name,e.direction_name,e.department_name,u.full_name created_by_name,a.full_name approved_by_name
   from public.hr_employee_cases c join public.hr_employees e on e.id=c.employee_id join public.app_users u on u.id=c.created_by left join public.app_users a on a.id=c.approved_by
-  where c.case_type=p_case_type and (p_year is null or extract(year from c.request_date)=p_year)
+  where c.case_type=p_case_type and (p_year is null or extract(year from c.request_date)=p_year) and (v_user.role='Administrador' or public.hr_employee_in_user_scope(v_user,e))
  )x),'[]'::jsonb));
 end $$;
 
@@ -63,6 +71,7 @@ declare v_user public.app_users;v_type text:=p_data->>'case_type';v_permission t
  if v_user.id is null or (v_user.role<>'Administrador' and not coalesce((v_user.permissions->>v_permission)::boolean,false)) then return jsonb_build_object('success',false,'error','No posee permiso para crear este registro.');end if;
  select * into v_employee from public.hr_employees where id=(p_data->>'employee_id')::uuid;
  if v_employee.id is null then return jsonb_build_object('success',false,'error','Empleado no encontrado.');end if;
+ if v_user.role<>'Administrador' and not public.hr_employee_in_user_scope(v_user,v_employee) then return jsonb_build_object('success',false,'error','El empleado no pertenece al área asignada a este usuario.');end if;
  if v_employee.employment_status='Desvinculado' then return jsonb_build_object('success',false,'error','No se pueden registrar novedades para un empleado desvinculado.');end if;
  v_start:=(p_data->>'start_date')::date;v_end:=coalesce(nullif(p_data->>'end_date','')::date,v_start);v_request:=case when v_type in('PERMISO','VACACION') then (p_data->>'request_date')::date else v_start end;
  if v_request is null then return jsonb_build_object('success',false,'error','La fecha de solicitud es obligatoria.');end if;
@@ -75,12 +84,14 @@ declare v_user public.app_users;v_type text:=p_data->>'case_type';v_permission t
 
 create or replace function public.decide_hr_employee_case(p_token text,p_case_id uuid,p_decision text,p_notes text default '')
 returns jsonb language plpgsql security definer set search_path=public,extensions as $$
-declare v_user public.app_users;v_case public.hr_employee_cases;v_status text;v_permission text;begin
+declare v_user public.app_users;v_case public.hr_employee_cases;v_employee public.hr_employees;v_status text;v_permission text;begin
  v_user:=public.hr_authenticated_user(p_token);
  if v_user.id is null then return jsonb_build_object('success',false,'error','Sesión no autorizada.');end if;
  if p_decision not in ('APROBAR','RECHAZAR') then return jsonb_build_object('success',false,'error','Decisión inválida.');end if;
  select * into v_case from public.hr_employee_cases where id=p_case_id for update;
  if v_case.id is null then return jsonb_build_object('success',false,'error','Registro no encontrado.');end if;
+ select * into v_employee from public.hr_employees where id=v_case.employee_id;
+ if v_user.role<>'Administrador' and not public.hr_employee_in_user_scope(v_user,v_employee) then return jsonb_build_object('success',false,'error','No puede procesar novedades de empleados fuera de su área.');end if;
  v_permission:=case v_case.case_type when 'PERMISO' then 'aprobar_permisos_laborales' when 'VACACION' then 'aprobar_vacaciones' else 'notificar_amonestaciones' end;
  if v_user.id is null or (v_user.role<>'Administrador' and not coalesce((v_user.permissions->>v_permission)::boolean,false)) then return jsonb_build_object('success',false,'error','No posee permiso para decidir este registro.');end if;
  if v_case.status not in ('SOLICITADO','REGISTRADA') then return jsonb_build_object('success',false,'error','Este registro ya fue procesado.');end if;
@@ -88,4 +99,5 @@ declare v_user public.app_users;v_case public.hr_employee_cases;v_status text;v_
  update public.hr_employee_cases set status=v_status,decision_notes=coalesce(p_notes,''),approved_by=v_user.id,approved_at=now(),updated_at=now() where id=p_case_id;
  insert into public.security_audit_log(actor_user_id,action,module,detail) values(v_user.id,'DECIDIR_'||v_case.case_type,'Recursos Humanos',jsonb_build_object('id',p_case_id,'employee_id',v_case.employee_id,'from',v_case.status,'to',v_status,'notes',p_notes));
  return jsonb_build_object('success',true,'status',v_status);end $$;
+revoke all on function public.hr_employee_in_user_scope(public.app_users,public.hr_employees) from public,anon,authenticated;
 grant execute on function public.list_hr_employee_cases(text,text,integer),public.save_hr_employee_case(text,jsonb),public.decide_hr_employee_case(text,uuid,text,text) to anon,authenticated;
