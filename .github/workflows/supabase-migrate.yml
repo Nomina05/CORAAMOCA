@@ -51,6 +51,7 @@ jobs:
             "supabase/hr_travel_allowances.sql"
             "supabase/system_module_integration.sql"
             "supabase/project_catalog_relations.sql"
+            "supabase/advanced_measurements_workflow.sql"
             "supabase/institutional_reports.sql"
           )
           for migration in "${migrations[@]}"; do

@@ -29,10 +29,11 @@ export async function PATCH(request:Request){
   const token=(await cookies()).get(sessionCookie)?.value;
   if(!token)return NextResponse.json({error:"No autorizado."},{status:401});
   const body=await request.json();
-  const {data,error}=await authDatabase().rpc("transition_measurement_advanced",{
-    p_token:token,p_measurement_id:body.id,p_action:body.action||"ADVANCE",p_comments:body.comments||"",
-  });
+  const correction=body.action==="CORRECT_PAYMENT";
+  const {data,error}=correction
+    ? await authDatabase().rpc("admin_correct_paid_measurement",{p_token:token,p_measurement_id:body.id,p_amount:Number(body.amount),p_reason:body.comments||""})
+    : await authDatabase().rpc("transition_measurement_advanced",{p_token:token,p_measurement_id:body.id,p_action:body.action||"ADVANCE",p_comments:body.comments||""});
   if(error||!data?.success)return NextResponse.json({error:data?.error||"No fue posible cambiar el estado de la cubicación."},{status:400});
-  await recordAudit(request,token,{action:body.action==="RETURN"?"CUBICACION_DEVUELTA":"CUBICACION_AVANZADA",module:"Cubicaciones",entityType:"Cubicación",entityId:body.id,measurementId:body.id,previous:{status:"Etapa anterior"},next:{status:data.status},reason:body.comments||""});
+  await recordAudit(request,token,{action:correction?"PAGO_CORREGIDO":body.action==="RETURN"?"CUBICACION_DEVUELTA":"CUBICACION_AVANZADA",module:"Cubicaciones",entityType:"Cubicación",entityId:body.id,projectId:data.project_id||null,measurementId:body.id,previous:correction?{amount:data.previous_amount}:{status:"Etapa anterior"},next:correction?{amount:data.amount}:{status:data.status},reason:body.comments||""});
   return NextResponse.json(data);
 }

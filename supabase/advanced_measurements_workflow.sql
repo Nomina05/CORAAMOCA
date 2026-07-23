@@ -169,6 +169,30 @@ begin
   return jsonb_build_object('success',true,'items',v_items);
 end $$;
 
+create or replace function public.admin_correct_paid_measurement(p_token text,p_measurement_id uuid,p_amount numeric,p_reason text)
+returns jsonb language plpgsql security definer set search_path=public,extensions as $$
+declare v_user public.app_users%rowtype; v_m public.project_measurements%rowtype;
+begin
+  select u.* into v_user from public.app_users u join public.app_user_sessions s on s.user_id=u.id
+  where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.expires_at>now() and u.active=true and u.suspended_at is null;
+  if v_user.id is null or v_user.role<>'Administrador' then
+    return jsonb_build_object('success',false,'error','Solo el administrador puede corregir montos pagados.');
+  end if;
+  select * into v_m from public.project_measurements where id=p_measurement_id for update;
+  if v_m.id is null then return jsonb_build_object('success',false,'error','Cubicación no encontrada.'); end if;
+  if v_m.status<>'Pagada' then return jsonb_build_object('success',false,'error','Solo se pueden corregir cubicaciones en estado Pagada.'); end if;
+  if coalesce(p_amount,0)<=0 then return jsonb_build_object('success',false,'error','El monto corregido debe ser mayor que cero.'); end if;
+  if length(trim(coalesce(p_reason,'')))<5 then return jsonb_build_object('success',false,'error','Debe indicar el motivo de la corrección.'); end if;
+  if p_amount=v_m.amount then return jsonb_build_object('success',false,'error','El monto nuevo debe ser diferente al monto actual.'); end if;
+  update public.project_measurements set amount=round(p_amount,2),updated_at=now() where id=v_m.id;
+  insert into public.measurement_audit(measurement_id,action,from_status,to_status,user_id,comments,amount)
+  values(v_m.id,'Corrección administrativa de pago','Pagada','Pagada',v_user.id,
+    'Monto anterior: '||v_m.amount||'. Monto nuevo: '||round(p_amount,2)||'. Motivo: '||trim(p_reason),round(p_amount,2));
+  perform public.recalculate_project_financials(v_m.project_id);
+  return jsonb_build_object('success',true,'id',v_m.id,'project_id',v_m.project_id,'previous_amount',v_m.amount,'amount',round(p_amount,2));
+end $$;
+
 grant execute on function public.transition_measurement_advanced(text,uuid,text,text),
   public.add_measurement_document(text,uuid,text,text),public.list_app_notifications(text),
-  public.create_measurement(text,uuid,numeric,numeric,text),public.list_measurements(text,uuid) to anon,authenticated;
+  public.create_measurement(text,uuid,numeric,numeric,text),public.list_measurements(text,uuid),
+  public.admin_correct_paid_measurement(text,uuid,numeric,text) to anon,authenticated;
