@@ -37,6 +37,7 @@ jobs:
         run: |
           set -euo pipefail
           migrations=(
+            "supabase/security_permissions_audit.sql"
             "supabase/complete_audit.sql"
             "supabase/institutional_notifications.sql"
             "supabase/technical_operations.sql"

@@ -139,6 +139,26 @@ begin
   return jsonb_build_object('success',true,'users',v_users);
 end $$;
 
+create or replace function public.admin_reset_user_password(p_token text,p_user_id uuid,p_temp_password text)
+returns jsonb language plpgsql security definer set search_path=public,extensions as $$
+declare v_admin public.app_users%rowtype;v_target public.app_users%rowtype;
+begin
+  select u.* into v_admin from public.app_users u join public.app_user_sessions s on s.user_id=u.id
+  where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.expires_at>now() and u.active=true and u.suspended_at is null and u.role='Administrador';
+  if v_admin.id is null then return jsonb_build_object('success',false,'error','No autorizado.');end if;
+  if length(coalesce(p_temp_password,''))<8 then return jsonb_build_object('success',false,'error','La contraseña temporal debe tener al menos 8 caracteres.');end if;
+  select * into v_target from public.app_users where id=p_user_id;
+  if v_target.id is null then return jsonb_build_object('success',false,'error','Usuario no encontrado.');end if;
+  if v_target.id=v_admin.id then return jsonb_build_object('success',false,'error','Para proteger su sesión, otro administrador debe restablecer su contraseña.');end if;
+  update public.app_users set password_hash=crypt(p_temp_password,gen_salt('bf',10)),must_change_password=true,
+    failed_login_attempts=0,locked_until=null,permissions_version=permissions_version+1,updated_at=now() where id=p_user_id;
+  delete from public.app_user_sessions where user_id=p_user_id;
+  insert into public.security_audit_log(actor_user_id,target_user_id,action,module,detail)
+  values(v_admin.id,p_user_id,'PASSWORD_RESET_BY_ADMIN','Usuarios',jsonb_build_object('username',v_target.username,'sessions_revoked',true,'change_required',true));
+  return jsonb_build_object('success',true,'username',v_target.username);
+end $$;
+
 grant execute on function public.login_app_user(text,text),public.get_app_session(text),
   public.admin_update_user(text,uuid,text,text,boolean,text,text),public.admin_set_user_permissions(text,uuid,jsonb),
   public.admin_list_security_audit(text,integer),public.admin_list_users(text) to anon,authenticated;
+grant execute on function public.admin_reset_user_password(text,uuid,text) to anon,authenticated;

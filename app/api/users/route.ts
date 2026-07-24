@@ -28,8 +28,14 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   const token = (await cookies()).get(sessionCookie)?.value;
   if (!token) return NextResponse.json({ error: "No autorizado." }, { status: 401 });
-  const { id, role, area, department, active, suspensionReason, permissions, employeeId } = await request.json();
+  const { id, role, area, department, active, suspensionReason, permissions, employeeId, action, tempPassword } = await request.json();
   const database = authDatabase();
+  if(action==="RESET_PASSWORD"){
+    const {data,error}=await database.rpc("admin_reset_user_password",{p_token:token,p_user_id:id,p_temp_password:tempPassword});
+    if(error||!data?.success)return NextResponse.json({error:data?.error||"No fue posible restablecer la contraseña."},{status:400});
+    await recordAudit(request,token,{action:"CONTRASENA_RESTABLECIDA",module:"Usuarios",entityType:"Usuario",entityId:id,next:{mustChangePassword:true,sessionsRevoked:true}});
+    return NextResponse.json({success:true});
+  }
   if(employeeId){
     const {data,error}=await database.rpc("admin_link_user_employee",{p_token:token,p_user_id:id,p_employee_id:employeeId});
     if(error||!data?.success)return NextResponse.json({error:data?.error||"No fue posible vincular el empleado."},{status:400});
