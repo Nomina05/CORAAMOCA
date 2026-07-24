@@ -75,6 +75,15 @@ export async function POST(request: Request) {
   if (stagesResult.error || !stagesResult.data?.success) {
     return NextResponse.json({ error: stagesResult.data?.error || "El proyecto se guardó, pero no fue posible actualizar las etapas de pago." }, { status: 400 });
   }
+  const advanceResult = await database.rpc("set_project_initial_advance", {
+    p_token: token,
+    p_project_id: projectId,
+    p_percentage: advancePercentage,
+    p_status: project.advance_status || "Pendiente",
+  });
+  if (advanceResult.error || !advanceResult.data?.success) {
+    return NextResponse.json({ error: advanceResult.data?.error || "El proyecto se guardó, pero no fue posible registrar el avance inicial." }, { status: 400 });
+  }
   const classificationResult = await database.rpc("set_project_administrative_classification", {
     p_token: token,
     p_project_id: projectId,

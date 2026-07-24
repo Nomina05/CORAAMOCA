@@ -1,0 +1,21 @@
+-- Registro formal del avance inicial de 20 % o 30 % para obras.
+alter table public.technical_projects add column if not exists advance_percentage numeric(5,2) not null default 0,add column if not exists advance_registered_at timestamptz,add column if not exists advance_registered_by uuid references public.app_users(id);
+update public.technical_projects set advance_percentage=case when coalesce(awarded_amount,0)>0 and round(advance_20_amount*100/awarded_amount,0)=20 then 20 when coalesce(awarded_amount,0)>0 and round(advance_20_amount*100/awarded_amount,0)=30 then 30 else 0 end where advance_percentage=0;
+create table if not exists public.project_advance_history(id uuid primary key default gen_random_uuid(),project_id uuid not null references public.technical_projects(id) on delete cascade,percentage numeric(5,2) not null check(percentage in (0,20,30)),awarded_amount numeric(18,2) not null default 0,advance_amount numeric(18,2) not null default 0,status text not null check(status in ('Pendiente','Cubicada','Revisada','Libramiento','Pagada')),registered_by uuid not null references public.app_users(id),registered_at timestamptz not null default now());
+create index if not exists project_advance_history_project_idx on public.project_advance_history(project_id,registered_at desc);
+alter table public.project_advance_history enable row level security;revoke all on public.project_advance_history from anon,authenticated;
+create or replace function public.set_project_initial_advance(p_token text,p_project_id uuid,p_percentage numeric,p_status text) returns jsonb language plpgsql security definer set search_path=public,extensions as $$
+declare v_user public.app_users%rowtype;v_project public.technical_projects%rowtype;v_percentage numeric:=coalesce(p_percentage,0);v_status text:=coalesce(nullif(trim(p_status),''),'Pendiente');v_amount numeric;
+begin
+ select u.* into v_user from public.app_users u join public.app_user_sessions s on s.user_id=u.id where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.expires_at>now() and u.active=true and u.suspended_at is null;
+ if v_user.id is null or (v_user.role<>'Administrador' and coalesce((v_user.permissions->>'editar_proyectos_tecnicos')::boolean,false)=false) then return jsonb_build_object('success',false,'error','No posee permiso para registrar el avance inicial.');end if;
+ if v_percentage not in (0,20,30) then return jsonb_build_object('success',false,'error','El avance inicial solo puede ser de 20 % o 30 %.');end if;
+ if v_status not in ('Pendiente','Cubicada','Revisada','Libramiento','Pagada') then return jsonb_build_object('success',false,'error','Estatus de avance no válido.');end if;
+ select * into v_project from public.technical_projects where id=p_project_id for update;if v_project.id is null then return jsonb_build_object('success',false,'error','Obra no encontrada.');end if;
+ if v_percentage>0 and coalesce(trim(v_project.fixed_assets),'')<>'' then return jsonb_build_object('success',false,'error','El avance inicial de obra no aplica a activos fijos.');end if;
+ if v_percentage>0 and (coalesce(trim(v_project.supplier_contractor),'')='' or v_project.awarded_amount<=0) then return jsonb_build_object('success',false,'error','Debe asignar proveedor y monto adjudicado antes de registrar el avance.');end if;
+ v_amount:=round(coalesce(v_project.awarded_amount,0)*v_percentage/100,2);if v_percentage=0 then v_status:='Pendiente';end if;
+ if v_project.advance_percentage is distinct from v_percentage or v_project.advance_20_amount is distinct from v_amount or v_project.advance_status is distinct from v_status then update public.technical_projects set advance_percentage=v_percentage,advance_20_amount=v_amount,advance_status=v_status,advance_registered_at=now(),advance_registered_by=v_user.id,updated_at=now() where id=p_project_id;insert into public.project_advance_history(project_id,percentage,awarded_amount,advance_amount,status,registered_by) values(p_project_id,v_percentage,v_project.awarded_amount,v_amount,v_status,v_user.id);perform public.recalculate_project_financials(p_project_id);end if;
+ return jsonb_build_object('success',true,'percentage',v_percentage,'amount',v_amount,'status',v_status);
+end $$;
+grant execute on function public.set_project_initial_advance(text,uuid,numeric,text) to anon,authenticated;
