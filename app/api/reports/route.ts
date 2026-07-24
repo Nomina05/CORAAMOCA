@@ -16,7 +16,7 @@ export async function GET(request:Request){
   let publicInvestment=Array.isArray(data.publicInvestment)?data.publicInvestment:[];
   const projectsResult=await database.rpc("list_technical_projects",{p_token:token});
   const projects=Array.isArray(projectsResult.data?.projects)?projectsResult.data.projects:[];
-  const availabilityUnassigned=projects.filter((project:Record<string,unknown>)=>[2025,2026].includes(Number(project.project_year))).reduce((total:number,project:Record<string,unknown>)=>total+Number(project.budgeted_amount||0)-Number(project.awarded_amount||0),0);
+  const availabilityUnassigned=projects.reduce((total:number,project:Record<string,unknown>)=>total+Number(project.budgeted_amount||0)-Number(project.awarded_amount||0),0);
   if(projects.length>0){
     publicInvestment=projects
       .filter((project:Record<string,unknown>)=>!value||Number(project.project_year)===Number(value))
