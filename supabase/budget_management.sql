@@ -4,6 +4,8 @@
 alter table public.technical_projects
   add column if not exists committed_amount numeric(18,2) not null default 0,
   add column if not exists fixed_asset_paid_amount numeric(18,2) not null default 0,
+  add column if not exists advance_status text not null default 'Pagada',
+  add column if not exists fixed_asset_status text not null default 'Pagada',
   add column if not exists paid_measurements_amount numeric(18,2) not null default 0,
   add column if not exists budget_closed_at timestamptz,
   add column if not exists budget_closed_by uuid references public.app_users(id);
@@ -39,8 +41,8 @@ begin
   select coalesce(sum(amount),0) into v_measured from public.project_measurements where project_id=p_project_id;
   select coalesce(sum(progress_increment),0) into v_paid_progress from public.project_measurements where project_id=p_project_id and status='Pagada';
   update public.technical_projects set paid_measurements_amount=v_paid,
-    total_measured=v_measured,total_paid=coalesce(fixed_asset_paid_amount,0)+coalesce(advance_20_amount,0)+v_paid,
-    work_progress=least(100,case when coalesce(awarded_amount,0)>0 then round(coalesce(advance_20_amount,0)*100/awarded_amount,2) else 0 end+v_paid_progress),updated_at=now()
+    total_measured=v_measured,total_paid=case when fixed_asset_status='Pagada' then coalesce(fixed_asset_paid_amount,0) else 0 end+case when advance_status='Pagada' then coalesce(advance_20_amount,0) else 0 end+v_paid,
+    work_progress=least(100,case when advance_status='Pagada' and coalesce(awarded_amount,0)>0 then round(coalesce(advance_20_amount,0)*100/awarded_amount,2) else 0 end+v_paid_progress),updated_at=now()
   where id=p_project_id;
 end $$;
 
@@ -161,8 +163,25 @@ begin
   return jsonb_build_object('success',true);
 end $$;
 
+create or replace function public.set_project_payment_stages(p_token text,p_project_id uuid,p_advance_status text,p_fixed_asset_status text)
+returns jsonb language plpgsql security definer set search_path=public,extensions as $$
+declare v_user public.app_users%rowtype;v_advance text:=coalesce(nullif(trim(p_advance_status),''),'Pendiente');v_asset text:=coalesce(nullif(trim(p_fixed_asset_status),''),'Pendiente');
+begin
+  select u.* into v_user from public.app_users u join public.app_user_sessions s on s.user_id=u.id
+  where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.expires_at>now() and u.active=true and u.suspended_at is null;
+  if v_user.id is null or (v_user.role<>'Administrador' and coalesce((v_user.permissions->>'editar_proyectos_tecnicos')::boolean,false)=false)
+    then return jsonb_build_object('success',false,'error','No posee permiso para actualizar las etapas de pago.');end if;
+  if v_advance not in ('Pendiente','Cubicada','Revisada','Libramiento','Pagada') or v_asset not in ('Pendiente','Cubicada','Revisada','Libramiento','Pagada')
+    then return jsonb_build_object('success',false,'error','Estatus de pago no válido.');end if;
+  update public.technical_projects set advance_status=v_advance,fixed_asset_status=v_asset,updated_at=now() where id=p_project_id;
+  if not found then return jsonb_build_object('success',false,'error','Proyecto no encontrado.');end if;
+  perform public.recalculate_project_financials(p_project_id);
+  return jsonb_build_object('success',true);
+end $$;
+
 do $$ declare r record; begin for r in select id from public.technical_projects loop perform public.recalculate_project_financials(r.id); end loop; end $$;
 
 grant execute on function public.get_budget_management(text,integer),public.add_budget_modification(text,uuid,text,numeric,text,text),
   public.close_budget_year(text,integer,text),public.set_project_fixed_asset_payment(text,uuid,numeric) to anon,authenticated;
 grant execute on function public.set_project_financial_commitments(text,uuid,numeric,numeric) to anon,authenticated;
+grant execute on function public.set_project_payment_stages(text,uuid,text,text) to anon,authenticated;
