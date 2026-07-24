@@ -66,6 +66,15 @@ export async function POST(request: Request) {
   if (commitmentResult.error || !commitmentResult.data?.success) {
     return NextResponse.json({ error: commitmentResult.data?.error || "El proyecto se guardó, pero no fue posible actualizar sus compromisos financieros." }, { status: 400 });
   }
+  const stagesResult = await database.rpc("set_project_payment_stages", {
+    p_token: token,
+    p_project_id: projectId,
+    p_advance_status: project.advance_status || (Number(project.advance_20_amount || 0) > 0 ? "Pagada" : "Pendiente"),
+    p_fixed_asset_status: project.fixed_asset_status || (Number(project.fixed_asset_paid_amount || 0) > 0 ? "Pagada" : "Pendiente"),
+  });
+  if (stagesResult.error || !stagesResult.data?.success) {
+    return NextResponse.json({ error: stagesResult.data?.error || "El proyecto se guardó, pero no fue posible actualizar las etapas de pago." }, { status: 400 });
+  }
   const classificationResult = await database.rpc("set_project_administrative_classification", {
     p_token: token,
     p_project_id: projectId,

@@ -1,0 +1,34 @@
+name: Actualizar datos de proyectos
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "supabase/project_data_refresh.sql"
+
+concurrency:
+  group: supabase-production-migrations
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cargar proyectos desde el Excel autorizado
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          PGSSLMODE: require
+        run: |
+          set -euo pipefail
+          test -n "$PGPASSWORD"
+          psql -h aws-1-us-west-2.pooler.supabase.com -p 5432 -U postgres.tytbnwhrxznxmfjcrfdx -d postgres -v ON_ERROR_STOP=1 -f supabase/budget_management.sql
+          psql -h aws-1-us-west-2.pooler.supabase.com -p 5432 -U postgres.tytbnwhrxznxmfjcrfdx -d postgres -v ON_ERROR_STOP=1 -f supabase/project_data_refresh.sql
+      - name: Verificar carga
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          PGSSLMODE: require
+        run: |
+          psql -h aws-1-us-west-2.pooler.supabase.com -p 5432 -U postgres.tytbnwhrxznxmfjcrfdx -d postgres -v ON_ERROR_STOP=1 -c "select count(*) proyectos from public.technical_projects; select count(*) cubicaciones from public.project_measurements;"
