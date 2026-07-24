@@ -315,6 +315,7 @@ export default function Home() {
       .catch(()=>setUsers([]))
       .finally(() => setUsersLoading(false));
     loadHrEmployees();
+    loadOrganizationUnits();
   }, [section, currentUser?.role]);
 
   useEffect(() => {
