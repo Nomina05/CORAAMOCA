@@ -34,7 +34,15 @@ test("solo las cubicaciones pagadas afectan el total pagado",()=>{
 test("el resumen de obras solo incluye avances iniciales pagados",async()=>{
   const sql=await readFile(new URL("../supabase/institutional_reports.sql",import.meta.url),"utf8");
   assert.equal(sql.includes("sum(p.advance_20_amount) filter(where lower(trim(coalesce(p.advance_status,''))) in ('pagada','pago'))"),true);
+  assert.equal(sql.includes("sum(m.net_paid_amount)"),true);
   assert.equal(sql.includes("lower(trim(m.status)) in ('pagada','pago')"),true);
+});
+
+test("las cubicaciones pagadas aplican una retención del 25 por ciento",async()=>{
+  const sql=await readFile(new URL("../supabase/measurement_retention.sql",import.meta.url),"utf8");
+  assert.equal(sql.includes("round(amount*0.25,2)"),true);
+  assert.equal(sql.includes("amount-round(amount*0.25,2)"),true);
+  assert.equal(sql.includes("sum(net_paid_amount)"),true);
 });
 
 test("un pago no puede exceder la apropiación disponible",()=>{
