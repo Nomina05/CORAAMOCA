@@ -31,6 +31,12 @@ test("solo las cubicaciones pagadas afectan el total pagado",()=>{
   ]}),600);
 });
 
+test("el resumen de obras solo incluye avances iniciales pagados",async()=>{
+  const sql=await readFile(new URL("../supabase/institutional_reports.sql",import.meta.url),"utf8");
+  assert.equal(sql.includes("sum(p.advance_20_amount) filter(where lower(trim(coalesce(p.advance_status,''))) in ('pagada','pago'))"),true);
+  assert.equal(sql.includes("lower(trim(m.status)) in ('pagada','pago')"),true);
+});
+
 test("un pago no puede exceder la apropiación disponible",()=>{
   assert.equal(paymentWithinAppropriation(1000,999),true);
   assert.equal(paymentWithinAppropriation(1000,1001),false);
