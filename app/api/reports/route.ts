@@ -29,7 +29,7 @@ export async function GET(request:Request){
         measurement_status:project.measurement_status||"Pendiente",total_measured:Number(project.total_measured||0),
         total_paid:Number(project.total_paid||0),work_status:project.work_status||"Sin estatus",
         work_progress:Number(project.work_progress||0),
-        project_year:Number(project.project_year||0),
+        project_year:Number(project.project_year||0),works_summary:data.worksSummary,
       }});
   }
   return NextResponse.json({

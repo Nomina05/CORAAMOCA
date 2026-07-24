@@ -6,7 +6,7 @@ alter table public.technical_projects add column if not exists planned_end_date 
 create or replace function public.get_institutional_reports(p_token text,p_year integer default null)
 returns jsonb language plpgsql security definer set search_path=public,extensions as $$
 declare v_user public.app_users%rowtype; v_investment jsonb; v_projects jsonb; v_budget jsonb;
-  v_pending jsonb; v_suppliers jsonb; v_delayed jsonb; v_progress jsonb; v_public_investment jsonb;
+  v_pending jsonb; v_suppliers jsonb; v_delayed jsonb; v_progress jsonb; v_public_investment jsonb; v_works_summary jsonb;
 begin
   select u.* into v_user from public.app_users u join public.app_user_sessions s on s.user_id=u.id
   where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.expires_at>now() and u.active=true and u.suspended_at is null;
@@ -79,9 +79,18 @@ begin
     from public.technical_projects p where p_year is null or p.project_year=p_year
   )x;
 
+  select jsonb_build_object(
+    'snip_codes',coalesce((select string_agg(distinct nullif(trim(p.snip_code),''),', ' order by nullif(trim(p.snip_code),'')) from public.technical_projects p where coalesce(trim(p.fixed_assets),'')='' and (p_year is null or p.project_year=p_year)),''),
+    'total_investment',coalesce(sum(p.budgeted_amount),0),'in_execution',coalesce(sum(p.awarded_amount),0),
+    'total_measured',coalesce((select sum(m.amount) from public.project_measurements m join public.technical_projects wp on wp.id=m.project_id where coalesce(trim(wp.fixed_assets),'')='' and (p_year is null or wp.project_year=p_year)),0),
+    'for_signatures',coalesce((select sum(m.amount) from public.project_measurements m join public.technical_projects wp on wp.id=m.project_id where coalesce(trim(wp.fixed_assets),'')='' and lower(trim(m.status)) in ('cubicada','cubicacion','cubicación','para cubicacion','para cubicación','en cubicacion','en cubicación','para cubicar') and (p_year is null or wp.project_year=p_year)),0),
+    'in_libramiento',coalesce((select sum(m.amount) from public.project_measurements m join public.technical_projects wp on wp.id=m.project_id where coalesce(trim(wp.fixed_assets),'')='' and lower(trim(m.status))='libramiento' and (p_year is null or wp.project_year=p_year)),0),
+    'total_paid_works',coalesce(sum(p.advance_20_amount),0)+coalesce((select sum(m.amount) from public.project_measurements m join public.technical_projects wp on wp.id=m.project_id where coalesce(trim(wp.fixed_assets),'')='' and lower(trim(m.status))='libramiento' and (p_year is null or wp.project_year=p_year)),0)
+  ) into v_works_summary from public.technical_projects p where coalesce(trim(p.fixed_assets),'')='' and (p_year is null or p.project_year=p_year);
+
   return jsonb_build_object('success',true,'year',p_year,'investment',v_investment,'projectsByYearStatus',v_projects,
     'budgetExecution',v_budget,'pendingMeasurements',v_pending,'supplierPayments',v_suppliers,
-    'delayedProjects',v_delayed,'physicalFinancial',v_progress,'publicInvestment',v_public_investment,'generated_at',now());
+    'delayedProjects',v_delayed,'physicalFinancial',v_progress,'publicInvestment',v_public_investment,'worksSummary',v_works_summary,'generated_at',now());
 end $$;
 
 grant execute on function public.get_institutional_reports(text,integer) to anon,authenticated;
