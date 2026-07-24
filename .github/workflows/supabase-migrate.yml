@@ -54,6 +54,7 @@ jobs:
             "supabase/project_catalog_relations.sql"
             "supabase/budget_management.sql"
             "supabase/advanced_measurements_workflow.sql"
+            "supabase/measurement_retention.sql"
             "supabase/institutional_reports.sql"
           )
           for migration in "${migrations[@]}"; do

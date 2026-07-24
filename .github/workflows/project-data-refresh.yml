@@ -26,6 +26,7 @@ jobs:
           test -n "$PGPASSWORD"
           psql -h aws-1-us-west-2.pooler.supabase.com -p 5432 -U postgres.tytbnwhrxznxmfjcrfdx -d postgres -v ON_ERROR_STOP=1 -f supabase/budget_management.sql
           psql -h aws-1-us-west-2.pooler.supabase.com -p 5432 -U postgres.tytbnwhrxznxmfjcrfdx -d postgres -v ON_ERROR_STOP=1 -f supabase/project_data_refresh.sql
+          psql -h aws-1-us-west-2.pooler.supabase.com -p 5432 -U postgres.tytbnwhrxznxmfjcrfdx -d postgres -v ON_ERROR_STOP=1 -f supabase/measurement_retention.sql
       - name: Verificar carga
         env:
           PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
