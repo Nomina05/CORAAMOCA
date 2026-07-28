@@ -112,6 +112,17 @@ test("la acción de personal se imprime en tamaño carta",async()=>{
   assert.equal(component.includes(".action-approvals{height:190px!important;min-height:190px!important"),true);
 });
 
+test("cada exportación PDF utiliza un modo de impresión independiente",async()=>{
+  const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
+  const component=await readFile(new URL("../app/components/PersonnelAction.tsx",import.meta.url),"utf8");
+  const css=await readFile(new URL("../app/globals.css",import.meta.url),"utf8");
+  assert.equal(page.includes('printActiveView("printing-report")'),true);
+  assert.equal(page.includes('printActiveView("printing-dashboard")'),true);
+  assert.equal(component.includes("printing-personnel-action"),true);
+  assert.equal(css.includes("body.printing-personnel-action *{visibility:hidden!important}"),true);
+  assert.equal(css.includes("body *{visibility:hidden!important}"),false);
+});
+
 test("las acciones de personal solo se modifican mientras están pendientes",async()=>{
   const sql=await readFile(new URL("../supabase/hr_personnel_actions.sql",import.meta.url),"utf8");
   const component=await readFile(new URL("../app/components/PersonnelAction.tsx",import.meta.url),"utf8");
