@@ -18,6 +18,16 @@ test("los permisos de Gestión Humana se asignan de forma independiente",()=>{
   assert.equal(permissionGranted("Administrador",{},"aprobar_vacaciones"),true);
 });
 
+test("permisos, vacaciones y amonestaciones poseen secuencias independientes",async()=>{
+  const sql=await readFile(new URL("../supabase/hr_employee_cases.sql",import.meta.url),"utf8");
+  const component=await readFile(new URL("../app/components/EmployeeCases.tsx",import.meta.url),"utf8");
+  assert.equal(sql.includes("partition by case_type"),true);
+  assert.equal(sql.includes("hr_employee_cases_type_number_uidx"),true);
+  assert.equal(sql.includes("pg_advisory_xact_lock"),true);
+  assert.equal(component.includes("item.module_number||item.case_number"),true);
+  assert.equal(component.includes('useState<string>("ALL")'),true);
+});
+
 test("el flujo de cubicaciones no permite saltar etapas",()=>{
   assert.equal(nextMeasurementStatus("Cubicada"),"Revisada");
   assert.equal(nextMeasurementStatus("Revisada"),"Libramiento");

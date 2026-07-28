@@ -33,6 +33,31 @@ create table if not exists public.hr_employee_cases(
 alter table public.hr_employee_cases add column if not exists request_date date;
 update public.hr_employee_cases set request_date=coalesce(request_date,created_at::date,start_date) where request_date is null;
 alter table public.hr_employee_cases alter column request_date set default current_date,alter column request_date set not null;
+-- La identidad original es global para permisos, vacaciones y amonestaciones. La numeración
+-- visible debe ser independiente por módulo para que no muestre saltos entre tipos de registro.
+alter table public.hr_employee_cases add column if not exists module_number bigint;
+with numbered as (
+ select id,row_number() over(partition by case_type order by created_at,case_number,id) module_number
+ from public.hr_employee_cases
+)
+update public.hr_employee_cases c set module_number=n.module_number
+from numbered n where n.id=c.id and c.module_number is null;
+alter table public.hr_employee_cases alter column module_number set not null;
+create unique index if not exists hr_employee_cases_type_number_uidx on public.hr_employee_cases(case_type,module_number);
+
+create or replace function public.assign_hr_employee_case_module_number()
+returns trigger language plpgsql set search_path=public as $$
+begin
+ if new.module_number is null then
+  perform pg_advisory_xact_lock(hashtext('hr_employee_cases:'||new.case_type));
+  select coalesce(max(module_number),0)+1 into new.module_number
+  from public.hr_employee_cases where case_type=new.case_type;
+ end if;
+ return new;
+end $$;
+drop trigger if exists trg_hr_employee_case_module_number on public.hr_employee_cases;
+create trigger trg_hr_employee_case_module_number before insert on public.hr_employee_cases
+for each row execute function public.assign_hr_employee_case_module_number();
 create index if not exists hr_employee_cases_employee_idx on public.hr_employee_cases(employee_id,case_type,start_date desc);
 create index if not exists hr_employee_cases_status_idx on public.hr_employee_cases(case_type,status,start_date desc);
 alter table public.hr_employee_cases enable row level security;
@@ -55,7 +80,7 @@ declare v_user public.app_users;v_permission text;v_register_permission text;beg
  if v_user.id is null or (v_user.role<>'Administrador' and not coalesce((v_user.permissions->>v_permission)::boolean,false)) then return jsonb_build_object('success',false,'error','No posee permiso para consultar este módulo.');end if;
  return jsonb_build_object('success',true,
  'employees',case when v_user.role='Administrador' or coalesce((v_user.permissions->>v_register_permission)::boolean,false) then coalesce((select jsonb_agg(jsonb_build_object('id',e.id,'employee_code',e.employee_code,'full_name',e.full_name,'position_name',e.position_name,'employment_status',e.employment_status) order by e.full_name) from public.hr_employees e where e.employment_status<>'Desvinculado' and (v_user.role='Administrador' or public.hr_employee_in_user_scope(v_user,e))),'[]'::jsonb) else '[]'::jsonb end,
- 'items',coalesce((select jsonb_agg(to_jsonb(x) order by x.start_date desc,x.case_number desc) from(
+ 'items',coalesce((select jsonb_agg(to_jsonb(x) order by x.start_date desc,x.module_number desc) from(
   select c.*,e.employee_code,e.document_number,e.full_name,e.position_name,e.direction_name,e.department_name,u.full_name created_by_name,a.full_name approved_by_name
   from public.hr_employee_cases c join public.hr_employees e on e.id=c.employee_id join public.app_users u on u.id=c.created_by left join public.app_users a on a.id=c.approved_by
   where c.case_type=p_case_type and (p_year is null or extract(year from c.request_date)=p_year) and (v_user.role='Administrador' or public.hr_employee_in_user_scope(v_user,e))
