@@ -197,14 +197,14 @@ begin
   case when p_type in ('NOMINA','NOMINA_FIJA','SUPLENCIA','INTERINATO','TEMPORAL') then coalesce(d.amount,0) else 0 end,
   (case when p_type in ('NOMINA','NOMINA_FIJA','SUPLENCIA','INTERINATO','TEMPORAL') then round(least(x.gross,v_pc)*v_ep+least(x.gross,v_sc)*v_es,2)+coalesce(d.amount,0) else 0 end)+tax.isr,
   x.gross-((case when p_type in ('NOMINA','NOMINA_FIJA','SUPLENCIA','INTERINATO','TEMPORAL') then round(least(x.gross,v_pc)*v_ep+least(x.gross,v_sc)*v_es,2)+coalesce(d.amount,0) else 0 end)+tax.isr),
-  jsonb_build_object('employee_pension_rate',v_ep,'employee_sfs_rate',v_es,'employer_pension_rate',v_epr,'employer_sfs_rate',v_esr,'labor_risk_rate',v_lr,'pension_cap',v_pc,'sfs_cap',v_sc,'labor_risk_cap',v_lc,'isr_method','ACUMULADO_MENSUAL_INCREMENTAL','isr_priority',case p_type when 'NOMINA' then 1 when 'NOMINA_FIJA' then 1 when 'SUPLENCIA' then 2 when 'INTERINATO' then 3 when 'TEMPORAL' then 4 when 'PRIMA_TRANSPORTE' then 5 when 'VIATICOS' then 6 else 0 end)
+  jsonb_build_object('employee_pension_rate',v_ep,'employee_sfs_rate',v_es,'employer_pension_rate',v_epr,'employer_sfs_rate',v_esr,'labor_risk_rate',v_lr,'pension_cap',v_pc,'sfs_cap',v_sc,'labor_risk_cap',v_lc,'other_deductions_detail',coalesce(d.detail,'{}'::jsonb),'isr_method','ACUMULADO_MENSUAL_INCREMENTAL','isr_priority',case p_type when 'NOMINA' then 1 when 'NOMINA_FIJA' then 1 when 'SUPLENCIA' then 2 when 'INTERINATO' then 3 when 'TEMPORAL' then 4 when 'PRIMA_TRANSPORTE' then 5 when 'VIATICOS' then 6 else 0 end)
  from public.hr_employees e
  cross join lateral(select
   case when p_type in ('NOMINA','NOMINA_FIJA','SUPLENCIA','INTERINATO','TEMPORAL') then coalesce(a.gross_amount,case when p_type in ('NOMINA','NOMINA_FIJA') then e.monthly_salary else 0 end) else coalesce((select b.default_amount from public.hr_employee_benefits b where b.employee_id=e.id and b.active and b.benefit_type=case p_type when 'PRIMA_TRANSPORTE' then 'PRIMA_TRANSPORTE' when 'VIATICOS' then 'VIATICOS' else 'HORAS_EXTRAS' end),0) end gross,
   coalesce(a.execution_fund,e.execution_fund,'30') execution_fund,coalesce(a.program,e.program,1) program,coalesce(a.subproduct,e.subproduct,0) subproduct,coalesce(a.activity,e.activity,1) activity,a.account_code,coalesce(a.position_name,e.position_name) position_name
   from (select 1) seed left join lateral(select pa.* from public.hr_employee_payroll_assignments pa where pa.employee_id=e.id and pa.active and pa.payroll_type=case p_type when 'NOMINA' then 'FIJA' when 'NOMINA_FIJA' then 'FIJA' else p_type end and pa.program=p_program and (pa.start_date is null or pa.start_date<=v_date) and (pa.end_date is null or pa.end_date>=v_date) limit 1)a on true)x
  cross join lateral(select public.hr_calculate_incremental_isr_2026(e.id,v_date,p_type) isr)tax
- left join lateral(select sum(monthly_amount) amount from public.hr_employee_deductions d where d.employee_id=e.id and d.active)d on true
+ left join lateral(select sum(x.amount) amount,jsonb_object_agg(x.deduction_type,x.amount) detail from (select d.deduction_type,sum(d.monthly_amount) amount from public.hr_employee_deductions d where d.employee_id=e.id and d.active group by d.deduction_type)x)d on true
  where coalesce(e.payroll_status,e.employment_status,'') not in ('INACTIVO','Inactivo','DESVINCULADO') and x.program=p_program and x.gross>0;
  insert into public.security_audit_log(actor_user_id,action,module,detail) values(v_user.id,'GENERAR_'||p_type,'Recursos Humanos',jsonb_build_object('batch_id',v_batch,'year',p_year,'month',p_month,'program',p_program));
  return jsonb_build_object('success',true,'id',v_batch);
@@ -233,6 +233,11 @@ declare v_user public.app_users;v_id uuid;v_code text;v_existing boolean;begin v
  returning id,employee_code into v_id,v_code;
  delete from public.hr_employee_benefits where employee_id=v_id;
  insert into public.hr_employee_benefits(employee_id,benefit_type,default_amount) select v_id,x->>'type',coalesce((x->>'amount')::numeric,0) from jsonb_array_elements(coalesce(p_data->'benefits','[]'))x where coalesce((x->>'active')::boolean,true);
+ delete from public.hr_employee_deductions where employee_id=v_id;
+ insert into public.hr_employee_deductions(employee_id,deduction_type,description,monthly_amount,active)
+ select v_id,x->>'type',coalesce(x->>'description',''),greatest(coalesce((x->>'amount')::numeric,0),0),coalesce((x->>'active')::boolean,true)
+ from jsonb_array_elements(coalesce(p_data->'deductions','[]'))x
+ where x->>'type' in ('AGUA','SEGURO_COMPLEMENTARIO','DEPENDIENTE_ADICIONAL','ASOCIACION_SERVIDORES_PUBLICOS','OTRO') and coalesce((x->>'amount')::numeric,0)>0;
  delete from public.hr_employee_payroll_assignments where employee_id=v_id;
  insert into public.hr_employee_payroll_assignments(employee_id,payroll_type,account_code,position_name,execution_fund,program,subproduct,activity,gross_amount,start_date,end_date,active)
  select v_id,upper(x->>'payroll_type'),x->>'account_code',nullif(x->>'position_name',''),coalesce(nullif(x->>'execution_fund',''),'30'),coalesce((x->>'program')::integer,1),coalesce((x->>'subproduct')::integer,0),coalesce((x->>'activity')::integer,1),coalesce((x->>'gross_amount')::numeric,0),nullif(x->>'start_date','')::date,nullif(x->>'end_date','')::date,coalesce((x->>'active')::boolean,true)
