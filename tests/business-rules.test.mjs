@@ -28,6 +28,16 @@ test("permisos, vacaciones y amonestaciones poseen secuencias independientes",as
   assert.equal(component.includes('useState<string>("ALL")'),true);
 });
 
+test("los indicadores de novedades respetan alcance y criterios de seguimiento",async()=>{
+  const sql=await readFile(new URL("../supabase/hr_employee_cases.sql",import.meta.url),"utf8");
+  const component=await readFile(new URL("../app/components/HrCaseAnalytics.tsx",import.meta.url),"utf8");
+  assert.equal(sql.includes("get_hr_case_analytics"),true);
+  assert.equal(sql.includes("hr_employee_in_user_scope(v_user,e)"),true);
+  assert.equal(sql.includes("consecutive_licenses"),true);
+  assert.equal(sql.includes("Revisión disciplinaria y plan de mejora documentado"),true);
+  assert.equal(component.includes("Las alertas no sustituyen la investigación"),true);
+});
+
 test("el flujo de cubicaciones no permite saltar etapas",()=>{
   assert.equal(nextMeasurementStatus("Cubicada"),"Revisada");
   assert.equal(nextMeasurementStatus("Revisada"),"Libramiento");

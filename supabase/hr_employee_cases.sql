@@ -10,6 +10,7 @@ update public.app_users set permissions=permissions||jsonb_build_object(
  'registrar_vacaciones',coalesce((permissions->>'registrar_vacaciones')::boolean,(permissions->>'crear_recursos_humanos')::boolean,false),
  'aprobar_vacaciones',coalesce((permissions->>'aprobar_vacaciones')::boolean,(permissions->>'aprobar_recursos_humanos')::boolean,false)
  ,'limitar_novedades_area',coalesce((permissions->>'limitar_novedades_area')::boolean,false)
+ ,'ver_indicadores_rrhh',coalesce((permissions->>'ver_indicadores_rrhh')::boolean,(permissions->>'ver_recursos_humanos')::boolean,false)
 ) where role<>'Administrador';
 
 -- Toda acción operativa implica la vista mínima de su propio módulo, nunca la vista general de Gestión Humana.
@@ -124,5 +125,59 @@ declare v_user public.app_users;v_case public.hr_employee_cases;v_employee publi
  update public.hr_employee_cases set status=v_status,decision_notes=coalesce(p_notes,''),approved_by=v_user.id,approved_at=now(),updated_at=now() where id=p_case_id;
  insert into public.security_audit_log(actor_user_id,action,module,detail) values(v_user.id,'DECIDIR_'||v_case.case_type,'Recursos Humanos',jsonb_build_object('id',p_case_id,'employee_id',v_case.employee_id,'from',v_case.status,'to',v_status,'notes',p_notes));
  return jsonb_build_object('success',true,'status',v_status);end $$;
+
+create or replace function public.get_hr_case_analytics(p_token text,p_year integer default null)
+returns jsonb language plpgsql security definer set search_path=public,extensions as $$
+declare v_user public.app_users;v_employees jsonb;v_summary jsonb;begin
+ v_user:=public.hr_authenticated_user(p_token);
+ if v_user.id is null or (v_user.role<>'Administrador' and not coalesce((v_user.permissions->>'ver_indicadores_rrhh')::boolean,false)) then
+  return jsonb_build_object('success',false,'error','No posee permiso para consultar los indicadores de Recursos Humanos.');
+ end if;
+ with scoped as (
+  select c.*,e.employee_code,e.full_name,e.position_name,e.direction_name,e.department_name
+  from public.hr_employee_cases c join public.hr_employees e on e.id=c.employee_id
+  where c.status<>'ANULADA' and (p_year is null or extract(year from c.request_date)=p_year)
+   and (v_user.role='Administrador' or public.hr_employee_in_user_scope(v_user,e))
+ ),medical_ordered as (
+  select employee_id,start_date,end_date,lag(end_date) over(partition by employee_id order by start_date,end_date) previous_end
+  from scoped where case_type='PERMISO' and (lower(category) like '%médic%' or lower(category) like '%medic%' or lower(category) like '%licencia%' or lower(category) like '%enfermedad%')
+ ),medical_streaks as (
+  select employee_id,count(*) filter(where previous_end is not null and start_date<=previous_end+7) consecutive_licenses
+  from medical_ordered group by employee_id
+ ),employee_totals as (
+  select s.employee_id,max(s.employee_code) employee_code,max(s.full_name) full_name,max(s.position_name) position_name,
+   max(s.direction_name) direction_name,max(s.department_name) department_name,
+   count(*) filter(where s.case_type='PERMISO') permission_count,
+   count(*) filter(where s.case_type='PERMISO' and (lower(s.category) like '%médic%' or lower(s.category) like '%medic%' or lower(s.category) like '%licencia%' or lower(s.category) like '%enfermedad%')) medical_license_count,
+   count(*) filter(where s.case_type='VACACION') vacation_count,count(*) filter(where s.case_type='AMONESTACION') warning_count,
+   count(*) filter(where s.status in ('SOLICITADO','REGISTRADA')) pending_count,
+   coalesce(sum(s.day_count) filter(where s.case_type in ('PERMISO','VACACION') and s.status='APROBADO'),0) approved_absence_days,
+   max(s.request_date) last_request_date from scoped s group by s.employee_id
+ )
+ select coalesce(jsonb_agg(jsonb_build_object(
+  'employee_id',t.employee_id,'employee_code',t.employee_code,'full_name',t.full_name,'position_name',t.position_name,
+  'direction_name',t.direction_name,'department_name',t.department_name,'permission_count',t.permission_count,
+  'medical_license_count',t.medical_license_count,'consecutive_licenses',coalesce(m.consecutive_licenses,0),
+  'vacation_count',t.vacation_count,'warning_count',t.warning_count,'pending_count',t.pending_count,
+  'approved_absence_days',t.approved_absence_days,'last_request_date',t.last_request_date,
+  'risk_level',case when t.permission_count>=5 or coalesce(m.consecutive_licenses,0)>=3 or t.warning_count>=3 then 'ALTO'
+                    when t.permission_count>=3 or coalesce(m.consecutive_licenses,0)>=2 or t.vacation_count>=3 or t.warning_count>=2 then 'MEDIO' else 'BAJO' end,
+  'recommendation',case when t.warning_count>=3 then 'Revisión disciplinaria y plan de mejora documentado'
+                        when coalesce(m.consecutive_licenses,0)>=2 then 'Validar soportes médicos y realizar entrevista de seguimiento'
+                        when t.permission_count>=3 then 'Revisar causas recurrentes y acordar medidas preventivas'
+                        when t.vacation_count>=3 then 'Revisar fraccionamiento y planificación anual de vacaciones'
+                        else 'Seguimiento ordinario' end
+ ) order by case when t.permission_count>=5 or coalesce(m.consecutive_licenses,0)>=3 or t.warning_count>=3 then 1 when t.permission_count>=3 or coalesce(m.consecutive_licenses,0)>=2 or t.vacation_count>=3 or t.warning_count>=2 then 2 else 3 end,t.full_name),'[]'::jsonb)
+ into v_employees from employee_totals t left join medical_streaks m on m.employee_id=t.employee_id;
+ with scoped as (
+  select c.* from public.hr_employee_cases c join public.hr_employees e on e.id=c.employee_id
+  where c.status<>'ANULADA' and (p_year is null or extract(year from c.request_date)=p_year)
+   and (v_user.role='Administrador' or public.hr_employee_in_user_scope(v_user,e))
+ ) select jsonb_build_object('permissions',count(*) filter(where case_type='PERMISO'),'vacations',count(*) filter(where case_type='VACACION'),
+  'warnings',count(*) filter(where case_type='AMONESTACION'),'pending',count(*) filter(where status in ('SOLICITADO','REGISTRADA')),
+  'approved_absence_days',coalesce(sum(day_count) filter(where case_type in ('PERMISO','VACACION') and status='APROBADO'),0))
+ into v_summary from scoped;
+ return jsonb_build_object('success',true,'summary',v_summary,'employees',v_employees,'year',p_year,'generated_at',now());
+end $$;
 revoke all on function public.hr_employee_in_user_scope(public.app_users,public.hr_employees) from public,anon,authenticated;
-grant execute on function public.list_hr_employee_cases(text,text,integer),public.save_hr_employee_case(text,jsonb),public.decide_hr_employee_case(text,uuid,text,text) to anon,authenticated;
+grant execute on function public.list_hr_employee_cases(text,text,integer),public.save_hr_employee_case(text,jsonb),public.decide_hr_employee_case(text,uuid,text,text),public.get_hr_case_analytics(text,integer) to anon,authenticated;
