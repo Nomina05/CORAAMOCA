@@ -51,6 +51,10 @@ create table if not exists public.hr_payroll_batches(
   created_by uuid references public.app_users(id), approved_by uuid references public.app_users(id), created_at timestamptz not null default now(), approved_at timestamptz,
   unique(payroll_type,payroll_year,payroll_month)
 );
+alter table public.hr_payroll_batches add column if not exists execution_fund text not null default '30';
+alter table public.hr_payroll_batches add column if not exists program integer not null default 1;
+alter table public.hr_payroll_batches drop constraint if exists hr_payroll_batches_payroll_type_payroll_year_payroll_month_key;
+do $$begin if not exists(select 1 from pg_constraint where conname='hr_payroll_batches_type_period_program_key') then alter table public.hr_payroll_batches add constraint hr_payroll_batches_type_period_program_key unique(payroll_type,payroll_year,payroll_month,program);end if;end$$;
 alter table public.hr_payroll_batches drop constraint if exists hr_payroll_batches_payroll_type_check;
 alter table public.hr_payroll_batches add constraint hr_payroll_batches_payroll_type_check check(payroll_type in ('NOMINA','NOMINA_FIJA','SUPLENCIA','INTERINATO','TEMPORAL','PRIMA_TRANSPORTE','VIATICOS','HORAS_EXTRAS'));
 create table if not exists public.hr_payroll_batch_lines(
@@ -63,6 +67,12 @@ create table if not exists public.hr_payroll_batch_lines(
   other_deductions numeric(18,2) not null default 0, total_deductions numeric(18,2) not null default 0, net_amount numeric(18,2) not null default 0,
   calculation_snapshot jsonb not null default '{}'::jsonb, unique(batch_id,employee_id)
 );
+alter table public.hr_payroll_batch_lines add column if not exists execution_fund text not null default '30';
+alter table public.hr_payroll_batch_lines add column if not exists program integer not null default 1;
+alter table public.hr_payroll_batch_lines add column if not exists subproduct integer not null default 0;
+alter table public.hr_payroll_batch_lines add column if not exists activity integer not null default 1;
+alter table public.hr_payroll_batch_lines add column if not exists account_code text;
+do $$begin if not exists(select 1 from pg_constraint where conname='hr_payroll_batch_lines_account_code_fkey') then alter table public.hr_payroll_batch_lines add constraint hr_payroll_batch_lines_account_code_fkey foreign key(account_code) references public.hr_payroll_account_catalog(code);end if;end$$;
 
 alter table public.hr_payroll_account_catalog enable row level security;
 alter table public.hr_employee_benefits enable row level security;
@@ -130,20 +140,30 @@ returns boolean language sql stable security definer set search_path=public as $
   union all select child.id,child.parent_id,child.unit_name,child.unit_type from public.organization_units child join tree parent on child.parent_id=parent.id where child.active
  ) select case when nullif(trim(coalesce(p_child_name,'')),'') is null then true else exists(select 1 from tree where unit_name=p_child_name and unit_type=p_type and unit_name<>p_parent_name) end $$;
 
-create or replace function public.list_hr_payroll_processing(p_token text,p_year integer,p_month integer,p_type text default 'NOMINA')
+drop function if exists public.list_hr_payroll_processing(text,integer,integer,text);
+create or replace function public.list_hr_payroll_processing(p_token text,p_year integer,p_month integer,p_type text default 'NOMINA',p_program integer default 1)
 returns jsonb language plpgsql security definer set search_path=public,extensions as $$
 declare v_user public.app_users; v_batch uuid;
 begin
  v_user:=public.hr_authenticated_user(p_token);
  if v_user.id is null or (v_user.role<>'Administrador' and not coalesce((v_user.permissions->>'ver_recursos_humanos')::boolean,false)) then return jsonb_build_object('success',false,'error','No posee permiso para consultar nómina.'); end if;
- select id into v_batch from public.hr_payroll_batches where payroll_year=p_year and payroll_month=p_month and payroll_type=p_type;
+ select id into v_batch from public.hr_payroll_batches where payroll_year=p_year and payroll_month=p_month and payroll_type=p_type and program=p_program;
  return jsonb_build_object('success',true,
   'batch',(select to_jsonb(b) from public.hr_payroll_batches b where b.id=v_batch),
-  'lines',coalesce((select jsonb_agg(to_jsonb(l) order by l.employee_name) from public.hr_payroll_batch_lines l where l.batch_id=v_batch),'[]'::jsonb),
+  'lines',coalesce((select jsonb_agg(to_jsonb(l) order by l.activity,l.employee_name) from public.hr_payroll_batch_lines l where l.batch_id=v_batch),'[]'::jsonb),
+  'programs',coalesce((select jsonb_agg(to_jsonb(x) order by x.program) from (
+    select source.program,string_agg(distinct source.execution_fund,', ' order by source.execution_fund) execution_fund
+    from (
+      select a.program,a.execution_fund from public.hr_employee_payroll_assignments a where a.active and a.payroll_type=case p_type when 'NOMINA' then 'FIJA' when 'NOMINA_FIJA' then 'FIJA' else p_type end
+      union all
+      select coalesce(e.program,1),coalesce(e.execution_fund,'30') from public.hr_employees e where p_type in ('PRIMA_TRANSPORTE','VIATICOS','HORAS_EXTRAS') and exists(select 1 from public.hr_employee_benefits b where b.employee_id=e.id and b.active and b.benefit_type=p_type)
+    ) source group by source.program
+  )x),'[]'::jsonb),
   'accounts',coalesce((select jsonb_agg(to_jsonb(a) order by a.code) from public.hr_payroll_account_catalog a where a.active),'[]'::jsonb));
 end $$;
 
-create or replace function public.generate_hr_payroll(p_token text,p_year integer,p_month integer,p_type text,p_account_code text default null)
+drop function if exists public.generate_hr_payroll(text,integer,integer,text,text);
+create or replace function public.generate_hr_payroll(p_token text,p_year integer,p_month integer,p_type text,p_account_code text default null,p_program integer default 1)
 returns jsonb language plpgsql security definer set search_path=public,extensions as $$
 declare v_user public.app_users; v_batch uuid; v_date date:=make_date(p_year,p_month,1);
  v_ep numeric;v_epr numeric;v_es numeric;v_esr numeric;v_lr numeric;v_pc numeric;v_sc numeric;v_lc numeric;
@@ -159,12 +179,13 @@ begin
  select value into v_pc from public.hr_payroll_parameters where code='PENSION_CAP' and effective_from<=v_date order by effective_from desc limit 1;
  select value into v_sc from public.hr_payroll_parameters where code='SFS_CAP' and effective_from<=v_date order by effective_from desc limit 1;
  select value into v_lc from public.hr_payroll_parameters where code='LABOR_RISK_CAP' and effective_from<=v_date order by effective_from desc limit 1;
- insert into public.hr_payroll_batches(payroll_type,payroll_year,payroll_month,account_code,created_by) values(p_type,p_year,p_month,p_account_code,v_user.id)
- on conflict(payroll_type,payroll_year,payroll_month) do update set account_code=coalesce(excluded.account_code,public.hr_payroll_batches.account_code)
+ insert into public.hr_payroll_batches(payroll_type,payroll_year,payroll_month,account_code,program,execution_fund,created_by)
+ values(p_type,p_year,p_month,p_account_code,p_program,coalesce((select a.execution_fund from public.hr_employee_payroll_assignments a where a.active and a.program=p_program and a.payroll_type=case p_type when 'NOMINA' then 'FIJA' when 'NOMINA_FIJA' then 'FIJA' else p_type end limit 1),'30'),v_user.id)
+ on conflict(payroll_type,payroll_year,payroll_month,program) do update set account_code=coalesce(excluded.account_code,public.hr_payroll_batches.account_code),execution_fund=excluded.execution_fund
  returning id into v_batch;
  delete from public.hr_payroll_batch_lines where batch_id=v_batch;
- insert into public.hr_payroll_batch_lines(batch_id,employee_id,employee_code,document_number,employee_name,position_name,gross_salary,isr,insurance,employee_pension,employee_sfs,employer_pension,employer_sfs,employer_labor_risk,other_deductions,total_deductions,net_amount,calculation_snapshot)
-  select v_batch,e.id,e.employee_code,coalesce(e.document_number,''),e.full_name,e.position_name,x.gross,tax.isr,0,
+ insert into public.hr_payroll_batch_lines(batch_id,employee_id,employee_code,document_number,employee_name,position_name,execution_fund,program,subproduct,activity,account_code,gross_salary,isr,insurance,employee_pension,employee_sfs,employer_pension,employer_sfs,employer_labor_risk,other_deductions,total_deductions,net_amount,calculation_snapshot)
+  select v_batch,e.id,e.employee_code,coalesce(e.document_number,''),e.full_name,coalesce(x.position_name,e.position_name),x.execution_fund,x.program,x.subproduct,x.activity,coalesce(x.account_code,p_account_code),x.gross,tax.isr,0,
   case when p_type in ('NOMINA','NOMINA_FIJA','SUPLENCIA','INTERINATO','TEMPORAL') then round(least(x.gross,v_pc)*v_ep,2) else 0 end,
   case when p_type in ('NOMINA','NOMINA_FIJA','SUPLENCIA','INTERINATO','TEMPORAL') then round(least(x.gross,v_sc)*v_es,2) else 0 end,
   round(least(x.gross,v_pc)*v_epr,2),round(least(x.gross,v_sc)*v_esr,2),round(least(x.gross,v_lc)*v_lr,2),
@@ -173,11 +194,14 @@ begin
   x.gross-((case when p_type in ('NOMINA','NOMINA_FIJA','SUPLENCIA','INTERINATO','TEMPORAL') then round(least(x.gross,v_pc)*v_ep+least(x.gross,v_sc)*v_es,2)+coalesce(d.amount,0) else 0 end)+tax.isr),
   jsonb_build_object('employee_pension_rate',v_ep,'employee_sfs_rate',v_es,'employer_pension_rate',v_epr,'employer_sfs_rate',v_esr,'labor_risk_rate',v_lr,'pension_cap',v_pc,'sfs_cap',v_sc,'labor_risk_cap',v_lc,'isr_method','ACUMULADO_MENSUAL_INCREMENTAL','isr_priority',case p_type when 'NOMINA' then 1 when 'NOMINA_FIJA' then 1 when 'SUPLENCIA' then 2 when 'INTERINATO' then 3 when 'TEMPORAL' then 4 when 'PRIMA_TRANSPORTE' then 5 when 'VIATICOS' then 6 else 0 end)
  from public.hr_employees e
- cross join lateral(select case when p_type in ('NOMINA','NOMINA_FIJA') then coalesce((select a.gross_amount from public.hr_employee_payroll_assignments a where a.employee_id=e.id and a.active and a.payroll_type='FIJA' and (a.start_date is null or a.start_date<=v_date) and (a.end_date is null or a.end_date>=v_date)),e.monthly_salary) when p_type in ('SUPLENCIA','INTERINATO','TEMPORAL') then coalesce((select a.gross_amount from public.hr_employee_payroll_assignments a where a.employee_id=e.id and a.active and a.payroll_type=p_type and (a.start_date is null or a.start_date<=v_date) and (a.end_date is null or a.end_date>=v_date)),0) else coalesce((select b.default_amount from public.hr_employee_benefits b where b.employee_id=e.id and b.active and b.benefit_type=case p_type when 'PRIMA_TRANSPORTE' then 'PRIMA_TRANSPORTE' when 'VIATICOS' then 'VIATICOS' else 'HORAS_EXTRAS' end),0) end gross)x
+ cross join lateral(select
+  case when p_type in ('NOMINA','NOMINA_FIJA','SUPLENCIA','INTERINATO','TEMPORAL') then coalesce(a.gross_amount,case when p_type in ('NOMINA','NOMINA_FIJA') then e.monthly_salary else 0 end) else coalesce((select b.default_amount from public.hr_employee_benefits b where b.employee_id=e.id and b.active and b.benefit_type=case p_type when 'PRIMA_TRANSPORTE' then 'PRIMA_TRANSPORTE' when 'VIATICOS' then 'VIATICOS' else 'HORAS_EXTRAS' end),0) end gross,
+  coalesce(a.execution_fund,e.execution_fund,'30') execution_fund,coalesce(a.program,e.program,1) program,coalesce(a.subproduct,e.subproduct,0) subproduct,coalesce(a.activity,e.activity,1) activity,a.account_code,coalesce(a.position_name,e.position_name) position_name
+  from (select 1) seed left join lateral(select pa.* from public.hr_employee_payroll_assignments pa where pa.employee_id=e.id and pa.active and pa.payroll_type=case p_type when 'NOMINA' then 'FIJA' when 'NOMINA_FIJA' then 'FIJA' else p_type end and pa.program=p_program and (pa.start_date is null or pa.start_date<=v_date) and (pa.end_date is null or pa.end_date>=v_date) limit 1)a on true)x
  cross join lateral(select public.hr_calculate_incremental_isr_2026(e.id,v_date,p_type) isr)tax
  left join lateral(select sum(monthly_amount) amount from public.hr_employee_deductions d where d.employee_id=e.id and d.active)d on true
- where coalesce(e.payroll_status,e.employment_status,'') not in ('INACTIVO','Inactivo','DESVINCULADO') and x.gross>0;
- insert into public.security_audit_log(actor_user_id,action,module,detail) values(v_user.id,'GENERAR_'||p_type,'Recursos Humanos',jsonb_build_object('batch_id',v_batch,'year',p_year,'month',p_month));
+ where coalesce(e.payroll_status,e.employment_status,'') not in ('INACTIVO','Inactivo','DESVINCULADO') and x.program=p_program and x.gross>0;
+ insert into public.security_audit_log(actor_user_id,action,module,detail) values(v_user.id,'GENERAR_'||p_type,'Recursos Humanos',jsonb_build_object('batch_id',v_batch,'year',p_year,'month',p_month,'program',p_program));
  return jsonb_build_object('success',true,'id',v_batch);
 end $$;
 
@@ -214,4 +238,4 @@ declare v_user public.app_users;v_id uuid;v_code text;v_existing boolean;begin v
  insert into public.security_audit_log(actor_user_id,action,module,detail) values(v_user.id,case when v_existing then 'EMPLEADO_EDITADO' else 'EMPLEADO_CREADO' end,'Recursos Humanos',jsonb_build_object('employee_id',v_id,'employee_code',v_code,'document_number',regexp_replace(p_data->>'document_number','\D','','g')));
  return jsonb_build_object('success',true,'id',v_id,'employee_code',v_code);end $$;
 
-grant execute on function public.hr_authenticated_user(text),public.hr_calculate_monthly_isr_2026(numeric,numeric),public.hr_calculate_incremental_isr_2026(uuid,date,text),public.hr_unit_is_descendant(text,text,text),public.list_hr_payroll_processing(text,integer,integer,text),public.generate_hr_payroll(text,integer,integer,text,text),public.update_hr_payroll_line_isr(text,uuid,numeric),public.save_hr_employee_profile(text,jsonb) to anon,authenticated;
+grant execute on function public.hr_authenticated_user(text),public.hr_calculate_monthly_isr_2026(numeric,numeric),public.hr_calculate_incremental_isr_2026(uuid,date,text),public.hr_unit_is_descendant(text,text,text),public.list_hr_payroll_processing(text,integer,integer,text,integer),public.generate_hr_payroll(text,integer,integer,text,text,integer),public.update_hr_payroll_line_isr(text,uuid,numeric),public.save_hr_employee_profile(text,jsonb) to anon,authenticated;
