@@ -421,6 +421,7 @@ export default function Home() {
   const performanceIndex=Math.round((totals.avg+financialProgress)/2);
   const nextMilestone=useMemo(()=>portfolioProjects.filter(project=>project.due&&new Date(project.due).getTime()>=Date.now()).sort((left,right)=>new Date(left.due||0).getTime()-new Date(right.due||0).getTime())[0]||null,[portfolioProjects]);
   const milestoneDays=nextMilestone?.due?Math.max(0,Math.ceil((new Date(nextMilestone.due).getTime()-Date.now())/86400000)):null;
+  const dashboardPeriod=new Date().toLocaleDateString("es-DO",{month:"long",year:"numeric"});
 
   async function addProject(e:React.FormEvent<HTMLFormElement>){
     e.preventDefault();
@@ -598,7 +599,7 @@ export default function Home() {
           {section==="Prima de Transporte"&&<PayrollProcessing type="PRIMA_TRANSPORTE"/>}
           {section==="Viáticos"&&<TravelAllowanceManagement/>}
           {section==="Horas Extras"&&<PayrollProcessing type="HORAS_EXTRAS"/>}
-          <div className="page-head"><div><span className="eyebrow">CENTRO DE OPERACIONES</span><h1>{section === "Resumen" ? "Resumen institucional" : section}</h1><p>Seguimiento integral de metas, recursos y resultados · Julio 2026</p></div><button className="outline" onClick={() => window.print()}>⇩ Exportar reporte</button></div>
+          <div className="page-head"><div><span className="eyebrow">CENTRO DE OPERACIONES · DATOS DE SUPABASE</span><h1>{section === "Resumen" ? "Resumen institucional" : section}</h1><p>Seguimiento integral de metas, recursos y resultados · {dashboardPeriod}</p></div><button className="outline" onClick={() => window.print()}>⇩ Imprimir / exportar PDF</button></div>
 
           {section==="Resumen"&&<section className="personal-dashboard">
             {dashboardLoading?<div className="technical-empty"><strong>Preparando su panel</strong><span>Consultando tareas, proyectos y alertas autorizadas…</span></div>:!dashboard?<div className="technical-empty"><strong>Panel pendiente de activación</strong><span>Ejecute la migración personal_dashboard.sql en Supabase para utilizar información operativa real.</span></div>:<>
@@ -684,7 +685,7 @@ export default function Home() {
 
           <section className="kpis">
             <article><span>Proyectos activos</span><strong>{portfolioProjects.filter(p => !["Completado","Cancelado"].includes(p.status)).length}</strong><small className="up">Datos actualizados desde Supabase</small></article>
-            <article><span>Avance promedio</span><strong>{totals.avg}%</strong><small className="up">↗ 4.1% vs. junio</small></article>
+            <article><span>Avance promedio</span><strong>{totals.avg}%</strong><small className="up">Promedio de {portfolioProjects.length} proyectos</small></article>
             <article><span>Presupuesto total</span><strong>RD$ {(totals.budget / 1000000).toFixed(1)}M</strong><small>{totals.budget?Math.round(totals.spent/totals.budget*100):0}% ejecutado</small></article>
             <article><span>Requieren atención</span><strong className="danger">{portfolioProjects.filter(p => p.status === "En riesgo").length}</strong><small className="danger">Revisar hoy</small></article>
           </section>

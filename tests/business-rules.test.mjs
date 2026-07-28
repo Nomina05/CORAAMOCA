@@ -100,6 +100,9 @@ test("el tablero institucional utiliza proyectos, empleados y presupuesto de Sup
   assert.equal(page.includes("No existen iniciativas ni proyectos técnicos disponibles para este filtro."),true);
   assert.equal(page.includes("<strong>78.4</strong>"),false);
   assert.equal(page.includes('metric: "428"'),false);
+  assert.equal(page.includes("Julio 2026"),false);
+  assert.equal(page.includes("4.1% vs. junio"),false);
+  assert.equal(page.includes("DATOS DE SUPABASE"),true);
 });
 
 test("la acción de personal se imprime en tamaño carta",async()=>{
