@@ -156,6 +156,11 @@ begin
     from (
       select a.program,a.execution_fund from public.hr_employee_payroll_assignments a where a.active and a.payroll_type=case p_type when 'NOMINA' then 'FIJA' when 'NOMINA_FIJA' then 'FIJA' else p_type end
       union all
+      select coalesce(e.program,1),coalesce(e.execution_fund,'30') from public.hr_employees e
+      where p_type in ('NOMINA','NOMINA_FIJA')
+       and coalesce(e.payroll_status,e.employment_status,'') not in ('INACTIVO','Inactivo','DESVINCULADO','Desvinculado')
+       and coalesce(e.monthly_salary,0)>0
+      union all
       select coalesce(e.program,1),coalesce(e.execution_fund,'30') from public.hr_employees e where p_type in ('PRIMA_TRANSPORTE','VIATICOS','HORAS_EXTRAS') and exists(select 1 from public.hr_employee_benefits b where b.employee_id=e.id and b.active and b.benefit_type=p_type)
     ) source group by source.program
   )x),'[]'::jsonb),
