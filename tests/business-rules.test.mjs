@@ -36,6 +36,9 @@ test("los indicadores de novedades respetan alcance y criterios de seguimiento",
   assert.equal(sql.includes("consecutive_licenses"),true);
   assert.equal(sql.includes("Revisión disciplinaria y plan de mejora documentado"),true);
   assert.equal(component.includes("Las alertas no sustituyen la investigación"),true);
+  assert.equal(component.includes("Revisar registros →"),true);
+  const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
+  assert.equal(page.includes('section === "Vacantes por Área" || section === "Indicadores RRHH"'),true);
 });
 
 test("el flujo de cubicaciones no permite saltar etapas",()=>{
