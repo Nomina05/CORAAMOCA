@@ -92,6 +92,16 @@ test("los módulos no utilizan almacenamiento local para datos institucionales",
   assert.equal(page.includes("/api/projects/institutional"),true);
 });
 
+test("el tablero institucional utiliza proyectos, empleados y presupuesto de Supabase",async()=>{
+  const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
+  assert.equal(page.includes("portfolioProjects"),true);
+  assert.equal(page.includes("activeEmployees"),true);
+  assert.equal(page.includes("financialProgress"),true);
+  assert.equal(page.includes("No existen iniciativas ni proyectos técnicos disponibles para este filtro."),true);
+  assert.equal(page.includes("<strong>78.4</strong>"),false);
+  assert.equal(page.includes('metric: "428"'),false);
+});
+
 test("la acción de personal se imprime en tamaño carta",async()=>{
   const component=await readFile(new URL("../app/components/PersonnelAction.tsx",import.meta.url),"utf8");
   assert.equal(component.includes("@page{size:letter portrait;margin:0}"),true);

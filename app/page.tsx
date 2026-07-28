@@ -95,14 +95,6 @@ function OrganizationBranch({unit,level=0}:{unit:OrganizationUnit;level?:number}
 type Area = "Todos" | "Institucional" | "Gestión Humana" | "Financiera" | "Técnica" | "Comercial";
 type Project = { id:string; code:string; name:string; area:Exclude<Area,"Todos">; owner:string; progress:number; budget:number; spent:number; status:"En curso"|"En riesgo"|"Completado"|"Suspendido"|"Cancelado"; due:string|null; description?:string };
 
-const areaData = [
-  { name: "Institucional", icon: "⌂", color: "blue", metric: "12", label: "iniciativas activas", progress: 74 },
-  { name: "Gestión Humana", icon: "♙", color: "violet", metric: "428", label: "colaboradores", progress: 68 },
-  { name: "Financiera", icon: "$", color: "amber", metric: "84.6%", label: "ejecución presupuestaria", progress: 85 },
-  { name: "Técnica", icon: "⌁", color: "cyan", metric: "19", label: "proyectos en campo", progress: 71 },
-  { name: "Comercial", icon: "↗", color: "green", metric: "92.3%", label: "recaudación mensual", progress: 92 },
-];
-
 const money = (value: number) => new Intl.NumberFormat("es-DO", { style: "currency", currency: "DOP", maximumFractionDigits: 0 }).format(value);
 const safeArray = <T,>(value: unknown): T[] => Array.isArray(value) ? value as T[] : [];
 const readableText = (value: unknown, fallback = "Sin especificar") =>
@@ -342,6 +334,14 @@ export default function Home() {
   useEffect(()=>{if(currentUser&&(section==="Registro de Empleados"||section==="Histórico de Empleados"))loadEmployeeRegistry()},[section,payrollYear,payrollMonth,currentUser?.id]);
 
   useEffect(()=>{
+    if(!currentUser)return;
+    loadInstitutionalProjects();
+    loadTechnicalProjects();
+    loadHrEmployees();
+    loadBudget();
+  },[currentUser?.id]);
+
+  useEffect(()=>{
     if(section!=="Resumen"||!currentUser)return;
     let active=true;
     setDashboardLoading(true);
@@ -404,11 +404,23 @@ export default function Home() {
   async function savePayrollCap(cap:PayrollBudgetCap){const amount=Number(window.prompt(`Tope mensual del fondo ${cap.execution_fund}:`,String(cap.monthly_cap)));if(!Number.isFinite(amount)||amount<0)return;const response=await fetch("/api/hr/payroll-budget",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"cap",year:payrollYear,fund:cap.execution_fund,amount})});const data=await response.json();setPayrollMessage(response.ok?"Tope mensual actualizado.":data.error||"No fue posible actualizar el tope.");if(response.ok)await loadPayrollBudget();}
   async function markNotificationRead(item?:AppNotification){await fetch("/api/notifications",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:item?.id||null})});if(item?.action_section)setSection(item.action_section);await loadNotifications();if(item)setNotificationsOpen(false);}
 
-  const filtered = useMemo(() => projects.filter(p => (filter === "Todos" || p.area === filter) && `${p.name} ${p.code} ${p.owner}`.toLowerCase().includes(query.toLowerCase())), [projects, filter, query]);
+  const portfolioProjects=useMemo<Project[]>(()=>projects.length?projects:technicalProjects.map(project=>({id:project.id,code:project.snip_code||"Sin SNIP",name:project.work_name,area:"Técnica",owner:project.supplier_contractor||"Dirección Técnica",progress:Number(project.work_progress||0),budget:Number(project.budgeted_amount||0),spent:Number(project.total_paid||0),status:project.work_status==="Completado"?"Completado":project.work_status==="Suspendido"?"Suspendido":project.work_status==="Cancelado"?"Cancelado":project.work_status==="En riesgo"?"En riesgo":"En curso",due:project.planned_end_date||null,description:`Proyecto técnico · ${project.municipality||"Sin municipio"}`})),[projects,technicalProjects]);
+  const filtered = useMemo(() => portfolioProjects.filter(p => (filter === "Todos" || p.area === filter) && `${p.name} ${p.code} ${p.owner}`.toLowerCase().includes(query.toLowerCase())), [portfolioProjects, filter, query]);
   const filteredUsers=useMemo(()=>{const value=userQuery.trim().toLowerCase();return users.filter(user=>!value||`${user.employee_code||""} ${user.full_name} ${user.username} ${user.area} ${user.department||""} ${user.organization_unit||""} ${user.role}`.toLowerCase().includes(value));},[users,userQuery]);
   const availableUserEmployees=useMemo(()=>{const value=employeeUserQuery.trim().toLowerCase();return hrEmployees.filter(employee=>(!employee.app_user_id||employee.app_user_id===linkingUser?.id)&&!['Desvinculado','Suspendido'].includes(employee.employment_status)&&(!value||`${employee.employee_code} ${employee.document_number||""} ${employee.full_name} ${employee.position_name} ${employee.unit_name}`.toLowerCase().includes(value)));},[hrEmployees,employeeUserQuery,linkingUser?.id]);
   const selectedUserEmployee=hrEmployees.find(employee=>employee.id===selectedUserEmployeeId)||null;
-  const totals = useMemo(() => ({ budget:projects.reduce((a,p)=>a+Number(p.budget),0),spent:projects.reduce((a,p)=>a+Number(p.spent),0),avg:projects.length?Math.round(projects.reduce((a,p)=>a+Number(p.progress),0)/projects.length):0 }), [projects]);
+  const totals = useMemo(() => ({ budget:portfolioProjects.reduce((a,p)=>a+Number(p.budget),0),spent:portfolioProjects.reduce((a,p)=>a+Number(p.spent),0),avg:portfolioProjects.length?Math.round(portfolioProjects.reduce((a,p)=>a+Number(p.progress),0)/portfolioProjects.length):0 }), [portfolioProjects]);
+  const areaData=useMemo(()=>{const activeEmployees=hrEmployees.filter(employee=>!['Desvinculado','Inactivo'].includes(employee.employment_status)).length;const financialBudget=budgetProjects.reduce((sum,project)=>sum+Number(project.current_budget||0),0)||technicalProjects.reduce((sum,project)=>sum+Number(project.budgeted_amount||0),0);const financialPaid=budgetProjects.reduce((sum,project)=>sum+Number(project.total_paid||0),0)||technicalProjects.reduce((sum,project)=>sum+Number(project.total_paid||0),0);const financialProgress=financialBudget?Math.min(100,Math.round(financialPaid*100/financialBudget)):0;const institutional=projects.filter(project=>project.status!=="Completado"&&project.status!=="Cancelado");const technical=technicalProjects.filter(project=>!['Completado','Cancelado'].includes(project.work_status));const technicalProgress=technical.length?Math.round(technical.reduce((sum,project)=>sum+Number(project.work_progress||0),0)/technical.length):0;return[
+    {name:"Institucional",icon:"⌂",color:"blue",metric:String(institutional.length),label:"iniciativas activas",progress:institutional.length?Math.round(institutional.reduce((sum,project)=>sum+Number(project.progress||0),0)/institutional.length):0},
+    {name:"Gestión Humana",icon:"♙",color:"violet",metric:String(activeEmployees),label:"colaboradores activos",progress:hrEmployees.length?Math.round(activeEmployees*100/hrEmployees.length):0},
+    {name:"Financiera",icon:"$",color:"amber",metric:`${financialProgress}%`,label:"ejecución presupuestaria",progress:financialProgress},
+    {name:"Técnica",icon:"⌁",color:"cyan",metric:String(technical.length),label:"proyectos en ejecución",progress:technicalProgress},
+    {name:"Comercial",icon:"↗",color:"green",metric:"0",label:"indicadores registrados",progress:0},
+  ]},[projects,technicalProjects,hrEmployees,budgetProjects]);
+  const financialProgress=areaData.find(area=>area.name==="Financiera")?.progress||0;
+  const performanceIndex=Math.round((totals.avg+financialProgress)/2);
+  const nextMilestone=useMemo(()=>portfolioProjects.filter(project=>project.due&&new Date(project.due).getTime()>=Date.now()).sort((left,right)=>new Date(left.due||0).getTime()-new Date(right.due||0).getTime())[0]||null,[portfolioProjects]);
+  const milestoneDays=nextMilestone?.due?Math.max(0,Math.ceil((new Date(nextMilestone.due).getTime()-Date.now())/86400000)):null;
 
   async function addProject(e:React.FormEvent<HTMLFormElement>){
     e.preventDefault();
@@ -666,15 +678,15 @@ export default function Home() {
           <div className={section === "Resumen" || section === "Usuarios" || section === "Catálogos" || section === "Proyectos Técnicos" || section === "Cubicaciones" || section === "Gestión Presupuestaria" || section === "Reportes" || section === "Auditoría" || section === "Registro Técnico" || section === "Recursos Humanos" || section === "Registro de Empleados" || section === "Ficha de Empleado" || section === "Acción de Personal" || section === "Vacantes por Área" || section === "Indicadores RRHH" || section === "Permisos Laborales" || section === "Amonestaciones" || section === "Vacaciones" || section === "Generar Nómina" || section === "Prima de Transporte" || section === "Viáticos" || section === "Horas Extras" || section === "Histórico de Empleados" || section === "Presupuesto de Nómina" || section === "Estructura Organizacional" || section === "Acceso restringido" ? "section-hidden" : ""}>
 
           <section className="hero-grid">
-            <article className="score-card"><div className="score-top"><div><span>ÍNDICE DE DESEMPEÑO</span><strong>78.4</strong><small>/100</small></div><div className="trend">↗ 6.2%</div></div><div className="score-track"><i style={{ width: "78.4%" }} /></div><div className="score-meta"><span>Planificado <b>82%</b></span><span>Ejecutado <b>74%</b></span><span>Eficiencia <b>79%</b></span></div></article>
-            <article className="deadline-card"><div className="mini-title"><span>◷</span><div><strong>Próximo hito crítico</strong><small>En 8 días</small></div></div><h3>Cierre presupuestario Q2</h3><p>Consolidación y entrega de ejecución trimestral.</p><div className="deadline-foot"><span>Gestión Financiera</span><b>23 JUL</b></div></article>
+            <article className="score-card"><div className="score-top"><div><span>ÍNDICE DE DESEMPEÑO</span><strong>{performanceIndex}</strong><small>/100</small></div><div className="trend">Datos en tiempo real</div></div><div className="score-track"><i style={{ width: `${performanceIndex}%` }} /></div><div className="score-meta"><span>Avance físico <b>{totals.avg}%</b></span><span>Avance financiero <b>{financialProgress}%</b></span><span>Eficiencia <b>{performanceIndex}%</b></span></div></article>
+            <article className="deadline-card"><div className="mini-title"><span>◷</span><div><strong>Próximo hito registrado</strong><small>{milestoneDays===null?"Sin fecha pendiente":`En ${milestoneDays} días`}</small></div></div><h3>{nextMilestone?.name||"No existen hitos pendientes"}</h3><p>{nextMilestone?.description||"Registre una fecha prevista en los proyectos para habilitar este indicador."}</p><div className="deadline-foot"><span>{nextMilestone?.area||"Sistema institucional"}</span><b>{nextMilestone?.due?new Date(nextMilestone.due).toLocaleDateString("es-DO",{day:"2-digit",month:"short"}).toUpperCase():"—"}</b></div></article>
           </section>
 
           <section className="kpis">
-            <article><span>Proyectos activos</span><strong>{projects.filter(p => p.status !== "Completado").length}</strong><small className="up">↗ 3 este mes</small></article>
+            <article><span>Proyectos activos</span><strong>{portfolioProjects.filter(p => !["Completado","Cancelado"].includes(p.status)).length}</strong><small className="up">Datos actualizados desde Supabase</small></article>
             <article><span>Avance promedio</span><strong>{totals.avg}%</strong><small className="up">↗ 4.1% vs. junio</small></article>
             <article><span>Presupuesto total</span><strong>RD$ {(totals.budget / 1000000).toFixed(1)}M</strong><small>{totals.budget?Math.round(totals.spent/totals.budget*100):0}% ejecutado</small></article>
-            <article><span>Requieren atención</span><strong className="danger">{projects.filter(p => p.status === "En riesgo").length}</strong><small className="danger">Revisar hoy</small></article>
+            <article><span>Requieren atención</span><strong className="danger">{portfolioProjects.filter(p => p.status === "En riesgo").length}</strong><small className="danger">Revisar hoy</small></article>
           </section>
 
           <div className="section-title"><div><h2>Desempeño por área</h2><p>Progreso frente a las metas del período</p></div><button onClick={() => { setSection("Proyectos"); setFilter("Todos"); }}>Ver todos los proyectos →</button></div>
@@ -682,7 +694,7 @@ export default function Home() {
 
           <div className="section-title project-title"><div><h2>Cartera de proyectos</h2><p>Estado de las iniciativas institucionales</p></div><select value={filter} onChange={e => setFilter(e.target.value as Area)}>{["Todos", ...areaData.map(a => a.name)].map(x => <option key={x}>{x}</option>)}</select></div>
           {projectMessage&&<div className={projectMessage.includes("Supabase")?"users-success":"auth-error"}>{projectMessage}</div>}
-          <section className="table-card"><div className="table-wrap">{projectsLoading?<div className="users-empty">Cargando proyectos desde Supabase…</div>:<table><thead><tr><th>PROYECTO</th><th>ÁREA</th><th>RESPONSABLE</th><th>AVANCE</th><th>PRESUPUESTO</th><th>ESTADO</th><th>ENTREGA</th></tr></thead><tbody>{filtered.map(p => <tr key={p.id}><td><b>{p.code}</b><strong>{p.name}</strong></td><td><span className="area-pill">{p.area}</span></td><td>{p.owner}</td><td><div className="progress-cell"><i><em style={{ width: `${p.progress}%` }} /></i></div><b>{p.progress}%</b></td><td><b>{money(Number(p.budget))}</b><small>{Number(p.budget)?Math.round(Number(p.spent)/Number(p.budget)*100):0}% usado</small></td><td><span className={`status ${String(p.status||"sin-estado").replaceAll(" ", "-").toLowerCase()}`}>● {p.status||"Sin estado"}</span></td><td>{p.due?new Date(p.due).toLocaleDateString("es-DO"):"—"}</td></tr>)}</tbody></table>}{!projectsLoading&&filtered.length===0&&<div className="empty">No se encontraron proyectos registrados en Supabase.</div>}</div></section>
+          <section className="table-card"><div className="table-wrap">{projectsLoading||technicalLoading?<div className="users-empty">Cargando proyectos desde Supabase…</div>:<table><thead><tr><th>PROYECTO</th><th>ÁREA</th><th>RESPONSABLE</th><th>AVANCE</th><th>PRESUPUESTO</th><th>ESTADO</th><th>ENTREGA</th></tr></thead><tbody>{filtered.map(p => <tr key={p.id}><td><b>{p.code}</b><strong>{p.name}</strong></td><td><span className="area-pill">{p.area}</span></td><td>{p.owner}</td><td><div className="progress-cell"><i><em style={{ width: `${p.progress}%` }} /></i></div><b>{p.progress}%</b></td><td><b>{money(Number(p.budget))}</b><small>{Number(p.budget)?Math.round(Number(p.spent)/Number(p.budget)*100):0}% usado</small></td><td><span className={`status ${String(p.status||"sin-estado").replaceAll(" ", "-").toLowerCase()}`}>● {p.status||"Sin estado"}</span></td><td>{p.due?new Date(p.due).toLocaleDateString("es-DO"):"—"}</td></tr>)}</tbody></table>}{!projectsLoading&&!technicalLoading&&filtered.length===0&&<div className="empty">No existen iniciativas ni proyectos técnicos disponibles para este filtro.</div>}</div></section>
           </div>
         </div>
       </main>
