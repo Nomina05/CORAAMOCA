@@ -57,6 +57,7 @@ jobs:
             "supabase/budget_management.sql"
             "supabase/advanced_measurements_workflow.sql"
             "supabase/measurement_retention.sql"
+            "supabase/financial_assets_workflow.sql"
             "supabase/project_initial_advances.sql"
             "supabase/institutional_reports.sql"
           )
@@ -96,6 +97,8 @@ jobs:
                 ,'hr_personnel_actions'
                 ,'hr_personnel_action_batches'
                 ,'hr_personnel_action_batch_items'
+                ,'financial_assets'
+                ,'financial_asset_audit'
                 ,'hr_vacancies'
                 ,'hr_employee_cases'
                 ,'hr_travel_allowances'
