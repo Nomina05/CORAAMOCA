@@ -15,9 +15,12 @@ export async function POST(request:Request){
  const token=(await cookies()).get(sessionCookie)?.value;
  if(!token)return NextResponse.json({error:"No autorizado."},{status:401});
  const body=await request.json();
- const {data,error}=await authDatabase().rpc("create_financial_asset",{p_token:token,p_data:body});
+ const advance=body.action==="SET_ADVANCE";
+ const {data,error}=advance
+  ?await authDatabase().rpc("set_financial_asset_advance",{p_token:token,p_asset_id:body.id,p_percentage:Number(body.percentage)})
+  :await authDatabase().rpc("create_financial_asset",{p_token:token,p_data:body});
  if(error||!data?.success)return NextResponse.json({error:data?.error||"No fue posible registrar el activo."},{status:400});
- await recordAudit(request,token,{action:"ACTIVO_REGISTRADO",module:"Finanzas",entityType:"Activo",entityId:data.id,projectId:body.project_id,next:body,reason:body.description||""});
+ await recordAudit(request,token,{action:advance?"AVANCE_ACTIVO_REGISTRADO":"ACTIVO_REGISTRADO",module:"Finanzas",entityType:"Activo",entityId:data.id,projectId:data.project_id||body.project_id,next:body,reason:body.description||""});
  return NextResponse.json(data);
 }
 
@@ -25,8 +28,11 @@ export async function PATCH(request:Request){
  const token=(await cookies()).get(sessionCookie)?.value;
  if(!token)return NextResponse.json({error:"No autorizado."},{status:401});
  const body=await request.json();
- const {data,error}=await authDatabase().rpc("transition_financial_asset",{p_token:token,p_asset_id:body.id,p_action:body.action||"ADVANCE",p_comments:body.comments||""});
+ const advance=Boolean(body.advance);
+ const {data,error}=advance
+  ?await authDatabase().rpc("transition_financial_asset_advance",{p_token:token,p_asset_id:body.id,p_action:body.action||"ADVANCE",p_comments:body.comments||""})
+  :await authDatabase().rpc("transition_financial_asset",{p_token:token,p_asset_id:body.id,p_action:body.action||"ADVANCE",p_comments:body.comments||""});
  if(error||!data?.success)return NextResponse.json({error:data?.error||"No fue posible cambiar el estado del activo."},{status:400});
- await recordAudit(request,token,{action:body.action==="RETURN"?"ACTIVO_DEVUELTO":"ACTIVO_AVANZADO",module:"Finanzas",entityType:"Activo",entityId:body.id,projectId:data.project_id,previous:{status:data.previous_status},next:{status:data.status},reason:body.comments||""});
+ await recordAudit(request,token,{action:advance?(body.action==="RETURN"?"AVANCE_ACTIVO_DEVUELTO":"AVANCE_ACTIVO_AVANZADO"):(body.action==="RETURN"?"ACTIVO_DEVUELTO":"ACTIVO_AVANZADO"),module:"Finanzas",entityType:"Activo",entityId:body.id,projectId:data.project_id,previous:{status:data.previous_status},next:{status:data.status},reason:body.comments||""});
  return NextResponse.json(data);
 }
