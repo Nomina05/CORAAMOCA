@@ -74,24 +74,28 @@ declare v_user public.app_users;v_items jsonb;begin
   select a.*,p.work_name,p.snip_code,p.municipality,p.district,p.sector,u.full_name registered_by_name,
    coalesce((select jsonb_agg(jsonb_build_object('action',h.action,'from_status',h.from_status,'to_status',h.to_status,'comments',h.comments,'amount',h.amount,'created_at',h.created_at,'user_name',hu.full_name) order by h.created_at) from public.financial_asset_audit h join public.app_users hu on hu.id=h.user_id where h.asset_id=a.id),'[]'::jsonb) audit
   from public.financial_assets a join public.technical_projects p on p.id=a.project_id join public.app_users u on u.id=a.registered_by)x;
- return jsonb_build_object('success',true,'assets',v_items);
+ return jsonb_build_object('success',true,'assets',v_items,'suppliers',coalesce((select jsonb_agg(s.name order by s.name) from(select name from public.administrative_catalogs where catalog_type='supplier' and active union select name from public.supplier_catalog where active)s),'[]'::jsonb));
 end $$;
 
 create or replace function public.create_financial_asset(p_token text,p_data jsonb)
 returns jsonb language plpgsql security definer set search_path=public,extensions as $$
-declare v_user public.app_users;v_project public.technical_projects;v_number integer;v_id uuid;v_code text;v_amount numeric;begin
+declare v_user public.app_users;v_project public.technical_projects;v_number integer;v_id uuid;v_code text;v_amount numeric;v_percentage numeric:=coalesce((p_data->>'advance_percentage')::numeric,0);v_advance numeric;v_supplier text:=trim(coalesce(p_data->>'supplier',''));begin
  v_user:=public.hr_authenticated_user(p_token);
  if v_user.id is null or (v_user.role<>'Administrador' and not coalesce((v_user.permissions->>'registrar_activos')::boolean,false)) then return jsonb_build_object('success',false,'error','No posee permiso para registrar activos.');end if;
  select * into v_project from public.technical_projects where id=(p_data->>'project_id')::uuid;
  if v_project.id is null then return jsonb_build_object('success',false,'error','Proyecto no encontrado.');end if;
  if nullif(trim(coalesce(v_project.fixed_assets,'')),'') is null then return jsonb_build_object('success',false,'error','El proyecto seleccionado no corresponde a activos fijos.');end if;
  v_amount:=coalesce((p_data->>'amount')::numeric,0);if v_amount<=0 then return jsonb_build_object('success',false,'error','El monto debe ser mayor que cero.');end if;
+ if v_percentage not in (0,20,30) then return jsonb_build_object('success',false,'error','El avance solo puede ser de 20 % o 30 %.');end if;
+ if v_supplier='' or not exists(select 1 from (select name from public.administrative_catalogs where catalog_type='supplier' and active union select name from public.supplier_catalog where active)s where lower(trim(s.name))=lower(v_supplier)) then return jsonb_build_object('success',false,'error','Seleccione un proveedor activo del catálogo.');end if;
+ v_advance:=round(v_amount*v_percentage/100,2);
  perform pg_advisory_xact_lock(hashtext(v_project.id::text));select coalesce(max(asset_number),0)+1 into v_number from public.financial_assets where project_id=v_project.id;
  v_code:='ACT-'||to_char(current_date,'YYYY')||'-'||lpad(nextval('public.financial_assets_code_seq')::text,6,'0');
- insert into public.financial_assets(project_id,asset_number,code,asset_type,supplier,amount,description,registered_by)
- values(v_project.id,v_number,v_code,trim(p_data->>'asset_type'),coalesce(p_data->>'supplier',''),v_amount,coalesce(p_data->>'description',''),v_user.id) returning id into v_id;
+ insert into public.financial_assets(project_id,asset_number,code,asset_type,supplier,amount,description,registered_by,advance_percentage,advance_amount,advance_status,advance_registered_by,advance_registered_at)
+ values(v_project.id,v_number,v_code,trim(p_data->>'asset_type'),v_supplier,v_amount,coalesce(p_data->>'description',''),v_user.id,v_percentage,v_advance,case when v_percentage>0 then 'Registrado' else 'Pendiente' end,case when v_percentage>0 then v_user.id end,case when v_percentage>0 then now() end) returning id into v_id;
  insert into public.financial_asset_audit(asset_id,action,from_status,to_status,user_id,comments,amount) values(v_id,'Registro',null,'Registrado',v_user.id,coalesce(p_data->>'description',''),v_amount);
- return jsonb_build_object('success',true,'id',v_id,'code',v_code,'status','Registrado');
+ if v_percentage>0 then insert into public.financial_asset_audit(asset_id,action,from_status,to_status,user_id,comments,amount) values(v_id,'Registro de avance',null,'Avance Registrado',v_user.id,'Avance inicial de '||v_percentage||' %',v_advance);end if;
+ return jsonb_build_object('success',true,'id',v_id,'code',v_code,'status','Registrado','advance_percentage',v_percentage,'advance_amount',v_advance);
 end $$;
 
 create or replace function public.transition_financial_asset(p_token text,p_asset_id uuid,p_action text,p_comments text)

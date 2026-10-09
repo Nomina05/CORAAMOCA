@@ -8,7 +8,7 @@ export async function GET(){
  if(!token)return NextResponse.json({error:"No autorizado."},{status:401});
  const {data,error}=await authDatabase().rpc("list_financial_assets",{p_token:token});
  if(error||!data?.success)return NextResponse.json({error:data?.error||"No fue posible cargar los activos."},{status:400});
- return NextResponse.json({assets:data.assets||[]});
+ return NextResponse.json({assets:data.assets||[],suppliers:data.suppliers||[]});
 }
 
 export async function POST(request:Request){
