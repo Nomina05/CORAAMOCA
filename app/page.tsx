@@ -169,7 +169,7 @@ function PublicInvestmentReport({rows}:{rows:PublicInvestmentRow[]}){
   const availabilityUnassigned=Number((rows[0] as unknown as {availability_unassigned?:number})?.availability_unassigned||0);
   const municipalityGroups=Array.from(rows.reduce((map,row)=>{const municipality=row.municipality?.trim()||"Sin municipio";const current=map.get(municipality)||[];current.push(row);map.set(municipality,current);return map;},new Map<string,PublicInvestmentRow[]>()).entries()).sort(([left],[right])=>left.localeCompare(right,"es",{sensitivity:"base"}));
   const sum=(items:PublicInvestmentRow[],key:keyof PublicInvestmentRow)=>items.reduce((total,item)=>total+Number(item[key]||0),0);
-  const totalBudgeted=sum(rows,"budgeted_amount"),totalMeasured=sum(rows,"total_measured"),totalPaid=sum(rows,"total_paid");
+  const totalBudgeted=sum(rows,"budgeted_amount");
   const normalizeAsset=(value:string)=>value.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
   const assetRows=rows.filter(item=>item.record_type==="ACTIVO_FIJO");
   const assetSummary=[

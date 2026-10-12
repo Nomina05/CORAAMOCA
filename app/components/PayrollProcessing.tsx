@@ -1,5 +1,5 @@
 "use client";
-import {useEffect,useMemo,useState} from "react";
+import {useCallback,useEffect,useMemo,useState} from "react";
 
 type Line={id:string;employee_code:string;document_number:string;employee_name:string;position_name:string;execution_fund:string;program:number;subproduct:number;activity:number;account_code:string;gross_salary:number;isr:number;insurance:number;employee_pension:number;employee_sfs:number;employer_pension:number;employer_sfs:number;employer_labor_risk:number;other_deductions:number;total_deductions:number;net_amount:number};
 type Account={code:string;name:string;parent_code:string|null};
@@ -13,8 +13,8 @@ const sum=(rows:Line[],key:keyof Line)=>rows.reduce((total,row)=>total+Number(ro
 export default function PayrollProcessing({type}:{type:string}){
  const [year,setYear]=useState(2026),[month,setMonth]=useState(6),[lines,setLines]=useState<Line[]>([]),[accounts,setAccounts]=useState<Account[]>([]),[programs,setPrograms]=useState<ProgramOption[]>([]),[program,setProgram]=useState(1),[account,setAccount]=useState(""),[message,setMessage]=useState(""),[busy,setBusy]=useState(false);
  const [payrollType,setPayrollType]=useState(type==="NOMINA"?"NOMINA_FIJA":type);const actualType=type==="NOMINA"?payrollType:type;
- const load=async()=>{setBusy(true);const r=await fetch(`/api/hr/payroll-processing?year=${year}&month=${month}&type=${actualType}&program=${program}`,{cache:"no-store"});const d=await r.json();setLines(Array.isArray(d.lines)?d.lines:[]);setAccounts(Array.isArray(d.accounts)?d.accounts:[]);setPrograms(Array.isArray(d.programs)?d.programs:[]);setAccount(d.batch?.account_code||({NOMINA_FIJA:"2.1.1.1.01",SUPLENCIA:"2.1.1.2.03",INTERINATO:"2.1.1.2.11",TEMPORAL:"2.1.1.2.08"} as Record<string,string>)[actualType]||"");if(!r.ok)setMessage(d.error);setBusy(false)};
- useEffect(()=>{load()},[year,month,actualType,program]);
+ const load=useCallback(async()=>{setBusy(true);const r=await fetch(`/api/hr/payroll-processing?year=${year}&month=${month}&type=${actualType}&program=${program}`,{cache:"no-store"});const d=await r.json();setLines(Array.isArray(d.lines)?d.lines:[]);setAccounts(Array.isArray(d.accounts)?d.accounts:[]);setPrograms(Array.isArray(d.programs)?d.programs:[]);setAccount(d.batch?.account_code||({NOMINA_FIJA:"2.1.1.1.01",SUPLENCIA:"2.1.1.2.03",INTERINATO:"2.1.1.2.11",TEMPORAL:"2.1.1.2.08"} as Record<string,string>)[actualType]||"");if(!r.ok)setMessage(d.error);setBusy(false)},[year,month,actualType,program]);
+ useEffect(()=>{load()},[load]);
  useEffect(()=>{if(type!=="NOMINA")return;const byAccount:Record<string,string>={"2.1.1.1.01":"NOMINA_FIJA","2.1.1.2.03":"SUPLENCIA","2.1.1.2.11":"INTERINATO","2.1.1.2.08":"TEMPORAL"};if(byAccount[account])setPayrollType(byAccount[account])},[account,type]);
  useEffect(()=>{if(programs.length&&!programs.some(p=>p.program===program))setProgram(programs[0].program)},[programs,program]);
  const grouped=useMemo(()=>Object.entries(lines.reduce<Record<string,Line[]>>((groups,line)=>{const key=`${line.activity}`;(groups[key]??=[]).push(line);return groups},{})).sort(([a],[b])=>Number(a)-Number(b)),[lines]);

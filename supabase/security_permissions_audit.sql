@@ -8,7 +8,8 @@ alter table public.app_users
   add column if not exists suspended_at timestamptz,
   add column if not exists suspended_by uuid references public.app_users(id),
   add column if not exists suspension_reason text not null default '',
-  add column if not exists permissions_version bigint not null default 1;
+  add column if not exists permissions_version bigint not null default 1,
+  add column if not exists must_change_password boolean not null default false;
 
 create table if not exists public.security_audit_log (
   id bigint generated always as identity primary key,
@@ -162,3 +163,6 @@ grant execute on function public.login_app_user(text,text),public.get_app_sessio
   public.admin_update_user(text,uuid,text,text,boolean,text,text),public.admin_set_user_permissions(text,uuid,jsonb),
   public.admin_list_security_audit(text,integer),public.admin_list_users(text) to anon,authenticated;
 grant execute on function public.admin_reset_user_password(text,uuid,text) to anon,authenticated;
+
+-- La creación de cuentas se realiza exclusivamente por administradores vinculando empleados activos.
+revoke all on function public.register_app_user(text,text,text,text) from public,anon,authenticated;

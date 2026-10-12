@@ -37,6 +37,9 @@ jobs:
         run: |
           set -euo pipefail
           migrations=(
+            "supabase/username_auth.sql"
+            "supabase/technical_projects.sql"
+            "supabase/cubicaciones_workflow.sql"
             "supabase/security_permissions_audit.sql"
             "supabase/complete_audit.sql"
             "supabase/institutional_notifications.sql"
@@ -59,6 +62,8 @@ jobs:
             "supabase/measurement_retention.sql"
             "supabase/financial_assets_workflow.sql"
             "supabase/project_initial_advances.sql"
+            "supabase/project_digital_file.sql"
+            "supabase/personal_dashboard.sql"
             "supabase/institutional_reports.sql"
           )
           for migration in "${migrations[@]}"; do

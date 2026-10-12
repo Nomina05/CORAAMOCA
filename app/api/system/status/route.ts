@@ -1,11 +1,17 @@
 import {NextResponse} from "next/server";
-import {authDatabase} from "../../auth/_supabase";
+import {cookies} from "next/headers";
+import {authDatabase,sessionCookie} from "../../auth/_supabase";
 
 export const dynamic="force-dynamic";
 
 export async function GET(){
+  const token=(await cookies()).get(sessionCookie)?.value;
+  if(!token)return NextResponse.json({error:"No autorizado."},{status:401});
+  const database=authDatabase();
+  const {data:session}=await database.rpc("get_app_session",{p_token:token});
+  if(!session?.user)return NextResponse.json({error:"Sesión inválida."},{status:401});
   const started=Date.now();
-  const {error}=await authDatabase().from("app_users").select("id",{head:true,count:"exact"}).limit(1);
+  const {error}=await database.from("app_users").select("id",{head:true,count:"exact"}).limit(1);
   const databaseAvailable=!error||error.code==="42501";
   return NextResponse.json({
     status:databaseAvailable?"operational":"degraded",

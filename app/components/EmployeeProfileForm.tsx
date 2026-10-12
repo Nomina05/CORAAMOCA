@@ -1,5 +1,5 @@
 "use client";
-import {FormEvent,useEffect,useMemo,useRef,useState} from "react";
+import {FormEvent,useCallback,useEffect,useMemo,useRef,useState} from "react";
 
 type Field={name:string;label:string;type?:string;required?:boolean;placeholder?:string;wide?:boolean};
 type Position={id:string;occupational_group:string;family:string;position_name:string};
@@ -42,10 +42,10 @@ export default function EmployeeProfileForm({initial,onSaved,onCancel}:{initial?
  useEffect(()=>{if(!initial||!units.length)return;const find=(name:string)=>units.find(unit=>unit.unit_name===name)?.id||"";setDirectionId(find(initial.direction_name));setDepartmentId(find(initial.department_name));setDivisionId(find(initial.division_name));setSectionId(find(initial.section_name))},[initial,units]);
  useEffect(()=>{if(!initial||!formRef.current)return;const form=formRef.current;for(const [name,value] of Object.entries(initial)){const control=form.elements.namedItem(name) as HTMLInputElement|HTMLSelectElement|null;if(control&&name!=="benefits")control.value=String(name==="employment_status"?(initial.payroll_status||value||""):(value??""))}for(const benefit of initial.benefits||[]){const control=form.elements.namedItem(`amount_${benefit.type}`) as HTMLInputElement|null;if(control)control.value=String(benefit.amount??0)}},[initial,positions,units]);
  const directions=useMemo(()=>units.filter(unit=>unit.unit_type==="Dirección").sort((a,b)=>a.sort_order-b.sort_order),[units]);
- function descendants(parentId:string,type:string){if(!parentId)return[];const ids=new Set([parentId]);let changed=true;while(changed){changed=false;for(const unit of units)if(unit.parent_id&&ids.has(unit.parent_id)&&!ids.has(unit.id)&&unit.unit_type!=="Dirección"){ids.add(unit.id);changed=true}}return units.filter(unit=>unit.id!==parentId&&ids.has(unit.id)&&unit.unit_type===type).sort((a,b)=>a.sort_order-b.sort_order)}
- const departments=useMemo(()=>descendants(directionId,"Departamento"),[units,directionId]);
- const divisions=useMemo(()=>descendants(departmentId||directionId,"División"),[units,directionId,departmentId]);
- const sections=useMemo(()=>descendants(divisionId||departmentId||directionId,"Sección"),[units,directionId,departmentId,divisionId]);
+ const descendants=useCallback((parentId:string,type:string)=>{if(!parentId)return[];const ids=new Set([parentId]);let changed=true;while(changed){changed=false;for(const unit of units)if(unit.parent_id&&ids.has(unit.parent_id)&&!ids.has(unit.id)&&unit.unit_type!=="Dirección"){ids.add(unit.id);changed=true}}return units.filter(unit=>unit.id!==parentId&&ids.has(unit.id)&&unit.unit_type===type).sort((a,b)=>a.sort_order-b.sort_order)},[units]);
+ const departments=useMemo(()=>descendants(directionId,"Departamento"),[descendants,directionId]);
+ const divisions=useMemo(()=>descendants(departmentId||directionId,"División"),[descendants,directionId,departmentId]);
+ const sections=useMemo(()=>descendants(divisionId||departmentId||directionId,"Sección"),[descendants,directionId,departmentId,divisionId]);
  const unitName=(id:string)=>units.find(unit=>unit.id===id)?.unit_name||"";
  async function submit(e:FormEvent<HTMLFormElement>){
   e.preventDefault();setBusy(true);setMessage("");const form=e.currentTarget;const f=new FormData(form);const data:Record<string,unknown>=Object.fromEntries(f);

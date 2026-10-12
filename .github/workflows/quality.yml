@@ -18,6 +18,8 @@ jobs:
         run: npm install --package-lock-only --ignore-scripts
       - name: Instalación limpia
         run: npm ci
+      - name: Auditar dependencias críticas
+        run: npm audit --audit-level=high
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test

@@ -92,6 +92,28 @@ test("los módulos no utilizan almacenamiento local para datos institucionales",
   assert.equal(page.includes("/api/projects/institutional"),true);
 });
 
+test("el autorregistro público está deshabilitado",async()=>{
+  const route=await readFile(new URL("../app/api/auth/register/route.ts",import.meta.url),"utf8");
+  const security=await readFile(new URL("../supabase/security_permissions_audit.sql",import.meta.url),"utf8");
+  assert.equal(route.includes('status:403'),true);
+  assert.equal(route.includes('rpc("register_app_user"'),false);
+  assert.equal(security.includes("revoke all on function public.register_app_user(text,text,text,text) from public,anon,authenticated"),true);
+});
+
+test("el estado técnico exige una sesión válida",async()=>{
+  const route=await readFile(new URL("../app/api/system/status/route.ts",import.meta.url),"utf8");
+  assert.equal(route.includes("sessionCookie"),true);
+  assert.equal(route.includes('rpc("get_app_session"'),true);
+  assert.equal(route.includes('status:401'),true);
+});
+
+test("la migración automática incluye las tablas base y módulos dependientes",async()=>{
+  const workflow=await readFile(new URL("../.github/workflows/supabase-migrate.yml",import.meta.url),"utf8");
+  for(const migration of ["username_auth.sql","technical_projects.sql","cubicaciones_workflow.sql","project_digital_file.sql","personal_dashboard.sql"]){
+    assert.equal(workflow.includes(migration),true);
+  }
+});
+
 test("el tablero institucional utiliza proyectos, empleados y presupuesto de Supabase",async()=>{
   const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
   assert.equal(page.includes("portfolioProjects"),true);

@@ -1,5 +1,5 @@
 "use client";
-import {FormEvent,useEffect,useMemo,useState} from "react";
+import {FormEvent,useCallback,useEffect,useMemo,useState} from "react";
 type Employee={id:string;employee_code:string;document_number?:string;full_name:string;position_name:string};
 type Rate={id:string;category:string;daily_amount:number};
 type Item={id:string;request_number:number;employee_name:string;employee_code:string;position_name:string;destination:string;departure_at:string;return_at:string;days:number;daily_rate:number;transport_amount:number;toll_amount:number;total_amount:number;status:string;category:string;purpose:string;advance_warning:boolean};
@@ -7,8 +7,8 @@ const money=(n:number)=>new Intl.NumberFormat("es-DO",{style:"currency",currency
 const initial={employee_id:"",rate_id:"",destination:"",purpose:"",departure_at:"",return_at:"",transport_mode:"INSTITUCIONAL",transport_amount:0,toll_amount:0,support_url:"",observations:""};
 export default function TravelAllowanceManagement(){
  const [year,setYear]=useState(2026),[employees,setEmployees]=useState<Employee[]>([]),[employeeSearch,setEmployeeSearch]=useState(""),[rates,setRates]=useState<Rate[]>([]),[items,setItems]=useState<Item[]>([]),[form,setForm]=useState({...initial}),[message,setMessage]=useState(""),[busy,setBusy]=useState(false);
- const load=async()=>{setBusy(true);const [vr,er]=await Promise.all([fetch(`/api/hr/travel-allowances?year=${year}`,{cache:"no-store"}),fetch("/api/hr/employees",{cache:"no-store"})]);const [v,e]=await Promise.all([vr.json(),er.json()]);setRates(Array.isArray(v.rates)?v.rates:[]);setItems(Array.isArray(v.items)?v.items:[]);setEmployees(Array.isArray(e.employees)?e.employees.filter((x:{active?:boolean})=>x.active!==false):[]);if(!vr.ok)setMessage(v.error||"No fue posible consultar los viáticos.");setBusy(false)};
- useEffect(()=>{load()},[year]);
+ const load=useCallback(async()=>{setBusy(true);const [vr,er]=await Promise.all([fetch(`/api/hr/travel-allowances?year=${year}`,{cache:"no-store"}),fetch("/api/hr/employees",{cache:"no-store"})]);const [v,e]=await Promise.all([vr.json(),er.json()]);setRates(Array.isArray(v.rates)?v.rates:[]);setItems(Array.isArray(v.items)?v.items:[]);setEmployees(Array.isArray(e.employees)?e.employees.filter((x:{active?:boolean})=>x.active!==false):[]);if(!vr.ok)setMessage(v.error||"No fue posible consultar los viáticos.");setBusy(false)},[year]);
+ useEffect(()=>{load()},[load]);
  const selectedRate=useMemo(()=>rates.find(r=>r.id===form.rate_id),[rates,form.rate_id]);
  const filteredEmployees=useMemo(()=>{const term=employeeSearch.trim().normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();if(!term)return employees;return employees.filter(x=>[x.employee_code,x.document_number,x.full_name,x.position_name].filter(Boolean).join(" ").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().includes(term))},[employees,employeeSearch]);
  const preview=useMemo(()=>{if(!form.departure_at||!form.return_at||!selectedRate)return 0;const hours=(+new Date(form.return_at)-+new Date(form.departure_at))/36e5;return Math.max(1,Math.ceil(hours/24))*Number(selectedRate.daily_amount)+Number(form.transport_amount)+Number(form.toll_amount)},[form,selectedRate]);
