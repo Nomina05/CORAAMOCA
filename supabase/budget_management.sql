@@ -7,6 +7,7 @@ alter table public.technical_projects
   add column if not exists advance_status text not null default 'Pagada',
   add column if not exists fixed_asset_status text not null default 'Pagada',
   add column if not exists paid_measurements_amount numeric(18,2) not null default 0,
+  add column if not exists work_progress_override numeric(5,2) check(work_progress_override between 0 and 100),
   add column if not exists budget_closed_at timestamptz,
   add column if not exists budget_closed_by uuid references public.app_users(id);
 
@@ -42,7 +43,7 @@ begin
   select coalesce(sum(progress_increment),0) into v_paid_progress from public.project_measurements where project_id=p_project_id and status='Pagada';
   update public.technical_projects set paid_measurements_amount=v_paid,
     total_measured=v_measured,total_paid=case when fixed_asset_status='Pagada' then coalesce(fixed_asset_paid_amount,0) else 0 end+case when advance_status='Pagada' then coalesce(advance_20_amount,0) else 0 end+v_paid,
-    work_progress=least(100,case when advance_status='Pagada' and coalesce(awarded_amount,0)>0 then round(coalesce(advance_20_amount,0)*100/awarded_amount,2) else 0 end+v_paid_progress),updated_at=now()
+    work_progress=coalesce(work_progress_override,least(100,case when advance_status='Pagada' and coalesce(awarded_amount,0)>0 then round(coalesce(advance_20_amount,0)*100/awarded_amount,2) else 0 end+v_paid_progress)),updated_at=now()
   where id=p_project_id;
 end $$;
 

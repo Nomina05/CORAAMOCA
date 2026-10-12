@@ -191,7 +191,35 @@ begin
   return jsonb_build_object('success',true,'id',v_m.id,'project_id',v_m.project_id,'previous_amount',v_m.amount,'amount',round(p_amount,2));
 end $$;
 
+create or replace function public.admin_set_project_work_progress(p_token text,p_measurement_id uuid,p_progress numeric,p_reason text)
+returns jsonb language plpgsql security definer set search_path=public,extensions as $$
+declare v_user public.app_users%rowtype; v_m public.project_measurements%rowtype; v_previous numeric;
+begin
+  select u.* into v_user from public.app_users u join public.app_user_sessions s on s.user_id=u.id
+  where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.expires_at>now() and u.active=true and u.suspended_at is null;
+  if v_user.id is null or v_user.role<>'Administrador' then
+    return jsonb_build_object('success',false,'error','Solo el administrador puede cambiar el avance físico de la obra.');
+  end if;
+  select * into v_m from public.project_measurements where id=p_measurement_id;
+  if v_m.id is null then return jsonb_build_object('success',false,'error','Cubicación no encontrada.'); end if;
+  if p_progress is null or p_progress<0 or p_progress>100 then
+    return jsonb_build_object('success',false,'error','El avance físico debe estar entre 0 y 100 %.');
+  end if;
+  if length(trim(coalesce(p_reason,'')))<5 then
+    return jsonb_build_object('success',false,'error','Debe indicar el motivo del cambio.');
+  end if;
+  select work_progress into v_previous from public.technical_projects where id=v_m.project_id for update;
+  if v_previous is null then return jsonb_build_object('success',false,'error','Obra no encontrada.'); end if;
+  update public.technical_projects set work_progress_override=round(p_progress,2),work_progress=round(p_progress,2),updated_at=now()
+  where id=v_m.project_id;
+  insert into public.measurement_audit(measurement_id,action,from_status,to_status,user_id,comments,amount)
+  values(v_m.id,'Corrección administrativa de avance físico',v_m.status,v_m.status,v_user.id,
+    'Avance anterior: '||v_previous||' %. Avance nuevo: '||round(p_progress,2)||' %. Motivo: '||trim(p_reason),v_m.amount);
+  return jsonb_build_object('success',true,'id',v_m.id,'project_id',v_m.project_id,'previous_progress',v_previous,'progress',round(p_progress,2));
+end $$;
+
 grant execute on function public.transition_measurement_advanced(text,uuid,text,text),
   public.add_measurement_document(text,uuid,text,text),public.list_app_notifications(text),
   public.create_measurement(text,uuid,numeric,numeric,text),public.list_measurements(text,uuid),
-  public.admin_correct_paid_measurement(text,uuid,numeric,text) to anon,authenticated;
+  public.admin_correct_paid_measurement(text,uuid,numeric,text),
+  public.admin_set_project_work_progress(text,uuid,numeric,text) to anon,authenticated;

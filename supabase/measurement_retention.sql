@@ -33,7 +33,7 @@ begin
   select coalesce(sum(progress_increment),0) into v_paid_progress from public.project_measurements where project_id=p_project_id and lower(trim(status)) in ('pagada','pago');
   update public.technical_projects set paid_measurements_amount=v_paid,
     total_measured=v_measured,total_paid=case when lower(trim(coalesce(fixed_asset_status,''))) in ('pagada','pago') then coalesce(fixed_asset_paid_amount,0) else 0 end+case when lower(trim(coalesce(advance_status,''))) in ('pagada','pago') then coalesce(advance_20_amount,0) else 0 end+v_paid,
-    work_progress=least(100,case when lower(trim(coalesce(advance_status,''))) in ('pagada','pago') and coalesce(awarded_amount,0)>0 then round(coalesce(advance_20_amount,0)*100/awarded_amount,2) else 0 end+v_paid_progress),updated_at=now()
+    work_progress=coalesce(work_progress_override,least(100,case when lower(trim(coalesce(advance_status,''))) in ('pagada','pago') and coalesce(awarded_amount,0)>0 then round(coalesce(advance_20_amount,0)*100/awarded_amount,2) else 0 end+v_paid_progress)),updated_at=now()
   where id=p_project_id;
 end $$;
 
