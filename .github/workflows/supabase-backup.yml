@@ -8,14 +8,34 @@ on:
 jobs:
   backup:
     runs-on: ubuntu-latest
+    environment: production
     steps:
       - uses: actions/checkout@v4
-      - name: Crear respaldo cifrado por GitHub
-        run: pg_dump "${SUPABASE_DB_URL}" --format=custom --no-owner --file=supabase-backup.dump
+      - name: Verificar conexión protegida
         env:
-          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          test -n "$PGPASSWORD"
+      - name: Crear respaldo cifrado por GitHub
+        run: |
+          pg_dump \
+            -h aws-1-us-west-2.pooler.supabase.com \
+            -p 5432 \
+            -U postgres.tytbnwhrxznxmfjcrfdx \
+            -d postgres \
+            --format=custom \
+            --no-owner \
+            --file=supabase-backup.dump
+          openssl enc -aes-256-cbc -salt -pbkdf2 \
+            -in supabase-backup.dump \
+            -out supabase-backup.dump.enc \
+            -pass env:PGPASSWORD
+          rm -f supabase-backup.dump
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          PGSSLMODE: require
       - uses: actions/upload-artifact@v4
         with:
           name: supabase-backup-${{ github.run_id }}
-          path: supabase-backup.dump
+          path: supabase-backup.dump.enc
           retention-days: 14
