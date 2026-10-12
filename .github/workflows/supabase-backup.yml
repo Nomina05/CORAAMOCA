@@ -11,10 +11,6 @@ jobs:
     environment: production
     steps:
       - uses: actions/checkout@v4
-      - name: Instalar cliente PostgreSQL 17
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes postgresql-client-17
       - name: Verificar conexión protegida
         env:
           PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
@@ -22,14 +18,19 @@ jobs:
           test -n "$PGPASSWORD"
       - name: Crear respaldo cifrado por GitHub
         run: |
-          pg_dump \
+          docker run --rm \
+            -e PGPASSWORD \
+            -e PGSSLMODE \
+            -v "$PWD:/backup" \
+            postgres:17 \
+            pg_dump \
             -h aws-1-us-west-2.pooler.supabase.com \
             -p 5432 \
             -U postgres.tytbnwhrxznxmfjcrfdx \
             -d postgres \
             --format=custom \
             --no-owner \
-            --file=supabase-backup.dump
+            --file=/backup/supabase-backup.dump
           openssl enc -aes-256-cbc -salt -pbkdf2 \
             -in supabase-backup.dump \
             -out supabase-backup.dump.enc \
