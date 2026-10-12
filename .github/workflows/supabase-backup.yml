@@ -11,6 +11,10 @@ jobs:
     environment: production
     steps:
       - uses: actions/checkout@v4
+      - name: Instalar cliente PostgreSQL 17
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client-17
       - name: Verificar conexión protegida
         env:
           PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
