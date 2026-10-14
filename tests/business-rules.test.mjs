@@ -175,4 +175,6 @@ test("apropiaciones y adjudicaciones actualizan el proyecto y los reportes",asyn
   assert.equal(page.includes("1. Seleccionar lote"),true);
   assert.equal(page.includes("2. Municipio o distrito"),true);
   assert.equal(page.includes("3. Obra correspondiente"),true);
+  const css=await readFile(new URL("../app/globals.css",import.meta.url),"utf8");
+  assert.equal(css.includes(".financial-movement-modal{width:min(720px,94vw);max-height:calc(100vh - 36px);overflow-y:auto"),true);
 });
