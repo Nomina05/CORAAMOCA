@@ -159,10 +159,12 @@ test("apropiaciones y adjudicaciones actualizan el proyecto y los reportes",asyn
   const sql=await readFile(new URL("../supabase/budget_management.sql",import.meta.url),"utf8");
   const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
   assert.equal(sql.includes("'APROPIACION','ADJUDICACION'"),true);
-  assert.equal(sql.includes("set appropriation_amount=v_result"),true);
-  assert.equal(sql.includes("set awarded_amount=v_result"),true);
+  assert.equal(sql.includes("set appropriation_amount=appropriation_amount+v_item.amount"),true);
+  assert.equal(sql.includes("set awarded_amount=awarded_amount+v_item.amount"),true);
   assert.equal(sql.includes("La adjudicación no puede superar la apropiación vigente"),true);
   assert.equal(sql.includes("applied_to_project=true"),true);
   assert.equal(page.includes("Registrar apropiación o adjudicación"),true);
   assert.equal(page.includes("await synchronizeProjectData()"),true);
+  assert.equal(sql.includes("when 'Registrada' then 'Revisada' when 'Revisada' then 'Aprobada' when 'Aprobada' then 'Aplicada'"),true);
+  assert.equal(page.includes("Aún no afecta el proyecto ni los reportes hasta alcanzar la etapa Aplicada"),true);
 });
