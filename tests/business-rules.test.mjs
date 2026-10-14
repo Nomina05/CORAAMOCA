@@ -178,5 +178,5 @@ test("apropiaciones y adjudicaciones actualizan el proyecto y los reportes",asyn
   const css=await readFile(new URL("../app/globals.css",import.meta.url),"utf8");
   assert.equal(css.includes(".financial-movement-modal{width:min(720px,94vw);max-height:calc(100vh - 36px);overflow-y:auto"),true);
   assert.equal(page.includes('const averageWorkProgress=(items:PublicInvestmentRow[])=>items.length?sum(items,"work_progress")/items.length:0'),true);
-  assert.equal(page.includes('asset?"":"PROMEDIO"'),true);
+  assert.equal(page.includes('asset?"":"PROMEDIO"'),false);
 });
