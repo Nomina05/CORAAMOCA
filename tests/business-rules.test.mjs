@@ -154,3 +154,15 @@ test("las acciones de personal solo se modifican mientras están pendientes",asy
   assert.equal(sql.includes("coalesce(nullif(p_data->>'general_director',''),v_existing.general_director)"),true);
   assert.equal(sql.includes("v_existing.approval_dates->>'director_date'"),true);
 });
+
+test("apropiaciones y adjudicaciones actualizan el proyecto y los reportes",async()=>{
+  const sql=await readFile(new URL("../supabase/budget_management.sql",import.meta.url),"utf8");
+  const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
+  assert.equal(sql.includes("'APROPIACION','ADJUDICACION'"),true);
+  assert.equal(sql.includes("set appropriation_amount=v_result"),true);
+  assert.equal(sql.includes("set awarded_amount=v_result"),true);
+  assert.equal(sql.includes("La adjudicación no puede superar la apropiación vigente"),true);
+  assert.equal(sql.includes("applied_to_project=true"),true);
+  assert.equal(page.includes("Registrar apropiación o adjudicación"),true);
+  assert.equal(page.includes("await synchronizeProjectData()"),true);
+});

@@ -14,13 +14,41 @@ alter table public.technical_projects
 create table if not exists public.project_budget_modifications (
   id uuid primary key default gen_random_uuid(),
   project_id uuid not null references public.technical_projects(id) on delete cascade,
-  modification_type text not null check(modification_type in ('PRESUPUESTO','APROPIACION')),
+  modification_type text not null check(modification_type in ('PRESUPUESTO','APROPIACION','ADJUDICACION')),
   amount numeric(18,2) not null check(amount<>0),
   description text not null,
   reference text not null default '',
   created_by uuid not null references public.app_users(id),
   created_at timestamptz not null default now()
 );
+
+alter table public.project_budget_modifications
+  add column if not exists applied_to_project boolean not null default false;
+alter table public.project_budget_modifications
+  drop constraint if exists project_budget_modifications_modification_type_check;
+alter table public.project_budget_modifications
+  add constraint project_budget_modifications_modification_type_check
+  check(modification_type in ('PRESUPUESTO','APROPIACION','ADJUDICACION'));
+
+-- Las apropiaciones históricas se aplican una sola vez al proyecto. Esto corrige
+-- la diferencia anterior entre Gestión Presupuestaria y los reportes institucionales.
+do $$
+declare v_item record;
+begin
+  for v_item in
+    select project_id,sum(amount) amount
+    from public.project_budget_modifications
+    where modification_type='APROPIACION' and applied_to_project=false
+    group by project_id
+  loop
+    update public.technical_projects
+    set appropriation_amount=greatest(0,coalesce(appropriation_amount,0)+v_item.amount),updated_at=now()
+    where id=v_item.project_id;
+  end loop;
+  update public.project_budget_modifications
+  set applied_to_project=true
+  where modification_type='APROPIACION' and applied_to_project=false;
+end $$;
 
 create table if not exists public.budget_year_closures (
   id uuid primary key default gen_random_uuid(),
@@ -76,11 +104,11 @@ begin
     select p.id,p.work_name,p.snip_code,p.project_year,p.work_status,p.work_progress,
       p.budgeted_amount initial_budget,
       p.budgeted_amount+coalesce((select sum(m.amount) from public.project_budget_modifications m where m.project_id=p.id and m.modification_type='PRESUPUESTO'),0) current_budget,
-      p.appropriation_amount+coalesce((select sum(m.amount) from public.project_budget_modifications m where m.project_id=p.id and m.modification_type='APROPIACION'),0) current_appropriation,
+      p.appropriation_amount current_appropriation,
       p.committed_amount,p.awarded_amount,p.total_measured,p.fixed_asset_paid_amount,p.advance_20_amount,
       p.paid_measurements_amount,p.total_paid,
-      (p.appropriation_amount+coalesce((select sum(m.amount) from public.project_budget_modifications m where m.project_id=p.id and m.modification_type='APROPIACION'),0))-p.committed_amount available_appropriation,
-      p.total_paid>(p.appropriation_amount+coalesce((select sum(m.amount) from public.project_budget_modifications m where m.project_id=p.id and m.modification_type='APROPIACION'),0)) payment_exceeds_availability,
+      p.appropriation_amount-p.committed_amount available_appropriation,
+      p.total_paid>p.appropriation_amount payment_exceeds_availability,
       (p.budgeted_amount+coalesce((select sum(m.amount) from public.project_budget_modifications m where m.project_id=p.id and m.modification_type='PRESUPUESTO'),0))-p.total_paid pending_balance,
       case when (p.budgeted_amount+coalesce((select sum(m.amount) from public.project_budget_modifications m where m.project_id=p.id and m.modification_type='PRESUPUESTO'),0))>0
         then round(p.total_paid*100/(p.budgeted_amount+coalesce((select sum(m.amount) from public.project_budget_modifications m where m.project_id=p.id and m.modification_type='PRESUPUESTO'),0)),2) else 0 end financial_progress,
@@ -130,19 +158,32 @@ end $$;
 
 create or replace function public.add_budget_modification(p_token text,p_project_id uuid,p_type text,p_amount numeric,p_description text,p_reference text)
 returns jsonb language plpgsql security definer set search_path=public,extensions as $$
-declare v_user public.app_users%rowtype; v_year integer; v_id uuid;
+declare v_user public.app_users%rowtype; v_year integer; v_id uuid; v_appropriation numeric; v_awarded numeric; v_result numeric;
 begin
   select u.* into v_user from public.app_users u join public.app_user_sessions s on s.user_id=u.id
   where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.expires_at>now() and u.active=true and u.suspended_at is null;
   if v_user.id is null or (v_user.role<>'Administrador' and coalesce((v_user.permissions->>'modificar_presupuesto')::boolean,false)=false)
     then return jsonb_build_object('success',false,'error','No posee permiso para modificar el presupuesto.'); end if;
-  select project_year into v_year from public.technical_projects where id=p_project_id;
+  select project_year,coalesce(appropriation_amount,0),coalesce(awarded_amount,0)
+  into v_year,v_appropriation,v_awarded
+  from public.technical_projects where id=p_project_id for update;
   if v_year is null then return jsonb_build_object('success',false,'error','Proyecto no encontrado.'); end if;
   if exists(select 1 from public.budget_year_closures where budget_year=v_year) then return jsonb_build_object('success',false,'error','El año presupuestario está cerrado.'); end if;
-  if p_type not in ('PRESUPUESTO','APROPIACION') or p_amount=0 or length(trim(p_description))<5
+  if p_type not in ('PRESUPUESTO','APROPIACION','ADJUDICACION') or p_amount=0 or length(trim(p_description))<5
     then return jsonb_build_object('success',false,'error','Datos de modificación incompletos.'); end if;
-  insert into public.project_budget_modifications(project_id,modification_type,amount,description,reference,created_by)
-  values(p_project_id,p_type,p_amount,trim(p_description),coalesce(trim(p_reference),''),v_user.id) returning id into v_id;
+  if p_type='APROPIACION' then
+    v_result:=v_appropriation+p_amount;
+    if v_result<0 then return jsonb_build_object('success',false,'error','La apropiación resultante no puede ser negativa.'); end if;
+    if v_result<v_awarded then return jsonb_build_object('success',false,'error','La apropiación no puede quedar por debajo del monto adjudicado.'); end if;
+    update public.technical_projects set appropriation_amount=v_result,updated_at=now() where id=p_project_id;
+  elsif p_type='ADJUDICACION' then
+    v_result:=v_awarded+p_amount;
+    if v_result<0 then return jsonb_build_object('success',false,'error','La adjudicación resultante no puede ser negativa.'); end if;
+    if v_result>v_appropriation then return jsonb_build_object('success',false,'error','La adjudicación no puede superar la apropiación vigente.'); end if;
+    update public.technical_projects set awarded_amount=v_result,updated_at=now() where id=p_project_id;
+  end if;
+  insert into public.project_budget_modifications(project_id,modification_type,amount,description,reference,created_by,applied_to_project)
+  values(p_project_id,p_type,p_amount,trim(p_description),coalesce(trim(p_reference),''),v_user.id,p_type in ('APROPIACION','ADJUDICACION')) returning id into v_id;
   insert into public.security_audit_log(actor_user_id,action,module,detail) values(v_user.id,'BUDGET_MODIFICATION','Presupuesto',
     jsonb_build_object('project_id',p_project_id,'type',p_type,'amount',p_amount,'description',p_description,'reference',p_reference));
   return jsonb_build_object('success',true,'id',v_id);
