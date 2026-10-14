@@ -79,6 +79,16 @@ alter table public.project_budget_modifications enable row level security;
 alter table public.budget_year_closures enable row level security;
 revoke all on public.project_budget_modifications,public.budget_year_closures from anon,authenticated;
 
+-- Conserva el acceso de usuarios que ya tenían alguna responsabilidad del flujo.
+update public.app_users
+set permissions=jsonb_set(coalesce(permissions,'{}'::jsonb),'{ver_apropiaciones_adjudicaciones}','true'::jsonb,true)
+where role<>'Administrador' and (
+  coalesce((permissions->>'registrar_apropiaciones')::boolean,false) or coalesce((permissions->>'revisar_apropiaciones')::boolean,false) or
+  coalesce((permissions->>'aprobar_apropiaciones')::boolean,false) or coalesce((permissions->>'aplicar_apropiaciones')::boolean,false) or
+  coalesce((permissions->>'registrar_adjudicaciones')::boolean,false) or coalesce((permissions->>'revisar_adjudicaciones')::boolean,false) or
+  coalesce((permissions->>'aprobar_adjudicaciones')::boolean,false) or coalesce((permissions->>'aplicar_adjudicaciones')::boolean,false)
+);
+
 create or replace function public.recalculate_project_financials(p_project_id uuid)
 returns void language plpgsql security definer set search_path=public,extensions as $$
 declare v_paid numeric; v_measured numeric; v_paid_progress numeric;
@@ -114,7 +124,7 @@ declare v_user public.app_users%rowtype; v_items jsonb; v_closed boolean;
 begin
   select u.* into v_user from public.app_users u join public.app_user_sessions s on s.user_id=u.id
   where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.expires_at>now() and u.active=true and u.suspended_at is null;
-  if v_user.id is null or (v_user.role<>'Administrador' and coalesce((v_user.permissions->>'ver_gestion_presupuestaria')::boolean,false)=false)
+  if v_user.id is null or (v_user.role<>'Administrador' and coalesce((v_user.permissions->>'ver_gestion_presupuestaria')::boolean,false)=false and coalesce((v_user.permissions->>'ver_apropiaciones_adjudicaciones')::boolean,false)=false)
     then return jsonb_build_object('success',false,'error','No posee permiso para consultar la gestión presupuestaria.'); end if;
   select exists(select 1 from public.budget_year_closures where budget_year=coalesce(p_year,extract(year from now())::integer)) into v_closed;
   select coalesce(jsonb_agg(to_jsonb(x) order by x.project_year desc,x.work_name),'[]'::jsonb) into v_items from (

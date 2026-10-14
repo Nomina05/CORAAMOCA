@@ -167,4 +167,7 @@ test("apropiaciones y adjudicaciones actualizan el proyecto y los reportes",asyn
   assert.equal(page.includes("await synchronizeProjectData()"),true);
   assert.equal(sql.includes("when 'Registrada' then 'Revisada' when 'Revisada' then 'Aprobada' when 'Aprobada' then 'Aplicada'"),true);
   assert.equal(page.includes("Aún no afecta el proyecto ni los reportes hasta alcanzar la etapa Aplicada"),true);
+  assert.equal(page.includes('section==="Apropiaciones y Adjudicaciones"'),true);
+  assert.equal(page.includes('label:"Apropiaciones y adjudicaciones",section:"Apropiaciones y Adjudicaciones"'),true);
+  assert.equal(page.includes('permission:"ver_apropiaciones_adjudicaciones"'),true);
 });
