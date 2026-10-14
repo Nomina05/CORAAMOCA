@@ -170,4 +170,9 @@ test("apropiaciones y adjudicaciones actualizan el proyecto y los reportes",asyn
   assert.equal(page.includes('section==="Apropiaciones y Adjudicaciones"'),true);
   assert.equal(page.includes('label:"Apropiaciones y adjudicaciones",section:"Apropiaciones y Adjudicaciones"'),true);
   assert.equal(page.includes('permission:"ver_apropiaciones_adjudicaciones"'),true);
+  assert.equal(page.includes('loadBudget(section==="Apropiaciones y Adjudicaciones")'),true);
+  assert.equal(page.includes('allYears?"all":budgetYear'),true);
+  assert.equal(page.includes("1. Seleccionar lote"),true);
+  assert.equal(page.includes("2. Municipio o distrito"),true);
+  assert.equal(page.includes("3. Obra correspondiente"),true);
 });

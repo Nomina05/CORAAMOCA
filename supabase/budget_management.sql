@@ -126,9 +126,9 @@ begin
   where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.expires_at>now() and u.active=true and u.suspended_at is null;
   if v_user.id is null or (v_user.role<>'Administrador' and coalesce((v_user.permissions->>'ver_gestion_presupuestaria')::boolean,false)=false and coalesce((v_user.permissions->>'ver_apropiaciones_adjudicaciones')::boolean,false)=false)
     then return jsonb_build_object('success',false,'error','No posee permiso para consultar la gestión presupuestaria.'); end if;
-  select exists(select 1 from public.budget_year_closures where budget_year=coalesce(p_year,extract(year from now())::integer)) into v_closed;
+  select case when p_year is null then false else exists(select 1 from public.budget_year_closures where budget_year=p_year) end into v_closed;
   select coalesce(jsonb_agg(to_jsonb(x) order by x.project_year desc,x.work_name),'[]'::jsonb) into v_items from (
-    select p.id,p.work_name,p.snip_code,p.project_year,p.work_status,p.work_progress,
+    select p.id,p.work_name,p.snip_code,p.project_year,p.work_status,p.work_progress,p.has_lot,p.lot_number,p.municipality,p.district,p.sector,
       p.budgeted_amount initial_budget,
       p.budgeted_amount+coalesce((select sum(m.amount) from public.project_budget_modifications m where m.project_id=p.id and m.modification_type='PRESUPUESTO' and m.status='Aplicada'),0) current_budget,
       p.appropriation_amount current_appropriation,

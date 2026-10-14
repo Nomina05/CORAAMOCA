@@ -6,7 +6,8 @@ import { recordAudit } from "../auth/_audit";
 export async function GET(request:Request){
   const token=(await cookies()).get(sessionCookie)?.value;
   if(!token)return NextResponse.json({error:"No autorizado."},{status:401});
-  const year=Number(new URL(request.url).searchParams.get("year")||new Date().getFullYear());
+  const requestedYear=new URL(request.url).searchParams.get("year");
+  const year=requestedYear==="all"?null:Number(requestedYear||new Date().getFullYear());
   const {data,error}=await authDatabase().rpc("get_budget_management",{p_token:token,p_year:year});
   if(error||!data?.success)return NextResponse.json({error:data?.error||"No fue posible cargar el presupuesto."},{status:403});
   return NextResponse.json(data);
