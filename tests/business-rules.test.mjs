@@ -200,6 +200,9 @@ test("el reporte presidencial organiza obras y separa contrataciones",async()=>{
   assert.equal(page.includes('sum(regular,"population")'),true);
   assert.equal(page.includes('["gaspar hernandez","jamao al norte","san victor","moca","cayetano germosen"]'),true);
   assert.equal(page.includes("municipalityRank(left)-municipalityRank(right)"),true);
+  assert.equal(page.includes('item.record_type==="ACTIVO_FIJO"&&normalize(item.municipality||"")==="moca"'),true);
+  assert.equal(page.includes("ACTIVOS FIJOS DEL MUNICIPIO DE MOCA"),true);
+  assert.equal(page.indexOf('districts.map(([district,districtItems])=>location(district,districtItems,"Distrito"))')<page.indexOf('normalize(municipality)==="moca"&&mocaAssetSection()'),true);
 });
 
 test("los reportes de inversión permiten actualizar el proyecto con permiso",async()=>{
