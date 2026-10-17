@@ -118,3 +118,31 @@ export async function POST(request: Request) {
   await recordAudit(request,token,{action:id?"PROYECTO_MODIFICADO":"PROYECTO_CREADO",module:"Proyectos",entityType:"Proyecto",entityId:projectId,projectId,next:project,reason:project.change_reason||""});
   return NextResponse.json({ success: true, id: projectId });
 }
+
+export async function PATCH(request: Request) {
+  const token = (await cookies()).get(sessionCookie)?.value;
+  if (!token) return NextResponse.json({ error: "No autorizado." }, { status: 401 });
+  const database = authDatabase();
+  const session = await database.rpc("get_app_session", { p_token: token });
+  const user = session.data?.user;
+  if (session.error || !user) return NextResponse.json({ error: "Sesión no válida." }, { status: 401 });
+  if (user.role !== "Administrador" && !user.permissions?.editar_proyectos_tecnicos) {
+    return NextResponse.json({ error: "No posee permiso para editar proyectos." }, { status: 403 });
+  }
+  const body = await request.json();
+  const id = String(body.id || "").trim();
+  const sector = String(body.sector || "").trim();
+  const workStatus = String(body.work_status || "").trim();
+  const workProgress = Number(body.work_progress);
+  if (!id || !workStatus || !Number.isFinite(workProgress) || workProgress < 0 || workProgress > 100) {
+    return NextResponse.json({ error: "Indique un estatus y un porcentaje válido entre 0 y 100." }, { status: 400 });
+  }
+  const previous = await database.from("technical_projects").select("id,sector,work_status,work_progress,work_name").eq("id", id).maybeSingle();
+  if (previous.error || !previous.data) return NextResponse.json({ error: "Proyecto no encontrado." }, { status: 404 });
+  const next = { sector, work_status: workStatus, work_progress: workProgress, updated_at: new Date().toISOString() };
+  const updated = await database.from("technical_projects").update(next).eq("id", id).select("id,sector,work_status,work_progress").single();
+  if (updated.error) return NextResponse.json({ error: "No fue posible actualizar el proyecto." }, { status: 400 });
+  await database.rpc("record_project_change", { p_token: token, p_project_id: id, p_action: "UPDATE_REPORT" });
+  await recordAudit(request,token,{action:"PROYECTO_MODIFICADO_DESDE_REPORTE",module:"Reportes",entityType:"Proyecto",entityId:id,projectId:id,previous:previous.data,next:updated.data,reason:"Actualización manual desde reporte de inversión pública"});
+  return NextResponse.json({ success: true, project: updated.data });
+}

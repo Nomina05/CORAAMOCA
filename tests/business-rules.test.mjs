@@ -201,3 +201,16 @@ test("el reporte presidencial organiza obras y separa contrataciones",async()=>{
   assert.equal(page.includes('["gaspar hernandez","jamao al norte","san victor","moca","cayetano germosen"]'),true);
   assert.equal(page.includes("municipalityRank(left)-municipalityRank(right)"),true);
 });
+
+test("los reportes de inversión permiten actualizar el proyecto con permiso",async()=>{
+  const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
+  const route=await readFile(new URL("../app/api/projects/technical/route.ts",import.meta.url),"utf8");
+  assert.equal(page.includes("EDICIÓN DESDE REPORTE"),true);
+  assert.equal(page.includes("Aplicar cambios"),true);
+  assert.equal(page.includes('canEdit={canView("editar_proyectos_tecnicos")}'),true);
+  assert.equal(page.includes('method:"PATCH"'),true);
+  assert.equal(route.includes("export async function PATCH"),true);
+  assert.equal(route.includes("editar_proyectos_tecnicos"),true);
+  assert.equal(route.includes("PROYECTO_MODIFICADO_DESDE_REPORTE"),true);
+  assert.equal(route.includes('workProgress < 0 || workProgress > 100'),true);
+});
