@@ -195,4 +195,6 @@ test("el reporte presidencial organiza obras y separa contrataciones",async()=>{
   assert.equal(page.includes('average(ordered).toLocaleString("es-DO"'),true);
   assert.equal(page.includes("presidential-type-row"),false);
   assert.equal(page.includes('Number(item.work_progress)>=100?"TERMINADA":item.work_status||""'),true);
+  assert.equal(page.includes('["gaspar hernandez","jamao al norte","san victor","moca","cayetano germosen"]'),true);
+  assert.equal(page.includes("municipalityRank(left)-municipalityRank(right)"),true);
 });
