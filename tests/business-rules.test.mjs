@@ -188,6 +188,8 @@ test("el reporte presidencial organiza obras y separa contrataciones",async()=>{
   assert.equal(page.includes('sum(items,"awarded_amount")'),true);
   assert.equal(page.includes('normalize(item.work_status||"").includes("contrat")'),true);
   assert.equal(page.includes("OBRAS SIN SNIP O EN CONTRATACIÓN"),true);
+  assert.equal(page.includes("presidential-separate-head"),true);
+  assert.equal(page.includes('sum(ordered,"population")'),true);
   assert.equal(page.includes('average(ordered).toLocaleString("es-DO"'),true);
   assert.equal(page.includes("presidential-type-row"),true);
 });
