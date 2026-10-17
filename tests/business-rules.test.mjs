@@ -216,4 +216,7 @@ test("los reportes de inversión permiten actualizar el proyecto con permiso",as
   assert.equal(route.includes("editar_proyectos_tecnicos"),true);
   assert.equal(route.includes("PROYECTO_MODIFICADO_DESDE_REPORTE"),true);
   assert.equal(route.includes('workProgress < 0 || workProgress > 100'),true);
+  assert.equal(page.includes('name="population" required type="number" min="0" step="1"'),true);
+  assert.equal(route.includes("Number.isInteger(population) || population < 0"),true);
+  assert.equal(route.includes("sector, population, work_status"),true);
 });
