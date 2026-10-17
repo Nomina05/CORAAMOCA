@@ -180,3 +180,14 @@ test("apropiaciones y adjudicaciones actualizan el proyecto y los reportes",asyn
   assert.equal(page.includes('const averageWorkProgress=(items:PublicInvestmentRow[])=>items.length?sum(items,"work_progress")/items.length:0'),true);
   assert.equal(page.includes('asset?"":"PROMEDIO"'),false);
 });
+
+test("el reporte presidencial organiza obras y separa contrataciones",async()=>{
+  const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
+  assert.equal(page.includes("RESUMEN DE INVERSIÓN PÚBLICA POR SNIP – PRESENTACIÓN PRESIDENCIAL"),true);
+  assert.equal(page.includes("MONTO ADJUDICADO POR OBRAS"),true);
+  assert.equal(page.includes('sum(items,"awarded_amount")'),true);
+  assert.equal(page.includes('normalize(item.work_status||"").includes("contrat")'),true);
+  assert.equal(page.includes("OBRAS SIN SNIP O EN CONTRATACIÓN"),true);
+  assert.equal(page.includes('average(ordered).toLocaleString("es-DO"'),true);
+  assert.equal(page.includes("presidential-type-row"),true);
+});
