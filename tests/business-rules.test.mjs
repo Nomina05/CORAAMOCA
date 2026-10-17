@@ -195,8 +195,8 @@ test("el reporte presidencial organiza obras y separa contrataciones",async()=>{
   assert.equal(page.includes('average(ordered).toLocaleString("es-DO"'),true);
   assert.equal(page.includes("presidential-type-row"),false);
   assert.equal(page.includes('if(status==="en contratacion")return "Licitación"'),true);
-  assert.equal(page.includes('if(status==="planificacion")return "Ejecución"'),true);
-  assert.equal(page.includes('==="planificacion"?"Ejecución":status'),true);
+  assert.equal(page.includes('if(status==="planificacion"||status==="ejecucion")return "En Ejecución"'),true);
+  assert.equal(page.includes('["planificacion","ejecucion"].includes'),true);
   assert.equal(page.includes('status==="finalizada"||status==="terminada"||displayProgress(item)>=100'),true);
   assert.equal(page.includes("suministro e instalacion de micro medidores de agua potable en residenciales e industrias"),true);
   assert.equal(page.includes('sum(regular,"population")'),true);

@@ -187,7 +187,7 @@ function PublicInvestmentReport({rows,canEdit,onEdit}:{rows:PublicInvestmentRow[
   const availabilityUnassigned=Number((rows[0] as unknown as {availability_unassigned?:number})?.availability_unassigned||0);
   const municipalityGroups=Array.from(rows.reduce((map,row)=>{const municipality=row.municipality?.trim()||"Sin municipio";const current=map.get(municipality)||[];current.push(row);map.set(municipality,current);return map;},new Map<string,PublicInvestmentRow[]>()).entries()).sort(([left],[right])=>left.localeCompare(right,"es",{sensitivity:"base"}));
   const sum=(items:PublicInvestmentRow[],key:keyof PublicInvestmentRow)=>items.reduce((total,item)=>total+Number(item[key]||0),0);
-  const reportStatus=(status:string)=>status.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim()==="planificacion"?"Ejecución":status;
+  const reportStatus=(status:string)=>["planificacion","ejecucion"].includes(status.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim())?"En Ejecución":status;
   const averageWorkProgress=(items:PublicInvestmentRow[])=>items.length?sum(items,"work_progress")/items.length:0;
   const totalBudgeted=sum(rows,"budgeted_amount");
   const normalizeAsset=(value:string)=>value.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
@@ -228,7 +228,7 @@ function PresidentialInvestmentReport({rows,canEdit,onEdit}:{rows:PublicInvestme
   const sum=(items:PublicInvestmentRow[],key:keyof PublicInvestmentRow)=>items.reduce((total,item)=>total+Number(item[key]||0),0);
   const isMicroMeterCompleted=(item:PublicInvestmentRow)=>normalize(item.work_name||"").includes("suministro e instalacion de micro medidores de agua potable en residenciales e industrias");
   const displayProgress=(item:PublicInvestmentRow)=>normalize(item.work_status||"")==="finalizada"||isMicroMeterCompleted(item)?100:Number(item.work_progress||0);
-  const displayStatus=(item:PublicInvestmentRow)=>{const status=normalize(item.work_status||"");if(status==="en contratacion")return "Licitación";if(status==="planificacion")return "Ejecución";if(status==="finalizada"||status==="terminada"||displayProgress(item)>=100)return "Terminada";return item.work_status||"";};
+  const displayStatus=(item:PublicInvestmentRow)=>{const status=normalize(item.work_status||"");if(status==="en contratacion")return "Licitación";if(status==="planificacion"||status==="ejecucion")return "En Ejecución";if(status==="finalizada"||status==="terminada"||displayProgress(item)>=100)return "Terminada";return item.work_status||"";};
   const average=(items:PublicInvestmentRow[])=>items.length?items.reduce((total,item)=>total+displayProgress(item),0)/items.length:0;
   const isSeparate=(item:PublicInvestmentRow)=>!item.snip_code?.trim()||normalize(item.work_status||"").includes("contrat");
   const sorted=(items:PublicInvestmentRow[])=>[...items].sort((left,right)=>{const categoryOrder=(left.work_type||left.work_name).localeCompare(right.work_type||right.work_name,"es",{sensitivity:"base"});if(categoryOrder!==0)return categoryOrder;const leftStatus=displayStatus(left),rightStatus=displayStatus(right);const leftFinished=normalize(leftStatus)==="terminada",rightFinished=normalize(rightStatus)==="terminada";if(leftFinished!==rightFinished)return leftFinished?-1:1;const statusOrder=rightStatus.localeCompare(leftStatus,"es",{sensitivity:"base"});if(statusOrder!==0)return statusOrder;return (right.sector||right.work_name).localeCompare(left.sector||left.work_name,"es",{sensitivity:"base"});});
