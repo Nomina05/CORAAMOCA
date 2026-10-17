@@ -191,10 +191,13 @@ test("el reporte presidencial organiza obras y separa contrataciones",async()=>{
   assert.equal(page.includes("presidential-separate-head"),true);
   assert.equal(page.includes('sum(ordered,"population")'),true);
   assert.equal(page.includes('Total de inversión: {money(sum(ordered,"budgeted_amount"))}'),true);
-  assert.equal(page.includes('Total de inversión: {money(sum(items,"budgeted_amount"))}'),true);
+  assert.equal(page.includes('Total de inversión: {money(sum(regular,"budgeted_amount"))}'),true);
   assert.equal(page.includes('average(ordered).toLocaleString("es-DO"'),true);
   assert.equal(page.includes("presidential-type-row"),false);
-  assert.equal(page.includes('Number(item.work_progress)>=100?"TERMINADA":item.work_status||""'),true);
+  assert.equal(page.includes('if(status==="en contratacion")return "Licitación"'),true);
+  assert.equal(page.includes('status==="finalizada"||status==="terminada"||displayProgress(item)>=100'),true);
+  assert.equal(page.includes("suministro e instalacion de micro medidores de agua potable en residenciales e industrias"),true);
+  assert.equal(page.includes('sum(regular,"population")'),true);
   assert.equal(page.includes('["gaspar hernandez","jamao al norte","san victor","moca","cayetano germosen"]'),true);
   assert.equal(page.includes("municipalityRank(left)-municipalityRank(right)"),true);
 });
