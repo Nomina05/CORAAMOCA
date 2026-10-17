@@ -225,8 +225,11 @@ test("los activos reflejan apropiación y libramiento en los reportes",async()=>
   assert.equal(assets.includes("EN LIBRAMIENTO"),true);
   assert.equal(route.includes('database.rpc("list_report_asset_statuses"'),true);
   assert.equal(route.includes("asset_status:isAsset"),true);
+  assert.equal(route.includes("awarded_amount:isAsset&&registeredAssetAmount>0?registeredAssetAmount"),true);
   assert.equal(migration.includes("create or replace function public.list_report_asset_statuses"),true);
   assert.equal(migration.includes("status='Libramiento' or advance_status='Libramiento'"),true);
+  assert.equal(migration.includes("coalesce(sum(amount),0) registered_amount"),true);
+  assert.equal(migration.includes("awarded_amount=case when v_assets_awarded>0 then v_assets_awarded else awarded_amount end"),true);
 });
 
 test("los reportes de inversión permiten actualizar el proyecto con permiso",async()=>{

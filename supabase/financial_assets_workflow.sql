@@ -45,14 +45,16 @@ revoke all on public.financial_assets,public.financial_asset_audit from anon,aut
 
 create or replace function public.recalculate_project_financials(p_project_id uuid)
 returns void language plpgsql security definer set search_path=public,extensions as $$
-declare v_paid numeric;v_measured numeric;v_paid_progress numeric;v_assets numeric;
+declare v_paid numeric;v_measured numeric;v_paid_progress numeric;v_assets numeric;v_assets_awarded numeric;
 begin
  select coalesce(sum(net_paid_amount),0) into v_paid from public.project_measurements where project_id=p_project_id and lower(trim(status)) in ('pagada','pago');
  select coalesce(sum(amount),0) into v_measured from public.project_measurements where project_id=p_project_id;
  select coalesce(sum(progress_increment),0) into v_paid_progress from public.project_measurements where project_id=p_project_id and lower(trim(status)) in ('pagada','pago');
  select coalesce(sum(case when lower(trim(status)) in ('pagado','pago') then amount when lower(trim(advance_status)) in ('pagado','pago') then advance_amount else 0 end),0)
  into v_assets from public.financial_assets where project_id=p_project_id;
+ select coalesce(sum(amount),0) into v_assets_awarded from public.financial_assets where project_id=p_project_id;
  update public.technical_projects set paid_measurements_amount=v_paid,paid_assets_amount=v_assets,total_measured=v_measured,
+  awarded_amount=case when v_assets_awarded>0 then v_assets_awarded else awarded_amount end,
   total_paid=case when lower(trim(coalesce(fixed_asset_status,''))) in ('pagada','pago') then coalesce(fixed_asset_paid_amount,0) else 0 end
    +case when lower(trim(coalesce(advance_status,''))) in ('pagada','pago') then coalesce(advance_20_amount,0) else 0 end+v_paid+v_assets,
   work_progress=coalesce(work_progress_override,least(100,case when lower(trim(coalesce(advance_status,''))) in ('pagada','pago') and coalesce(awarded_amount,0)>0 then round(coalesce(advance_20_amount,0)*100/awarded_amount,2) else 0 end+v_paid_progress)),updated_at=now()
@@ -88,6 +90,7 @@ declare v_user public.app_users;v_items jsonb;begin
     when count(*) filter(where status='Revisado' or advance_status='Revisado')>0 then 'Revisado'
     when count(*) filter(where status='Registrado' or advance_status='Registrado')>0 then 'Registrado'
     when count(*)>0 and count(*) filter(where status='Pagado')=count(*) then 'Pagado' else 'Pendiente' end status,
+   coalesce(sum(amount),0) registered_amount,
    coalesce(sum(amount) filter(where status='Libramiento'),0)+coalesce(sum(advance_amount) filter(where advance_status='Libramiento'),0) libramiento_amount,
    coalesce(sum(amount) filter(where status='Pagado'),0)+coalesce(sum(advance_amount) filter(where advance_status='Pagado' and status<>'Pagado'),0) paid_amount
   from public.financial_assets group by project_id)x;
