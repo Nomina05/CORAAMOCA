@@ -193,5 +193,6 @@ test("el reporte presidencial organiza obras y separa contrataciones",async()=>{
   assert.equal(page.includes('Total de inversión: {money(sum(ordered,"budgeted_amount"))}'),true);
   assert.equal(page.includes('Total de inversión: {money(sum(items,"budgeted_amount"))}'),true);
   assert.equal(page.includes('average(ordered).toLocaleString("es-DO"'),true);
-  assert.equal(page.includes("presidential-type-row"),true);
+  assert.equal(page.includes("presidential-type-row"),false);
+  assert.equal(page.includes('Number(item.work_progress)>=100?"TERMINADA":item.work_status||""'),true);
 });
