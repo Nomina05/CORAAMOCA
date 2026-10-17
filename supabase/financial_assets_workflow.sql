@@ -77,6 +77,23 @@ declare v_user public.app_users;v_items jsonb;begin
  return jsonb_build_object('success',true,'assets',v_items,'suppliers',coalesce((select jsonb_agg(s.name order by s.name) from(select name from public.administrative_catalogs where catalog_type='supplier' and active union select name from public.supplier_catalog where active)s),'[]'::jsonb));
 end $$;
 
+create or replace function public.list_report_asset_statuses(p_token text)
+returns jsonb language plpgsql security definer set search_path=public,extensions as $$
+declare v_user public.app_users;v_items jsonb;begin
+ v_user:=public.hr_authenticated_user(p_token);
+ if v_user.id is null or (v_user.role<>'Administrador' and not coalesce((v_user.permissions->>'ver_reportes')::boolean,false) and not coalesce((v_user.permissions->>'ver_reporte_inversion_publica')::boolean,false)) then return jsonb_build_object('success',false,'error','No posee permiso para consultar el estado de los activos.');end if;
+ select coalesce(jsonb_agg(to_jsonb(x) order by x.project_id),'[]'::jsonb) into v_items from(
+  select project_id,
+   case when count(*) filter(where status='Libramiento' or advance_status='Libramiento')>0 then 'Libramiento'
+    when count(*) filter(where status='Revisado' or advance_status='Revisado')>0 then 'Revisado'
+    when count(*) filter(where status='Registrado' or advance_status='Registrado')>0 then 'Registrado'
+    when count(*)>0 and count(*) filter(where status='Pagado')=count(*) then 'Pagado' else 'Pendiente' end status,
+   coalesce(sum(amount) filter(where status='Libramiento'),0)+coalesce(sum(advance_amount) filter(where advance_status='Libramiento'),0) libramiento_amount,
+   coalesce(sum(amount) filter(where status='Pagado'),0)+coalesce(sum(advance_amount) filter(where advance_status='Pagado' and status<>'Pagado'),0) paid_amount
+  from public.financial_assets group by project_id)x;
+ return jsonb_build_object('success',true,'assets',v_items);
+end $$;
+
 create or replace function public.create_financial_asset(p_token text,p_data jsonb)
 returns jsonb language plpgsql security definer set search_path=public,extensions as $$
 declare v_user public.app_users;v_project public.technical_projects;v_number integer;v_id uuid;v_code text;v_amount numeric;v_percentage numeric:=coalesce((p_data->>'advance_percentage')::numeric,0);v_advance numeric;v_supplier text:=trim(coalesce(p_data->>'supplier',''));begin
@@ -156,4 +173,4 @@ declare v_user public.app_users;v_asset public.financial_assets;v_target text;v_
 end $$;
 
 do $$ declare r record;begin for r in select id from public.technical_projects loop perform public.recalculate_project_financials(r.id);end loop;end $$;
-grant execute on function public.list_financial_assets(text),public.create_financial_asset(text,jsonb),public.transition_financial_asset(text,uuid,text,text),public.set_financial_asset_advance(text,uuid,numeric),public.transition_financial_asset_advance(text,uuid,text,text) to anon,authenticated;
+grant execute on function public.list_financial_assets(text),public.list_report_asset_statuses(text),public.create_financial_asset(text,jsonb),public.transition_financial_asset(text,uuid,text,text),public.set_financial_asset_advance(text,uuid,numeric),public.transition_financial_asset_advance(text,uuid,text,text) to anon,authenticated;

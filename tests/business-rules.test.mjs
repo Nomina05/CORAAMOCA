@@ -212,7 +212,21 @@ test("el reporte presidencial organiza obras y separa contrataciones",async()=>{
   assert.equal(page.includes('item.record_type==="ACTIVO_FIJO"?assetPaymentProgress(item)'),true);
   assert.equal(page.includes('item.record_type==="ACTIVO_FIJO"&&assetPaymentProgress(item)>=100?"Pagado"'),true);
   assert.equal(page.includes('(Number(item.total_paid||0)/Number(item.awarded_amount))*100'),true);
+  assert.equal(page.includes('item.record_type==="ACTIVO_FIJO"&&item.asset_status'),true);
   assert.equal(page.indexOf('districts.map(([district,districtItems])=>location(district,districtItems,"Distrito"))')<page.indexOf('normalize(municipality)==="moca"&&mocaAssetSection()'),true);
+});
+
+test("los activos reflejan apropiación y libramiento en los reportes",async()=>{
+  const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
+  const assets=await readFile(new URL("../app/components/FinancialAssets.tsx",import.meta.url),"utf8");
+  const route=await readFile(new URL("../app/api/reports/route.ts",import.meta.url),"utf8");
+  const migration=await readFile(new URL("../supabase/financial_assets_workflow.sql",import.meta.url),"utf8");
+  assert.equal(assets.includes("APROPIACIÓN"),true);
+  assert.equal(assets.includes("EN LIBRAMIENTO"),true);
+  assert.equal(route.includes('database.rpc("list_report_asset_statuses"'),true);
+  assert.equal(route.includes("asset_status:isAsset"),true);
+  assert.equal(migration.includes("create or replace function public.list_report_asset_statuses"),true);
+  assert.equal(migration.includes("status='Libramiento' or advance_status='Libramiento'"),true);
 });
 
 test("los reportes de inversión permiten actualizar el proyecto con permiso",async()=>{
