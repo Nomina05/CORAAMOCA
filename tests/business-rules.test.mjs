@@ -209,6 +209,9 @@ test("el reporte presidencial organiza obras y separa contrataciones",async()=>{
   assert.equal(page.includes('rightStatus.localeCompare(leftStatus,"es"'),true);
   assert.equal(page.includes('item.record_type==="ACTIVO_FIJO"&&normalize(item.municipality||"")==="moca"'),true);
   assert.equal(page.includes("ACTIVOS FIJOS DEL MUNICIPIO DE MOCA"),true);
+  assert.equal(page.includes('item.record_type==="ACTIVO_FIJO"?assetPaymentProgress(item)'),true);
+  assert.equal(page.includes('item.record_type==="ACTIVO_FIJO"&&assetPaymentProgress(item)>=100?"Pagado"'),true);
+  assert.equal(page.includes('(Number(item.total_paid||0)/Number(item.awarded_amount))*100'),true);
   assert.equal(page.indexOf('districts.map(([district,districtItems])=>location(district,districtItems,"Distrito"))')<page.indexOf('normalize(municipality)==="moca"&&mocaAssetSection()'),true);
 });
 
