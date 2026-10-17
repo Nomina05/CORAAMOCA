@@ -184,10 +184,13 @@ test("apropiaciones y adjudicaciones actualizan el proyecto y los reportes",asyn
 test("el reporte presidencial organiza obras y separa contrataciones",async()=>{
   const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
   assert.equal(page.includes("RESUMEN DE INVERSIÓN PÚBLICA POR SNIP – PRESENTACIÓN PRESIDENCIAL"),true);
-  assert.equal(page.includes("MONTO ADJUDICADO POR OBRAS"),true);
+  assert.equal(page.includes("MONTO ADJUDICADO POR OBRA"),true);
+  assert.equal(page.includes("ESTATUS DE LA OBRA"),true);
+  assert.equal(page.includes("% DE LA OBRA"),true);
+  assert.equal(page.includes("Gaspar Hernández"),true);
   assert.equal(page.includes('sum(items,"awarded_amount")'),true);
   assert.equal(page.includes('normalize(item.work_status||"").includes("contrat")'),true);
-  assert.equal(page.includes("OBRAS SIN SNIP O EN CONTRATACIÓN"),true);
+  assert.equal(page.includes("OBRAS SIN SNIP O EN LICITACIÓN"),true);
   assert.equal(page.includes("presidential-separate-head"),true);
   assert.equal(page.includes('sum(ordered,"population")'),true);
   assert.equal(page.includes('Total de inversión: {money(sum(ordered,"budgeted_amount"))}'),true);
