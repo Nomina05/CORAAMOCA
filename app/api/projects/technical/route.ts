@@ -138,12 +138,19 @@ export async function PATCH(request: Request) {
   if (!id || !workStatus || !Number.isFinite(workProgress) || workProgress < 0 || workProgress > 100 || !Number.isInteger(population) || population < 0) {
     return NextResponse.json({ error: "Indique un estatus, un porcentaje entre 0 y 100 y una población válida." }, { status: 400 });
   }
-  const previous = await database.from("technical_projects").select("id,sector,population,work_status,work_progress,work_name").eq("id", id).maybeSingle();
-  if (previous.error || !previous.data) return NextResponse.json({ error: "Proyecto no encontrado." }, { status: 404 });
-  const next = { sector, population, work_status: workStatus, work_progress: workProgress, updated_at: new Date().toISOString() };
-  const updated = await database.from("technical_projects").update(next).eq("id", id).select("id,sector,population,work_status,work_progress").single();
-  if (updated.error) return NextResponse.json({ error: "No fue posible actualizar el proyecto." }, { status: 400 });
+  const updated = await database.rpc("update_technical_project_from_report", {
+    p_token: token,
+    p_project_id: id,
+    p_sector: sector,
+    p_population: population,
+    p_work_status: workStatus,
+    p_work_progress: workProgress,
+  });
+  if (updated.error || !updated.data?.success) {
+    const notFound=updated.data?.error==="Proyecto no encontrado.";
+    return NextResponse.json({ error: updated.data?.error || "No fue posible actualizar el proyecto." }, { status: notFound ? 404 : 400 });
+  }
   await database.rpc("record_project_change", { p_token: token, p_project_id: id, p_action: "UPDATE_REPORT" });
-  await recordAudit(request,token,{action:"PROYECTO_MODIFICADO_DESDE_REPORTE",module:"Reportes",entityType:"Proyecto",entityId:id,projectId:id,previous:previous.data,next:updated.data,reason:"Actualización manual desde reporte de inversión pública"});
-  return NextResponse.json({ success: true, project: updated.data });
+  await recordAudit(request,token,{action:"PROYECTO_MODIFICADO_DESDE_REPORTE",module:"Reportes",entityType:"Proyecto",entityId:id,projectId:id,previous:updated.data.previous,next:updated.data.project,reason:"Actualización manual desde reporte de inversión pública"});
+  return NextResponse.json({ success: true, project: updated.data.project });
 }

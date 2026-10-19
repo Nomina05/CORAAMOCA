@@ -42,5 +42,21 @@ begin
   if v_id is null then return jsonb_build_object('success',false,'error','Proyecto no encontrado.'); end if;
   return jsonb_build_object('success',true,'id',v_id);
 end $$;
-revoke all on function public.list_technical_projects(text), public.save_technical_project(text,uuid,jsonb) from public;
-grant execute on function public.list_technical_projects(text), public.save_technical_project(text,uuid,jsonb) to anon, authenticated;
+
+create or replace function public.update_technical_project_from_report(p_token text,p_project_id uuid,p_sector text,p_population integer,p_work_status text,p_work_progress numeric)
+returns jsonb language plpgsql security definer set search_path=public,extensions as $$
+declare v_user public.app_users%rowtype;v_previous jsonb;v_project jsonb;
+begin
+ select u.* into v_user from public.app_users u join public.app_user_sessions s on s.user_id=u.id where s.token_hash=encode(digest(p_token,'sha256'),'hex') and s.expires_at>now() and u.active=true;
+ if v_user.id is null then return jsonb_build_object('success',false,'error','Sesión no válida.');end if;
+ if v_user.role<>'Administrador' and not coalesce((v_user.permissions->>'editar_proyectos_tecnicos')::boolean,false) then return jsonb_build_object('success',false,'error','No posee permiso para editar proyectos.');end if;
+ if p_project_id is null or coalesce(trim(p_work_status),'')='' or p_population<0 or p_work_progress<0 or p_work_progress>100 then return jsonb_build_object('success',false,'error','Los datos suministrados no son válidos.');end if;
+ select to_jsonb(p) into v_previous from(select id,sector,population,work_status,work_progress,work_name from public.technical_projects where id=p_project_id for update)p;
+ if v_previous is null then return jsonb_build_object('success',false,'error','Proyecto no encontrado.');end if;
+ update public.technical_projects set sector=trim(coalesce(p_sector,'')),population=p_population,work_status=trim(p_work_status),work_progress=p_work_progress,updated_at=now() where id=p_project_id;
+ select to_jsonb(p) into v_project from(select id,sector,population,work_status,work_progress,work_name from public.technical_projects where id=p_project_id)p;
+ return jsonb_build_object('success',true,'previous',v_previous,'project',v_project);
+end $$;
+
+revoke all on function public.list_technical_projects(text),public.save_technical_project(text,uuid,jsonb),public.update_technical_project_from_report(text,uuid,text,integer,text,numeric) from public;
+grant execute on function public.list_technical_projects(text),public.save_technical_project(text,uuid,jsonb),public.update_technical_project_from_report(text,uuid,text,integer,text,numeric) to anon,authenticated;

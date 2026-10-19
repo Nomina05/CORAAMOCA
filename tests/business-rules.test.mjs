@@ -241,9 +241,13 @@ test("los reportes de inversión permiten actualizar el proyecto con permiso",as
   assert.equal(page.includes('method:"PATCH"'),true);
   assert.equal(route.includes("export async function PATCH"),true);
   assert.equal(route.includes("editar_proyectos_tecnicos"),true);
+  assert.equal(route.includes('database.rpc("update_technical_project_from_report"'),true);
+  assert.equal(route.includes('.from("technical_projects").update'),false);
   assert.equal(route.includes("PROYECTO_MODIFICADO_DESDE_REPORTE"),true);
   assert.equal(route.includes('workProgress < 0 || workProgress > 100'),true);
   assert.equal(page.includes('name="population" required type="number" min="0" step="1"'),true);
   assert.equal(route.includes("Number.isInteger(population) || population < 0"),true);
-  assert.equal(route.includes("sector, population, work_status"),true);
+  const migration=await readFile(new URL("../supabase/technical_projects.sql",import.meta.url),"utf8");
+  assert.equal(migration.includes("create or replace function public.update_technical_project_from_report"),true);
+  assert.equal(migration.includes("'editar_proyectos_tecnicos'"),true);
 });
