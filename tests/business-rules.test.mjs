@@ -266,3 +266,16 @@ test("el expediente único consolida los registros del colaborador y respeta su 
   assert.equal(component.includes("Fecha de salida"),true);
   assert.equal(workflow.includes("hr_employee_dossier.sql"),true);
 });
+
+test("las novedades avanzan por cinco etapas y las vacaciones excluyen días no laborables",async()=>{
+  const migration=await readFile(new URL("../supabase/hr_novelty_workflow.sql",import.meta.url),"utf8");
+  const component=await readFile(new URL("../app/components/HrNoveltyWorkflow.tsx",import.meta.url),"utf8");
+  for(const stage of ["REGISTRADA","REVISADA_ENCARGADO","VALIDADA_RRHH","APROBADA","APLICADA_NOMINA"])assert.equal(migration.includes(stage),true);
+  assert.equal(migration.includes("hr_novelty_history"),true);
+  assert.equal(migration.includes("hr_business_days"),true);
+  assert.equal(migration.includes("extract(isodow from d)<6"),true);
+  assert.equal(migration.includes("hr_holidays"),true);
+  assert.equal(migration.includes("Existe otra ausencia programada en la misma unidad"),true);
+  assert.equal(component.includes("COSTO PROYECTADO"),true);
+  assert.equal(component.includes("Calendario y feriados"),true);
+});
