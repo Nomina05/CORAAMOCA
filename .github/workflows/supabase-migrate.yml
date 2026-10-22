@@ -55,6 +55,7 @@ jobs:
             "supabase/hr_employee_cases.sql"
             "supabase/hr_employee_dossier.sql"
             "supabase/hr_novelty_workflow.sql"
+            "supabase/hr_permission_license_control.sql"
             "supabase/hr_travel_allowances.sql"
             "supabase/user_employee_link.sql"
             "supabase/system_module_integration.sql"

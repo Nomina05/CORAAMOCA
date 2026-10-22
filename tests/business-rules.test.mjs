@@ -279,3 +279,13 @@ test("las novedades avanzan por cinco etapas y las vacaciones excluyen días no 
   assert.equal(component.includes("COSTO PROYECTADO"),true);
   assert.equal(component.includes("Calendario y feriados"),true);
 });
+
+test("los permisos controlan límites, soportes médicos y descuentos de nómina",async()=>{
+  const migration=await readFile(new URL("../supabase/hr_permission_license_control.sql",import.meta.url),"utf8");
+  const component=await readFile(new URL("../app/components/HrPermissionControl.tsx",import.meta.url),"utf8");
+  for(const rule of ["max_days_per_request","max_days_per_year","max_requests_per_year","consecutive_request","medical_document_status","requested_hours","payroll_discount_amount"])assert.equal(migration.includes(rule),true);
+  assert.equal(migration.includes("PERMISO_SIN_SUELDO"),true);
+  assert.equal(migration.includes("trg_hr_apply_payroll_adjustments"),true);
+  assert.equal(component.includes("FRECUENCIA ELEVADA"),true);
+  assert.equal(component.includes("No remunerado"),true);
+});

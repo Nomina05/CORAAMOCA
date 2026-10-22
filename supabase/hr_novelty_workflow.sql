@@ -64,6 +64,10 @@ declare v_user public.app_users;v_employee public.hr_employees;v_type text:=p_da
  insert into public.hr_novelty_history(novelty_id,to_status,observation,document_url,responsible_user_id) values(v_id,'REGISTRADA','Registro inicial',coalesce(p_data->>'document_url',''),v_user.id);
  insert into public.security_audit_log(actor_user_id,action,module,detail) values(v_user.id,'REGISTRAR_NOVEDAD','Recursos Humanos',jsonb_build_object('employee_id',v_employee.id,'novelty_id',v_id,'type',v_type));return jsonb_build_object('success',true,'id',v_id);end $$;
 
+-- La implementación definitiva se instala en hr_permission_license_control.sql.
+create or replace function public.create_hr_permission_payroll_adjustment(p_case_id uuid) returns void language plpgsql security definer set search_path=public as $$begin return;end$$;
+create or replace function public.hr_medical_document_is_valid(p_case_id uuid) returns boolean language sql stable security definer set search_path=public as $$select true$$;
+
 create or replace function public.transition_hr_novelty(p_token text,p_id uuid,p_action text,p_observation text,p_document_url text default '')
 returns jsonb language plpgsql security definer set search_path=public,extensions as $$
 declare v_user public.app_users;v_item public.hr_novelties;v_next text;begin v_user:=public.hr_authenticated_user(p_token);select * into v_item from public.hr_novelties where id=p_id for update;
@@ -72,9 +76,11 @@ declare v_user public.app_users;v_item public.hr_novelties;v_next text;begin v_u
  elsif v_item.status='DEVUELTA' then v_next:='REGISTRADA';
  else v_next:=case v_item.status when 'REGISTRADA' then 'REVISADA_ENCARGADO' when 'REVISADA_ENCARGADO' then 'VALIDADA_RRHH' when 'VALIDADA_RRHH' then 'APROBADA' when 'APROBADA' then 'APLICADA_NOMINA' end;end if;
  if v_next is null or v_item.status in('APLICADA_NOMINA','RECHAZADA','ANULADA') then return jsonb_build_object('success',false,'error','La transición solicitada no está permitida.');end if;
+ if p_action='AVANZAR' and v_item.source_table='hr_employee_cases' and not public.hr_medical_document_is_valid(v_item.source_id) then return jsonb_build_object('success',false,'error','El documento médico debe ser validado por Recursos Humanos antes de avanzar.');end if;
  if v_user.role<>'Administrador' and not(coalesce((v_user.permissions->>'aprobar_recursos_humanos')::boolean,false) or (v_item.novelty_type='VACACION' and coalesce((v_user.permissions->>'aprobar_vacaciones')::boolean,false)) or (v_item.novelty_type='PERMISO' and coalesce((v_user.permissions->>'aprobar_permisos_laborales')::boolean,false))) then return jsonb_build_object('success',false,'error','No posee permiso para procesar esta etapa.');end if;
  if v_next not in('DEVUELTA','RECHAZADA','REGISTRADA') and nullif(trim(coalesce(p_document_url,'')),'') is null then return jsonb_build_object('success',false,'error','Adjunte el enlace del documento que sustenta esta transición.');end if;
  update public.hr_novelties set status=v_next,updated_at=now() where id=p_id;
+ if v_next='APLICADA_NOMINA' and v_item.source_table='hr_employee_cases' then perform public.create_hr_permission_payroll_adjustment(v_item.source_id);end if;
  insert into public.hr_novelty_history(novelty_id,from_status,to_status,observation,document_url,responsible_user_id) values(p_id,v_item.status,v_next,coalesce(p_observation,''),coalesce(p_document_url,''),v_user.id);
  insert into public.security_audit_log(actor_user_id,action,module,detail) values(v_user.id,'TRANSICION_NOVEDAD','Recursos Humanos',jsonb_build_object('employee_id',v_item.employee_id,'novelty_id',p_id,'from',v_item.status,'to',v_next,'observation',p_observation));
  insert into public.app_notifications(user_id,notification_type,severity,event_key,title,message,action_section)
