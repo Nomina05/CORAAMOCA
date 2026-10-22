@@ -289,3 +289,16 @@ test("los permisos controlan límites, soportes médicos y descuentos de nómina
   assert.equal(component.includes("FRECUENCIA ELEVADA"),true);
   assert.equal(component.includes("No remunerado"),true);
 });
+
+test("la gestión disciplinaria protege expedientes y controla reincidencias",async()=>{
+  const migration=await readFile(new URL("../supabase/hr_disciplinary_management.sql",import.meta.url),"utf8");
+  const component=await readFile(new URL("../app/components/HrDisciplinaryManagement.tsx",import.meta.url),"utf8");
+  const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
+  for(const rule of ["offense_type_id","recurrence_count","employee_statement","disciplinary_measure","follow_up_date","close_date","confidential"])assert.equal(migration.includes(rule),true);
+  assert.equal(migration.includes("hr_disciplinary_evidence"),true);
+  assert.equal(migration.includes("ver_amonestaciones"),true);
+  assert.equal(migration.includes("hr_employee_in_user_scope"),true);
+  assert.equal(component.includes("EXPEDIENTES CONFIDENCIALES"),true);
+  assert.equal(component.includes("ALERTAS POR ACUMULACIÓN"),true);
+  assert.equal(page.includes("<HrDisciplinaryManagement"),true);
+});
