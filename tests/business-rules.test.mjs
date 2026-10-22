@@ -302,3 +302,18 @@ test("la gestión disciplinaria protege expedientes y controla reincidencias",as
   assert.equal(component.includes("ALERTAS POR ACUMULACIÓN"),true);
   assert.equal(page.includes("<HrDisciplinaryManagement"),true);
 });
+
+test("la nómina integrada exige validación sin errores antes del cierre",async()=>{
+  const migration=await readFile(new URL("../supabase/hr_payroll_validation.sql",import.meta.url),"utf8");
+  const component=await readFile(new URL("../app/components/PayrollProcessing.tsx",import.meta.url),"utf8");
+  const route=await readFile(new URL("../app/api/hr/payroll-processing/route.ts",import.meta.url),"utf8");
+  for(const source of ["hr_employee_benefits","hr_personnel_actions","hr_payroll_adjustments","hr_payroll_batch_lines"])assert.equal(migration.includes(source),true);
+  for(const check of ["DATOS_INCOMPLETOS","ACCION_PENDIENTE","MOVIMIENTO_PERIODO","VARIACION_MES_ANTERIOR","NUEVO_EN_NOMINA","SALIDA_DE_NOMINA"])assert.equal(migration.includes(check),true);
+  assert.equal(migration.includes("validation_status not in('LISTA','CON_ADVERTENCIAS')"),true);
+  assert.equal(migration.includes("severity='ERROR'"),true);
+  assert.equal(component.includes("CONTROL PREVIO AL CIERRE"),true);
+  assert.equal(component.includes("Validar nómina"),true);
+  assert.equal(component.includes("Cerrar nómina"),true);
+  assert.equal(route.includes("validate_hr_payroll_batch"),true);
+  assert.equal(route.includes("close_hr_payroll_batch"),true);
+});

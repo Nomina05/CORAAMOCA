@@ -21,6 +21,7 @@ create table if not exists public.hr_employee_benefits(
   default_amount numeric(18,2) not null default 0 check(default_amount>=0), active boolean not null default true,
   unique(employee_id,benefit_type)
 );
+alter table public.hr_employee_benefits add column if not exists taxable boolean not null default false;
 create table if not exists public.hr_employee_payroll_assignments(
   id uuid primary key default gen_random_uuid(), employee_id uuid not null references public.hr_employees(id) on delete cascade,
   payroll_type text not null check(payroll_type in ('FIJA','SUPLENCIA','INTERINATO','TEMPORAL')),
@@ -124,7 +125,7 @@ returns numeric language sql stable security definer set search_path=public as $
   union all select 3,'INTERINATO',coalesce((select a.gross_amount from public.hr_employee_payroll_assignments a where a.employee_id=p_employee_id and a.active and a.payroll_type='INTERINATO' and (a.start_date is null or a.start_date<=p_date) and (a.end_date is null or a.end_date>=p_date)),0),true
   union all select 4,'TEMPORAL',coalesce((select a.gross_amount from public.hr_employee_payroll_assignments a where a.employee_id=p_employee_id and a.active and a.payroll_type='TEMPORAL' and (a.start_date is null or a.start_date<=p_date) and (a.end_date is null or a.end_date>=p_date)),0),true
   union all select 5,'PRIMA_TRANSPORTE',coalesce((select b.default_amount from public.hr_employee_benefits b where b.employee_id=p_employee_id and b.active and b.benefit_type='PRIMA_TRANSPORTE'),0),false
-  union all select 6,'VIATICOS',coalesce((select b.default_amount from public.hr_employee_benefits b where b.employee_id=p_employee_id and b.active and b.benefit_type='VIATICOS'),0),false
+  union all select 6,'VIATICOS',coalesce((select b.default_amount from public.hr_employee_benefits b where b.employee_id=p_employee_id and b.active and b.taxable and b.benefit_type='VIATICOS'),0),false
  ), taxable as (
   select g.priority,g.payroll_type,g.gross-case when g.applies_tss then round(least(g.gross,r.pension_cap)*r.pension_rate+least(g.gross,r.sfs_cap)*r.sfs_rate,2) else 0 end amount from gross_income g cross join rates r
  ), target as (select case p_type when 'NOMINA' then 1 when 'NOMINA_FIJA' then 1 when 'SUPLENCIA' then 2 when 'INTERINATO' then 3 when 'TEMPORAL' then 4 when 'PRIMA_TRANSPORTE' then 5 when 'VIATICOS' then 6 else 0 end priority), totals as (
@@ -232,7 +233,7 @@ declare v_user public.app_users;v_id uuid;v_code text;v_existing boolean;begin v
  on conflict(document_number) do update set full_name=excluded.full_name,position_name=excluded.position_name,employment_status=excluded.employment_status,payroll_status=excluded.payroll_status,hire_date=excluded.hire_date,birth_date=excluded.birth_date,academic_level=excluded.academic_level,cell_phone=excluded.cell_phone,landline_phone=excluded.landline_phone,driver_license=excluded.driver_license,blood_type=excluded.blood_type,home_address=excluded.home_address,occupational_group=excluded.occupational_group,immediate_supervisor=excluded.immediate_supervisor,direction_name=excluded.direction_name,department_name=excluded.department_name,division_name=excluded.division_name,section_name=excluded.section_name,center_name=excluded.center_name,monthly_salary=excluded.monthly_salary,updated_at=now()
  returning id,employee_code into v_id,v_code;
  delete from public.hr_employee_benefits where employee_id=v_id;
- insert into public.hr_employee_benefits(employee_id,benefit_type,default_amount) select v_id,x->>'type',coalesce((x->>'amount')::numeric,0) from jsonb_array_elements(coalesce(p_data->'benefits','[]'))x where coalesce((x->>'active')::boolean,true);
+ insert into public.hr_employee_benefits(employee_id,benefit_type,default_amount,taxable) select v_id,x->>'type',coalesce((x->>'amount')::numeric,0),coalesce((x->>'taxable')::boolean,false) from jsonb_array_elements(coalesce(p_data->'benefits','[]'))x where coalesce((x->>'active')::boolean,true);
  delete from public.hr_employee_deductions where employee_id=v_id;
  insert into public.hr_employee_deductions(employee_id,deduction_type,description,monthly_amount,active)
  select v_id,x->>'type',coalesce(x->>'description',''),greatest(coalesce((x->>'amount')::numeric,0),0),coalesce((x->>'active')::boolean,true)

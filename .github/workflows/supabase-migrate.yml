@@ -49,6 +49,7 @@ jobs:
             "supabase/hr_payroll_budget.sql"
             "supabase/hr_payroll_execution.sql"
             "supabase/hr_payroll_processing.sql"
+            "supabase/hr_payroll_validation.sql"
             "supabase/hr_position_catalog.sql"
             "supabase/hr_personnel_actions.sql"
             "supabase/hr_personnel_action_batches.sql"
