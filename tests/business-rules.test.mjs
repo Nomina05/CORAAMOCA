@@ -317,3 +317,15 @@ test("la nómina integrada exige validación sin errores antes del cierre",async
   assert.equal(route.includes("validate_hr_payroll_batch"),true);
   assert.equal(route.includes("close_hr_payroll_batch"),true);
 });
+
+test("la comparación mensual detecta movimientos, variaciones y anomalías de nómina",async()=>{
+  const migration=await readFile(new URL("../supabase/hr_payroll_monthly_comparison.sql",import.meta.url),"utf8");
+  const component=await readFile(new URL("../app/components/PayrollMonthlyComparison.tsx",import.meta.url),"utf8");
+  const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
+  for(const change of ["NUEVO","RETIRADO","AUMENTO","REDUCCION","NUEVO_DESCUENTO"])assert.equal(migration.includes(change),true);
+  for(const anomaly of ["PAGO_DUPLICADO","MULTIPLES_NOMINAS","SIN_CUENTA_PRESUPUESTARIA"])assert.equal(migration.includes(anomaly),true);
+  assert.equal(migration.includes("execution_fund,l.program,l.activity"),true);
+  assert.equal(component.includes("Variación por clasificación presupuestaria"),true);
+  assert.equal(component.includes("Exportar CSV"),true);
+  assert.equal(page.includes("<PayrollMonthlyComparison"),true);
+});
