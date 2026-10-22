@@ -2,6 +2,8 @@
 
 import {useMemo,useState} from "react";
 
+// Los RPC del expediente entregan filas heterogéneas de módulos independientes.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyRow=Record<string,any>;
 export type EmployeeDossierData={employee:AnyRow;history:AnyRow[];actions:AnyRow[];cases:AnyRow[];payroll:AnyRow[];assignments:AnyRow[];benefits:AnyRow[];dependents:AnyRow[];deductions:AnyRow[];documents:AnyRow[];audit:AnyRow[]};
 const tabs=["Resumen","Trayectoria","Novedades","Nómina","Familia y descuentos","Documentos","Auditoría"] as const;
