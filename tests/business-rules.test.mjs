@@ -252,3 +252,17 @@ test("los reportes de inversión permiten actualizar el proyecto con permiso",as
   assert.equal(migration.includes("create or replace function public.update_technical_project_from_report"),true);
   assert.equal(migration.includes("'editar_proyectos_tecnicos'"),true);
 });
+
+test("el expediente único consolida los registros del colaborador y respeta su alcance",async()=>{
+  const migration=await readFile(new URL("../supabase/hr_employee_dossier.sql",import.meta.url),"utf8");
+  const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
+  const component=await readFile(new URL("../app/components/EmployeeDossier.tsx",import.meta.url),"utf8");
+  const workflow=await readFile(new URL("../.github/workflows/supabase-migrate.yml",import.meta.url),"utf8");
+  for(const source of ["hr_employee_history","hr_personnel_actions","hr_employee_cases","hr_payroll_batch_lines","hr_employee_payroll_assignments","hr_employee_benefits","hr_employee_dependents","hr_employee_deductions","hr_employee_files","security_audit_log"])assert.equal(migration.includes(source),true);
+  assert.equal(migration.includes("hr_employee_in_user_scope(v_user,v_employee)"),true);
+  assert.equal(migration.includes("AGREGAR_DOCUMENTO_EMPLEADO"),true);
+  assert.equal(page.includes("openEmployeeDossier(item.id)"),true);
+  assert.equal(component.includes("EXPEDIENTE ÚNICO DEL COLABORADOR"),true);
+  assert.equal(component.includes("Fecha de salida"),true);
+  assert.equal(workflow.includes("hr_employee_dossier.sql"),true);
+});
