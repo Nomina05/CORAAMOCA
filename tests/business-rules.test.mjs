@@ -329,3 +329,17 @@ test("la comparación mensual detecta movimientos, variaciones y anomalías de n
   assert.equal(component.includes("Exportar CSV"),true);
   assert.equal(page.includes("<PayrollMonthlyComparison"),true);
 });
+
+test("el presupuesto de nómina calcula ejecución, proyección, sobregiros y simulaciones",async()=>{
+  const migration=await readFile(new URL("../supabase/hr_payroll_budget_operations.sql",import.meta.url),"utf8");
+  const component=await readFile(new URL("../app/components/PayrollBudgetOperations.tsx",import.meta.url),"utf8");
+  const route=await readFile(new URL("../app/api/hr/payroll-budget/route.ts",import.meta.url),"utf8");
+  for(const concept of ["monthly_budget","annual_budget","executed_month","executed_ytd","available_month","available_annual","projected_year","overdraft"])assert.equal(migration.includes(concept),true);
+  assert.equal(migration.includes("hr_payroll_budget_modifications"),true);
+  assert.equal(migration.includes("MODIFICAR_PRESUPUESTO_NOMINA"),true);
+  assert.equal(migration.includes("simulate_hr_payroll_budget"),true);
+  assert.equal(component.includes("ALERTA DE SOBREGIRO"),true);
+  assert.equal(component.includes("Simulación de impacto"),true);
+  assert.equal(route.includes("list_hr_payroll_budget_operations"),true);
+  assert.equal(route.includes("save_hr_payroll_budget_modification"),true);
+});
