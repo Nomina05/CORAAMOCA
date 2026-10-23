@@ -394,3 +394,16 @@ test("capacitación integra necesidades, plan anual, cursos, costos y certificad
  assert.equal(component.includes("EJECUCIÓN DEL PLAN"),true);
  assert.equal(component.includes("Certificado"),true);
 });
+
+test("asistencia controla marcaciones, reincidencias y novedades de nómina",async()=>{
+ const migration=await readFile(new URL("../supabase/hr_attendance_management.sql",import.meta.url),"utf8");
+ const component=await readFile(new URL("../app/components/AttendanceManagement.tsx",import.meta.url),"utf8");
+ for(const table of ["hr_attendance_imports","hr_attendance_records","hr_attendance_payroll_novelties"])assert.equal(migration.includes(table),true);
+ assert.equal(migration.includes("BIOMETRICO"),true);
+ assert.equal(migration.includes("AUSENCIA_NO_JUSTIFICADA"),true);
+ assert.equal(migration.includes("late_count')>=3"),false);
+ assert.equal(migration.includes("filter(where a.status='TARDANZA')>=3"),true);
+ assert.equal(migration.includes("hr_apply_payroll_adjustments"),true);
+ assert.equal(component.includes("Alertas por reincidencia"),true);
+ assert.equal(component.includes("Generar novedad"),true);
+});
