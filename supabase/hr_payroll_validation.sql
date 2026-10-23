@@ -34,7 +34,7 @@ begin
  select p_batch_id,'ERROR','NETO_INVALIDO',l.employee_id,l.employee_name,'El total de descuentos supera el ingreso bruto.',l.net_amount from public.hr_payroll_batch_lines l where l.batch_id=p_batch_id and l.net_amount<0;
  insert into public.hr_payroll_validation_results(batch_id,severity,code,employee_id,employee_name,message,detail)
  select p_batch_id,'ADVERTENCIA','ACCION_PENDIENTE',a.employee_id,e.full_name,'Existe una acción de personal con fecha efectiva dentro del período que aún no está aprobada.',jsonb_build_object('action_type',a.action_type,'effective_date',a.effective_date,'status',a.status)
- from public.hr_personnel_actions a join public.hr_employees e on e.id=a.employee_id where a.status not in('APROBADA','ANULADA') and a.effective_date between v_start and v_end;
+ from public.hr_personnel_actions a join public.hr_employees e on e.id=a.employee_id where a.status not in('APLICADA','ANULADA') and a.effective_date between v_start and v_end;
  insert into public.hr_payroll_validation_results(batch_id,severity,code,employee_id,employee_name,message,detail)
  select p_batch_id,'ADVERTENCIA','MOVIMIENTO_PERIODO',e.id,e.full_name,case when e.hire_date between v_start and v_end then 'Empleado con entrada durante el período.' else 'Empleado con salida durante el período.' end,jsonb_build_object('hire_date',e.hire_date,'termination_date',e.termination_date)
  from public.hr_employees e join public.hr_payroll_batch_lines l on l.employee_id=e.id and l.batch_id=p_batch_id where e.hire_date between v_start and v_end or e.termination_date between v_start and v_end;

@@ -28,7 +28,7 @@ test("seguridad de RRHH separa datos sensibles y operaciones críticas",async()=
   for(const permission of ["ver_datos_personales","ver_salarios","ver_descuentos","modificar_empleados","aprobar_acciones_personal","procesar_nomina","cerrar_nomina","consultar_expedientes_disciplinarios","exportar_informacion_rrhh","consultar_empleados_bajo_cargo"]){assert.equal(page.includes(permission),true);assert.equal(migration.includes(permission),true)}
   assert.equal(payroll.includes("procesar_nomina"),true);
   assert.equal(validation.includes("cerrar_nomina"),true);
-  assert.equal(actions.includes("aprobar_acciones_personal"),true);
+  assert.equal(actions.includes("aplicar_acciones_personal"),true);
   assert.equal(discipline.includes("consultar_expedientes_disciplinarios"),true);
   assert.equal(migration.includes("hr_employee_in_user_scope"),true);
 });
@@ -189,7 +189,7 @@ test("cada exportación PDF utiliza un modo de impresión independiente",async()
 test("las acciones de personal solo se modifican mientras están pendientes",async()=>{
   const sql=await readFile(new URL("../supabase/hr_personnel_actions.sql",import.meta.url),"utf8");
   const component=await readFile(new URL("../app/components/PersonnelAction.tsx",import.meta.url),"utf8");
-  assert.equal(sql.includes("Solo se pueden modificar acciones pendientes de aprobación"),true);
+  assert.equal(sql.includes("Solo se pueden modificar acciones registradas o devueltas"),true);
   assert.equal(component.includes(">Modificar</button>"),true);
   assert.equal(component.includes(">Reimprimir</button>"),true);
   assert.equal(sql.includes("coalesce(nullif(p_data->>'general_director',''),v_existing.general_director)"),true);
@@ -469,4 +469,18 @@ test("la seguridad de Recursos Humanos aplica alcance jerárquico y confidencial
   assert.equal(workflow.includes("hr_security_hierarchical_scope.sql"),true);
   assert.equal(usersApi.includes('action==="SET_HR_SCOPE"'),true);
   assert.equal(page.includes("organization_scope_unit_id"),true);
+});
+
+test("las acciones de personal siguen revisión, aprobación y aplicación separadas",async()=>{
+ const workflow=await readFile(new URL("../supabase/hr_personnel_actions_workflow.sql",import.meta.url),"utf8");
+ const actions=await readFile(new URL("../supabase/hr_personnel_actions.sql",import.meta.url),"utf8");
+ const component=await readFile(new URL("../app/components/PersonnelAction.tsx",import.meta.url),"utf8");
+ for(const stage of ["REGISTRADA","REVISADA","APROBADA","APLICADA","DEVUELTA"])assert.equal(workflow.includes(stage),true);
+ for(const permission of ["revisar_acciones_personal","aprobar_acciones_personal","aplicar_acciones_personal"])assert.equal(workflow.includes(permission),true);
+ assert.equal(workflow.includes("hr_personnel_action_workflow_history"),true);
+ assert.equal(workflow.includes("La observación de devolución es obligatoria"),true);
+ assert.equal(actions.includes("organization_unit_id=coalesce(v_unit_id,organization_unit_id)"),true);
+ assert.equal(actions.includes("status='APLICADA'"),true);
+ assert.equal(component.includes("Aplicar al expediente"),true);
+ assert.equal(component.includes("Reimprimir"),true);
 });
