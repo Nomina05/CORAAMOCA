@@ -59,6 +59,7 @@ jobs:
             "supabase/hr_performance_management.sql"
             "supabase/hr_training_management.sql"
             "supabase/hr_attendance_management.sql"
+            "supabase/hr_operational_indicators.sql"
             "supabase/hr_personnel_action_batches.sql"
             "supabase/hr_employee_cases.sql"
             "supabase/hr_employee_dossier.sql"

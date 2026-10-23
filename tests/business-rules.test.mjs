@@ -407,3 +407,13 @@ test("asistencia controla marcaciones, reincidencias y novedades de nómina",asy
  assert.equal(component.includes("Alertas por reincidencia"),true);
  assert.equal(component.includes("Generar novedad"),true);
 });
+
+test("el panel de RRHH consolida dotación, costos, novedades y alertas",async()=>{
+ const migration=await readFile(new URL("../supabase/hr_operational_indicators.sql",import.meta.url),"utf8");
+ const component=await readFile(new URL("../app/components/HrOperationalIndicators.tsx",import.meta.url),"utf8");
+ for(const metric of ["rotation_rate","absence_rate","recurrent_permissions","pending_vacations","overtime_by_unit","retirement_alerts"])assert.equal(migration.includes(metric),true);
+ for(const source of ["hr_attendance_records","hr_payroll_batch_lines","hr_payroll_budget_lines","hr_employee_cases","hr_vacancies"])assert.equal(migration.includes(source),true);
+ assert.equal(component.includes("Distribución por dirección"),true);
+ assert.equal(component.includes("Próximos a jubilación"),true);
+ assert.equal(component.includes("EJECUCIÓN PRESUPUESTARIA"),true);
+});
