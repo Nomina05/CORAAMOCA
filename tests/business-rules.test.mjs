@@ -18,6 +18,21 @@ test("los permisos de Gestión Humana se asignan de forma independiente",()=>{
   assert.equal(permissionGranted("Administrador",{},"aprobar_vacaciones"),true);
 });
 
+test("seguridad de RRHH separa datos sensibles y operaciones críticas",async()=>{
+  const migration=await readFile(new URL("../supabase/hr_security_confidentiality.sql",import.meta.url),"utf8");
+  const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
+  const payroll=await readFile(new URL("../supabase/hr_payroll_processing.sql",import.meta.url),"utf8");
+  const validation=await readFile(new URL("../supabase/hr_payroll_validation.sql",import.meta.url),"utf8");
+  const actions=await readFile(new URL("../supabase/hr_personnel_actions.sql",import.meta.url),"utf8");
+  const discipline=await readFile(new URL("../supabase/hr_disciplinary_management.sql",import.meta.url),"utf8");
+  for(const permission of ["ver_datos_personales","ver_salarios","ver_descuentos","modificar_empleados","aprobar_acciones_personal","procesar_nomina","cerrar_nomina","consultar_expedientes_disciplinarios","exportar_informacion_rrhh","consultar_empleados_bajo_cargo"]){assert.equal(page.includes(permission),true);assert.equal(migration.includes(permission),true)}
+  assert.equal(payroll.includes("procesar_nomina"),true);
+  assert.equal(validation.includes("cerrar_nomina"),true);
+  assert.equal(actions.includes("aprobar_acciones_personal"),true);
+  assert.equal(discipline.includes("consultar_expedientes_disciplinarios"),true);
+  assert.equal(migration.includes("hr_employee_in_user_scope"),true);
+});
+
 test("permisos, vacaciones y amonestaciones poseen secuencias independientes",async()=>{
   const sql=await readFile(new URL("../supabase/hr_employee_cases.sql",import.meta.url),"utf8");
   const component=await readFile(new URL("../app/components/EmployeeCases.tsx",import.meta.url),"utf8");
@@ -296,7 +311,7 @@ test("la gestión disciplinaria protege expedientes y controla reincidencias",as
   const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
   for(const rule of ["offense_type_id","recurrence_count","employee_statement","disciplinary_measure","follow_up_date","close_date","confidential"])assert.equal(migration.includes(rule),true);
   assert.equal(migration.includes("hr_disciplinary_evidence"),true);
-  assert.equal(migration.includes("ver_amonestaciones"),true);
+  assert.equal(migration.includes("consultar_expedientes_disciplinarios"),true);
   assert.equal(migration.includes("hr_employee_in_user_scope"),true);
   assert.equal(component.includes("EXPEDIENTES CONFIDENCIALES"),true);
   assert.equal(component.includes("ALERTAS POR ACUMULACIÓN"),true);

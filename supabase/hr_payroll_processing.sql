@@ -175,7 +175,7 @@ declare v_user public.app_users; v_batch uuid; v_date date:=make_date(p_year,p_m
  v_ep numeric;v_epr numeric;v_es numeric;v_esr numeric;v_lr numeric;v_pc numeric;v_sc numeric;v_lc numeric;
 begin
  v_user:=public.hr_authenticated_user(p_token);
- if v_user.id is null or (v_user.role<>'Administrador' and not coalesce((v_user.permissions->>'crear_recursos_humanos')::boolean,false)) then return jsonb_build_object('success',false,'error','No posee permiso para generar nómina.'); end if;
+ if v_user.id is null or (v_user.role<>'Administrador' and not coalesce((v_user.permissions->>'procesar_nomina')::boolean,false)) then return jsonb_build_object('success',false,'error','No posee permiso específico para procesar nómina.'); end if;
  if p_type not in ('NOMINA','NOMINA_FIJA','SUPLENCIA','INTERINATO','TEMPORAL','PRIMA_TRANSPORTE','VIATICOS','HORAS_EXTRAS') then return jsonb_build_object('success',false,'error','Tipo de nómina inválido.'); end if;
  select value into v_ep from public.hr_payroll_parameters where code='EMPLOYEE_PENSION_RATE' and effective_from<=v_date order by effective_from desc limit 1;
  select value into v_epr from public.hr_payroll_parameters where code='EMPLOYER_PENSION_RATE' and effective_from<=v_date order by effective_from desc limit 1;
@@ -214,14 +214,14 @@ end $$;
 create or replace function public.update_hr_payroll_line_isr(p_token text,p_line_id uuid,p_isr numeric)
 returns jsonb language plpgsql security definer set search_path=public,extensions as $$
 declare v_user public.app_users;begin v_user:=public.hr_authenticated_user(p_token);
- if v_user.id is null or (v_user.role<>'Administrador' and not coalesce((v_user.permissions->>'editar_recursos_humanos')::boolean,false)) then return jsonb_build_object('success',false,'error','No posee permiso para editar ISR.'); end if;
+ if v_user.id is null or (v_user.role<>'Administrador' and not coalesce((v_user.permissions->>'procesar_nomina')::boolean,false)) then return jsonb_build_object('success',false,'error','No posee permiso específico para procesar nómina.'); end if;
  update public.hr_payroll_batch_lines set isr=greatest(p_isr,0),total_deductions=greatest(p_isr,0)+insurance+employee_pension+employee_sfs+other_deductions,net_amount=gross_salary-(greatest(p_isr,0)+insurance+employee_pension+employee_sfs+other_deductions) where id=p_line_id;
  return jsonb_build_object('success',found);end $$;
 
 create or replace function public.save_hr_employee_profile(p_token text,p_data jsonb)
 returns jsonb language plpgsql security definer set search_path=public,extensions as $$
 declare v_user public.app_users;v_id uuid;v_code text;v_existing boolean;begin v_user:=public.hr_authenticated_user(p_token);
- if v_user.id is null or (v_user.role<>'Administrador' and ((nullif(p_data->>'id','') is not null and not coalesce((v_user.permissions->>'editar_recursos_humanos')::boolean,false)) or (nullif(p_data->>'id','') is null and not coalesce((v_user.permissions->>'crear_recursos_humanos')::boolean,false)))) then return jsonb_build_object('success',false,'error','No posee permiso para crear o editar empleados.'); end if;
+ if v_user.id is null or (v_user.role<>'Administrador' and ((nullif(p_data->>'id','') is not null and not coalesce((v_user.permissions->>'modificar_empleados')::boolean,false)) or (nullif(p_data->>'id','') is null and not coalesce((v_user.permissions->>'crear_recursos_humanos')::boolean,false)))) then return jsonb_build_object('success',false,'error','No posee permiso para crear o modificar empleados.'); end if;
  if nullif(regexp_replace(coalesce(p_data->>'document_number',''),'\D','','g'),'') is null then return jsonb_build_object('success',false,'error','La cédula es obligatoria y debe contener solo números.'); end if;
  if not exists(select 1 from public.organization_units where unit_name=p_data->>'direction_name' and unit_type='Dirección' and active) then return jsonb_build_object('success',false,'error','Seleccione una dirección válida de la estructura institucional.');end if;
  if not public.hr_unit_is_descendant(p_data->>'direction_name',p_data->>'department_name','Departamento') then return jsonb_build_object('success',false,'error','El departamento no pertenece a la dirección seleccionada.');end if;

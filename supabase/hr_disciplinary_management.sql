@@ -30,7 +30,7 @@ revoke all on public.hr_disciplinary_offense_types,public.hr_disciplinary_eviden
 
 create or replace function public.list_hr_disciplinary_cases(p_token text,p_year integer)
 returns jsonb language plpgsql security definer set search_path=public,extensions as $$declare v_user public.app_users;begin v_user:=public.hr_authenticated_user(p_token);
- if v_user.id is null or (v_user.role<>'Administrador' and not coalesce((v_user.permissions->>'ver_amonestaciones')::boolean,false)) then return jsonb_build_object('success',false,'error','No posee autorización para consultar expedientes disciplinarios confidenciales.');end if;
+ if v_user.id is null or (v_user.role<>'Administrador' and not coalesce((v_user.permissions->>'consultar_expedientes_disciplinarios')::boolean,false)) then return jsonb_build_object('success',false,'error','No posee autorización específica para consultar expedientes disciplinarios confidenciales.');end if;
  return jsonb_build_object('success',true,
  'types',coalesce((select jsonb_agg(to_jsonb(t) order by t.name) from public.hr_disciplinary_offense_types t where t.active),'[]'::jsonb),
  'employees',coalesce((select jsonb_agg(jsonb_build_object('id',e.id,'employee_code',e.employee_code,'full_name',e.full_name,'position_name',e.position_name,'direction_name',e.direction_name,'department_name',e.department_name) order by e.full_name) from public.hr_employees e where e.employment_status<>'Desvinculado' and (v_user.role='Administrador' or public.hr_employee_in_user_scope(v_user,e))),'[]'::jsonb),

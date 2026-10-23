@@ -77,7 +77,7 @@ create or replace function public.approve_hr_personnel_action(p_token text,p_act
 returns jsonb language plpgsql security definer set search_path=public,extensions as $$
 declare v_user public.app_users;v_action public.hr_personnel_actions;v_employee public.hr_employees;v_before jsonb;v_salary numeric;begin
  v_user:=public.hr_authenticated_user(p_token);
- if v_user.id is null or (v_user.role<>'Administrador' and not coalesce((v_user.permissions->>'aprobar_recursos_humanos')::boolean,false)) then return jsonb_build_object('success',false,'error','No posee permiso para aprobar acciones de personal.');end if;
+ if v_user.id is null or (v_user.role<>'Administrador' and not coalesce((v_user.permissions->>'aprobar_acciones_personal')::boolean,false)) then return jsonb_build_object('success',false,'error','No posee permiso específico para aprobar acciones de personal.');end if;
  select * into v_action from public.hr_personnel_actions where id=p_action_id for update;if v_action.id is null then return jsonb_build_object('success',false,'error','Acción de personal no encontrada.');end if;
  if v_action.status<>'BORRADOR' then return jsonb_build_object('success',false,'error','La acción ya fue procesada.');end if;
  if v_action.effective_date>current_date then return jsonb_build_object('success',false,'error','La acción solo puede aplicarse en su fecha efectiva o después de ella.');end if;

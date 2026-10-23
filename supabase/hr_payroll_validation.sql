@@ -21,7 +21,7 @@ returns jsonb language plpgsql security definer set search_path=public,extension
 declare v_user public.app_users;v_batch public.hr_payroll_batches;v_start date;v_end date;v_previous uuid;v_errors integer;v_warnings integer;v_differences integer;v_status text;
 begin
  v_user:=public.hr_authenticated_user(p_token);select * into v_batch from public.hr_payroll_batches where id=p_batch_id for update;
- if v_user.id is null or v_batch.id is null or (v_user.role<>'Administrador' and not coalesce((v_user.permissions->>'aprobar_recursos_humanos')::boolean,false)) then return jsonb_build_object('success',false,'error','No posee permiso para validar esta nómina.');end if;
+ if v_user.id is null or v_batch.id is null or (v_user.role<>'Administrador' and not coalesce((v_user.permissions->>'procesar_nomina')::boolean,false)) then return jsonb_build_object('success',false,'error','No posee permiso específico para validar esta nómina.');end if;
  if v_batch.status='CERRADA' then return jsonb_build_object('success',false,'error','La nómina ya está cerrada.');end if;
  v_start:=make_date(v_batch.payroll_year,v_batch.payroll_month,1);v_end:=(v_start+interval '1 month - 1 day')::date;
  select id into v_previous from public.hr_payroll_batches where payroll_type=v_batch.payroll_type and program=v_batch.program and (payroll_year*100+payroll_month)<(v_batch.payroll_year*100+v_batch.payroll_month) order by payroll_year desc,payroll_month desc limit 1;
@@ -63,7 +63,7 @@ end $$;
 
 create or replace function public.close_hr_payroll_batch(p_token text,p_batch_id uuid)
 returns jsonb language plpgsql security definer set search_path=public,extensions as $$declare v_user public.app_users;v_batch public.hr_payroll_batches;begin v_user:=public.hr_authenticated_user(p_token);select * into v_batch from public.hr_payroll_batches where id=p_batch_id for update;
- if v_user.id is null or v_batch.id is null or (v_user.role<>'Administrador' and not coalesce((v_user.permissions->>'aprobar_recursos_humanos')::boolean,false)) then return jsonb_build_object('success',false,'error','No posee permiso para cerrar esta nómina.');end if;
+ if v_user.id is null or v_batch.id is null or (v_user.role<>'Administrador' and not coalesce((v_user.permissions->>'cerrar_nomina')::boolean,false)) then return jsonb_build_object('success',false,'error','No posee permiso específico para cerrar esta nómina.');end if;
  if v_batch.validation_status not in('LISTA','CON_ADVERTENCIAS') or v_batch.validated_at is null then return jsonb_build_object('success',false,'error','Debe validar la nómina y corregir todos los errores antes de cerrarla.');end if;
  if exists(select 1 from public.hr_payroll_validation_results where batch_id=p_batch_id and severity='ERROR') then return jsonb_build_object('success',false,'error','La nómina conserva errores críticos.');end if;
  update public.hr_payroll_batches set status='CERRADA',closed_at=now(),closed_by=v_user.id where id=p_batch_id;insert into public.security_audit_log(actor_user_id,action,module,detail) values(v_user.id,'CERRAR_NOMINA','Recursos Humanos',jsonb_build_object('batch_id',p_batch_id,'validation_status',v_batch.validation_status));return jsonb_build_object('success',true);
