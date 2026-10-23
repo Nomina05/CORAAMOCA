@@ -33,6 +33,18 @@ test("seguridad de RRHH separa datos sensibles y operaciones críticas",async()=
   assert.equal(migration.includes("hr_employee_in_user_scope"),true);
 });
 
+test("calidad de datos valida identidad, fechas, estructura y trazabilidad",async()=>{
+  const migration=await readFile(new URL("../supabase/hr_data_quality.sql",import.meta.url),"utf8");
+  const payroll=await readFile(new URL("../supabase/hr_payroll_processing.sql",import.meta.url),"utf8");
+  const component=await readFile(new URL("../app/components/HrDataQuality.tsx",import.meta.url),"utf8");
+  for(const rule of ["CEDULA_INVALIDA","EMPLEADO_DUPLICADO","EDAD_INVALIDA","FECHAS_INCOHERENTES","UNIDAD_INVALIDA","CARGO_INVALIDO","SIN_SALARIO","CLASIFICACION_PRESUPUESTARIA"])assert.equal(migration.includes(rule),true);
+  assert.equal(migration.includes("hr_employee_change_audit"),true);
+  assert.equal(migration.includes("trg_hr_validate_employee_master"),true);
+  assert.equal(payroll.includes("Ya existe un empleado registrado con esta cédula"),true);
+  assert.equal(payroll.includes("fecha de salida no puede ser anterior"),true);
+  assert.equal(component.includes("Trazabilidad de modificaciones"),true);
+});
+
 test("permisos, vacaciones y amonestaciones poseen secuencias independientes",async()=>{
   const sql=await readFile(new URL("../supabase/hr_employee_cases.sql",import.meta.url),"utf8");
   const component=await readFile(new URL("../app/components/EmployeeCases.tsx",import.meta.url),"utf8");
