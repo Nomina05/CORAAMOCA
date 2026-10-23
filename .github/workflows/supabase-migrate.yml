@@ -74,6 +74,7 @@ jobs:
             "supabase/hr_security_hierarchical_scope.sql"
             "supabase/hr_personnel_actions_workflow.sql"
             "supabase/hr_cases_phase4.sql"
+            "supabase/hr_positions_phase5.sql"
             "supabase/system_module_integration.sql"
             "supabase/project_catalog_relations.sql"
             "supabase/budget_management.sql"

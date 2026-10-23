@@ -6,6 +6,7 @@ import TravelAllowanceManagement from "./components/TravelAllowanceManagement";
 import EmployeeProfileForm,{type EmployeeProfileData} from "./components/EmployeeProfileForm";
 import PersonnelAction from "./components/PersonnelAction";
 import VacancyDashboard from "./components/VacancyDashboard";
+import StaffPositionStructure from "./components/StaffPositionStructure";
 import HrCaseAnalytics from "./components/HrCaseAnalytics";
 import SearchableEmployeeSelect from "./components/SearchableEmployeeSelect";
 import FinancialAssets from "./components/FinancialAssets";
@@ -90,7 +91,7 @@ const institutionalDirections:InstitutionalDirection[]=[
 ];
 const permissionParents:Partial<Record<keyof Permissions,keyof Permissions>>={revisar_acciones_personal:"ver_recursos_humanos",aprobar_acciones_personal:"ver_recursos_humanos",aplicar_acciones_personal:"ver_recursos_humanos",registrar_permisos_laborales:"ver_permisos_laborales",aprobar_permisos_laborales:"ver_permisos_laborales",registrar_amonestaciones:"ver_amonestaciones",notificar_amonestaciones:"ver_amonestaciones",registrar_vacaciones:"ver_vacaciones",aprobar_vacaciones:"ver_vacaciones",registrar_apropiaciones:"ver_apropiaciones_adjudicaciones",revisar_apropiaciones:"ver_apropiaciones_adjudicaciones",aprobar_apropiaciones:"ver_apropiaciones_adjudicaciones",aplicar_apropiaciones:"ver_apropiaciones_adjudicaciones",registrar_adjudicaciones:"ver_apropiaciones_adjudicaciones",revisar_adjudicaciones:"ver_apropiaciones_adjudicaciones",aprobar_adjudicaciones:"ver_apropiaciones_adjudicaciones",aplicar_adjudicaciones:"ver_apropiaciones_adjudicaciones",ver_reporte_inversion_publica:"ver_reportes",ver_reporte_inversion_territorial:"ver_reportes",ver_reporte_proyectos_estado:"ver_reportes",ver_reporte_ejecucion_presupuestaria:"ver_reportes",ver_reporte_cubicaciones_pendientes:"ver_reportes",ver_reporte_pagos_proveedor:"ver_reportes",ver_reporte_proyectos_atrasados:"ver_reportes",ver_reporte_avance_financiero:"ver_reportes",exportar_reportes:"ver_reportes"};
 
-institutionalDirections[1].modules.splice(3,0,{label:"Vacantes por área",section:"Vacantes por Área",icon:"□",permission:"ver_recursos_humanos"});
+institutionalDirections[1].modules.splice(3,0,{label:"Puestos y vacantes",section:"Vacantes por Área",icon:"□",permission:"ver_recursos_humanos"});
 institutionalDirections[1].modules.splice(4,0,{label:"Reclutamiento y selección",section:"Reclutamiento y Selección",icon:"◎",permission:"ver_recursos_humanos"});
 institutionalDirections[1].modules.splice(5,0,{label:"Evaluación del desempeño",section:"Evaluación del Desempeño",icon:"★",permission:"ver_recursos_humanos"});
 institutionalDirections[1].modules.splice(6,0,{label:"Capacitación",section:"Capacitación",icon:"◇",permission:"ver_recursos_humanos"});
@@ -705,7 +706,7 @@ export default function Home() {
           {section==="Registro de Empleados"&&canView("editar_recursos_humanos")&&<div className="employee-edit-toolbar"><SearchableEmployeeSelect employees={employeeRegistry} value={editingEmployee?.id||""} onChange={id=>setEditingEmployee(employeeRegistry.find(item=>item.id===id)||null)}/><button className="primary" disabled={!editingEmployee} onClick={()=>setSection("Ficha de Empleado")}>Editar empleado</button></div>}
           {section==="Ficha de Empleado"&&<EmployeeProfileForm initial={editingEmployee||undefined} onCancel={()=>{setEditingEmployee(null);setSection("Registro de Empleados")}} onSaved={async()=>{setEditingEmployee(null);await loadEmployeeRegistry();setSection("Registro de Empleados")}}/>}
           {section==="Acción de Personal"&&<PersonnelAction canEdit={canView("editar_recursos_humanos")} canReview={canView("revisar_acciones_personal")} canApprove={canView("aprobar_acciones_personal")} canApply={canView("aplicar_acciones_personal")}/>} 
-          {section==="Vacantes por Área"&&<VacancyDashboard canManage={canView("editar_recursos_humanos")}/>}
+          {section==="Vacantes por Área"&&<><StaffPositionStructure canManage={canView("editar_recursos_humanos")}/><VacancyDashboard canManage={canView("editar_recursos_humanos")}/></>}
           {section==="Reclutamiento y Selección"&&<RecruitmentManagement canManage={canView("editar_recursos_humanos")} canApprove={canView("aprobar_recursos_humanos")}/>}
           {section==="Evaluación del Desempeño"&&<PerformanceManagement canManage={canView("editar_recursos_humanos")} canApprove={canView("aprobar_recursos_humanos")}/>}
           {section==="Capacitación"&&<TrainingManagement canManage={canView("editar_recursos_humanos")} canApprove={canView("aprobar_recursos_humanos")}/>}

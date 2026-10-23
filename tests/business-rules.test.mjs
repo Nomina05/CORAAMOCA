@@ -498,3 +498,19 @@ test("la fase 4 consolida permisos, vacaciones y amonestaciones con trazabilidad
  assert.equal(page.includes('section==="Vacaciones"&&<HrNoveltyWorkflow vacationsOnly'),true);
  assert.equal(page.includes('section==="Vacaciones"&&<EmployeeCases'),false);
 });
+
+test("la fase 5 vincula empleados, plazas, vacantes y presupuesto institucional",async()=>{
+ const migration=await readFile(new URL("../supabase/hr_positions_phase5.sql",import.meta.url),"utf8");
+ const workflow=await readFile(new URL("../.github/workflows/supabase-migrate.yml",import.meta.url),"utf8");
+ const component=await readFile(new URL("../app/components/StaffPositionStructure.tsx",import.meta.url),"utf8");
+ const route=await readFile(new URL("../app/api/hr/vacancies/route.ts",import.meta.url),"utf8");
+ for(const rule of ["hr_staff_positions","position_code","staff_position_id","hr_release_staff_position_on_exit","hr_sync_staff_position_from_vacancy"])assert.equal(migration.includes(rule),true);
+ for(const status of ["OCUPADA","VACANTE","CONGELADA","ELIMINADA"])assert.equal(migration.includes(status),true);
+ for(const budget of ["execution_fund","program","subproduct","activity","monthly_amount"])assert.equal(migration.includes(budget),true);
+ assert.equal(migration.includes("create_hr_staff_position"),true);
+ assert.equal(migration.includes("CREAR_PLAZA"),true);
+ assert.equal(workflow.includes("hr_positions_phase5.sql"),true);
+ assert.equal(component.includes("CATÁLOGO INSTITUCIONAL DE PLAZAS"),true);
+ assert.equal(component.includes("Crear plaza vacante"),true);
+ assert.equal(route.includes('body.action==="CREAR_PLAZA"'),true);
+});
