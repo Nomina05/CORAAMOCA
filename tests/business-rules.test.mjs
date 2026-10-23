@@ -38,7 +38,7 @@ test("los indicadores de novedades respetan alcance y criterios de seguimiento",
   assert.equal(component.includes("Las alertas no sustituyen la investigación"),true);
   assert.equal(component.includes("Revisar registros →"),true);
   const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
-  assert.equal(page.includes('section === "Vacantes por Área" || section === "Indicadores RRHH"'),true);
+  assert.equal(page.includes('section === "Vacantes por Área"')&&page.includes('section === "Indicadores RRHH"'),true);
 });
 
 test("el flujo de cubicaciones no permite saltar etapas",()=>{
@@ -342,4 +342,31 @@ test("el presupuesto de nómina calcula ejecución, proyección, sobregiros y si
   assert.equal(component.includes("Simulación de impacto"),true);
   assert.equal(route.includes("list_hr_payroll_budget_operations"),true);
   assert.equal(route.includes("save_hr_payroll_budget_modification"),true);
+});
+
+test("las desvinculaciones liberan plazas que pueden planificarse, reclutarse y ocuparse",async()=>{
+  const base=await readFile(new URL("../supabase/hr_personnel_actions.sql",import.meta.url),"utf8");
+  const migration=await readFile(new URL("../supabase/hr_vacancy_planning.sql",import.meta.url),"utf8");
+  const component=await readFile(new URL("../app/components/VacancyDashboard.tsx",import.meta.url),"utf8");
+  assert.equal(base.includes("hr_sync_employee_vacancy"),true);
+  for(const status of ["CON_RECLUTAMIENTO","CONGELADA","ELIMINADA","OCUPADA"])assert.equal(migration.includes(status),true);
+  assert.equal(migration.includes("hr_recruitment_processes"),true);
+  assert.equal(migration.includes("monthly_amount*greatest"),true);
+  assert.equal(migration.includes("GESTIONAR_VACANTE"),true);
+  assert.equal(migration.includes("filled_by_employee_id=v_employee.id"),true);
+  assert.equal(component.includes("DISPONIBILIDAD ANUAL"),true);
+  assert.equal(component.includes("VINCULAR NUEVO EMPLEADO"),true);
+  assert.equal(component.includes("Reclutar"),true);
+});
+
+test("reclutamiento conecta solicitud, candidatos, evaluaciones y nombramiento con la vacante",async()=>{
+ const migration=await readFile(new URL("../supabase/hr_recruitment_selection.sql",import.meta.url),"utf8");
+ const component=await readFile(new URL("../app/components/RecruitmentManagement.tsx",import.meta.url),"utf8");
+ for(const table of ["hr_recruitment_candidates","hr_candidate_evaluations","hr_candidate_documents"])assert.equal(migration.includes(table),true);
+ for(const action of ["SOLICITAR","APROBAR","CANDIDATO","EVALUAR","DOCUMENTO","SELECCIONAR","NOMBRAR"])assert.equal(migration.includes(`p_action='${action}'`)||migration.includes(`p_action in('${action}'`),true);
+ assert.equal(migration.includes("hr_employee_code_seq"),true);
+ assert.equal(migration.includes("filled_by_employee_id=v_employee"),true);
+ assert.equal(component.includes("Reclutamiento y selección"),true);
+ assert.equal(component.includes("Registrar candidato"),true);
+ assert.equal(component.includes("Nombrar"),true);
 });
