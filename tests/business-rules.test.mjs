@@ -45,6 +45,20 @@ test("calidad de datos valida identidad, fechas, estructura y trazabilidad",asyn
   assert.equal(component.includes("Trazabilidad de modificaciones"),true);
 });
 
+test("la fase base de RRHH mantiene una sola fuente maestra y catálogos relacionados",async()=>{
+  const migration=await readFile(new URL("../supabase/hr_module_foundation.sql",import.meta.url),"utf8");
+  const payroll=await readFile(new URL("../supabase/hr_payroll_processing.sql",import.meta.url),"utf8");
+  const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
+  for(const catalog of ["hr_employment_status_catalog","hr_occupational_group_catalog","hr_exit_cause_catalog","hr_position_catalog","organization_units"])assert.equal(migration.includes(catalog),true);
+  for(const relation of ["position_id","employment_status_id","occupational_group_id","exit_cause_id","organization_unit_id","app_user_id"])assert.equal(migration.includes(relation),true);
+  assert.equal(migration.includes("hr_employee_current"),true);
+  assert.equal(migration.includes("hr_employee_timeline"),true);
+  assert.equal(migration.includes("audit_hr_module_base"),true);
+  assert.equal(payroll.includes("v_unit_id"),true);
+  assert.equal(payroll.includes("Centro"),true);
+  assert.equal(page.includes('module.section!=="Histórico de Empleados"'),true);
+});
+
 test("permisos, vacaciones y amonestaciones poseen secuencias independientes",async()=>{
   const sql=await readFile(new URL("../supabase/hr_employee_cases.sql",import.meta.url),"utf8");
   const component=await readFile(new URL("../app/components/EmployeeCases.tsx",import.meta.url),"utf8");

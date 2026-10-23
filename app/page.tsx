@@ -100,6 +100,7 @@ institutionalDirections[1].modules.splice(8,0,{label:"Panel de indicadores RR. H
 institutionalDirections[1].modules.splice(4,0,{label:"Permisos laborales",section:"Permisos Laborales",icon:"◷",permission:"ver_permisos_laborales"},{label:"Amonestaciones",section:"Amonestaciones",icon:"!",permission:"ver_amonestaciones"},{label:"Vacaciones",section:"Vacaciones",icon:"☼",permission:"ver_vacaciones"});
 institutionalDirections[1].modules.splice(4,0,{label:"Indicadores de novedades",section:"Indicadores RRHH",icon:"▥",permission:"ver_indicadores_rrhh" as keyof Permissions});
 institutionalDirections[1].modules.splice(5,0,{label:"Aprobación de novedades",section:"Flujo de Novedades",icon:"⇢",permission:"ver_recursos_humanos"},{label:"Control de vacaciones",section:"Control de Vacaciones",icon:"☷",permission:"ver_vacaciones"});
+institutionalDirections[1].modules=institutionalDirections[1].modules.filter(module=>module.section!=="Histórico de Empleados");
 
 const organizationalStructure:OrganizationUnit={name:"Dirección General",children:[
  {name:"Dirección de Comunicaciones",children:[{name:"División de Relaciones Públicas",children:[{name:"Sección de Prensa"}]},{name:"División de Participación Social y Ciudadana"},{name:"Sección de Protocolo y Eventos"},{name:"Sección de Redes Sociales y Medios Digitales"}]},
