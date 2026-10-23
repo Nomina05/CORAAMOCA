@@ -221,8 +221,13 @@ declare v_user public.app_users;begin v_user:=public.hr_authenticated_user(p_tok
 
 create or replace function public.save_hr_employee_profile(p_token text,p_data jsonb)
 returns jsonb language plpgsql security definer set search_path=public,extensions as $$
-declare v_user public.app_users;v_id uuid;v_code text;v_existing boolean;v_unit_id uuid;begin v_user:=public.hr_authenticated_user(p_token);
+declare v_user public.app_users;v_id uuid;v_code text;v_existing boolean;v_unit_id uuid;v_target public.hr_employees;begin v_user:=public.hr_authenticated_user(p_token);
  if v_user.id is null or (v_user.role<>'Administrador' and ((nullif(p_data->>'id','') is not null and not coalesce((v_user.permissions->>'modificar_empleados')::boolean,false)) or (nullif(p_data->>'id','') is null and not coalesce((v_user.permissions->>'crear_recursos_humanos')::boolean,false)))) then return jsonb_build_object('success',false,'error','No posee permiso para crear o modificar empleados.'); end if;
+ if nullif(p_data->>'id','') is not null and v_user.role<>'Administrador' then
+  select * into v_target from public.hr_employees where id=(p_data->>'id')::uuid;
+  if v_target.id is null then return jsonb_build_object('success',false,'error','Empleado no encontrado.');end if;
+  if not public.hr_employee_in_user_scope(v_user,v_target) then return jsonb_build_object('success',false,'error','No puede modificar empleados fuera de su unidad autorizada.');end if;
+ end if;
  if nullif(regexp_replace(coalesce(p_data->>'document_number',''),'\D','','g'),'') is null then return jsonb_build_object('success',false,'error','La cédula es obligatoria y debe contener solo números.'); end if;
  if length(regexp_replace(coalesce(p_data->>'document_number',''),'\D','','g'))<>11 then return jsonb_build_object('success',false,'error','La cédula debe contener exactamente 11 dígitos.');end if;
  if exists(select 1 from public.hr_employees where document_number=regexp_replace(p_data->>'document_number','\D','','g') and id is distinct from nullif(p_data->>'id','')::uuid) then return jsonb_build_object('success',false,'error','Ya existe un empleado registrado con esta cédula.');end if;

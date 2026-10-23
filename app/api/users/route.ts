@@ -28,7 +28,7 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   const token = (await cookies()).get(sessionCookie)?.value;
   if (!token) return NextResponse.json({ error: "No autorizado." }, { status: 401 });
-  const { id, role, area, department, active, suspensionReason, permissions, employeeId, action, tempPassword } = await request.json();
+  const { id, role, area, department, active, suspensionReason, permissions, employeeId, action, tempPassword, organizationScopeUnitId } = await request.json();
   const database = authDatabase();
   if(action==="RESET_PASSWORD"){
     const {data,error}=await database.rpc("admin_reset_user_password",{p_token:token,p_user_id:id,p_temp_password:tempPassword});
@@ -41,6 +41,12 @@ export async function PATCH(request: Request) {
     if(error||!data?.success)return NextResponse.json({error:data?.error||"No fue posible vincular el empleado."},{status:400});
     await recordAudit(request,token,{action:"EMPLEADO_VINCULADO",module:"Usuarios",entityType:"Usuario",entityId:id,next:{employeeId}});
     return NextResponse.json({success:true,user:data.user});
+  }
+  if(action==="SET_HR_SCOPE"){
+    const {data,error}=await database.rpc("admin_set_user_hr_scope",{p_token:token,p_user_id:id,p_unit_id:organizationScopeUnitId||null});
+    if(error||!data?.success)return NextResponse.json({error:data?.error||"No fue posible actualizar la unidad bajo su cargo."},{status:400});
+    await recordAudit(request,token,{action:"ALCANCE_RRHH_MODIFICADO",module:"Usuarios",entityType:"Usuario",entityId:id,next:{organizationScopeUnitId}});
+    return NextResponse.json({success:true,scope:data});
   }
   let result = permissions
     ? await database.rpc("admin_set_user_permissions", { p_token: token, p_user_id: id, p_permissions: permissions })

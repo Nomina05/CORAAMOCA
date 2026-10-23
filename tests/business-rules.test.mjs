@@ -458,3 +458,15 @@ test("el panel de RRHH consolida dotación, costos, novedades y alertas",async()
  assert.equal(component.includes("Próximos a jubilación"),true);
  assert.equal(component.includes("EJECUCIÓN PRESUPUESTARIA"),true);
 });
+test("la seguridad de Recursos Humanos aplica alcance jerárquico y confidencialidad en Supabase",async()=>{
+  const migration=await readFile(new URL("../supabase/hr_security_hierarchical_scope.sql",import.meta.url),"utf8");
+  const workflow=await readFile(new URL("../.github/workflows/supabase-migrate.yml",import.meta.url),"utf8");
+  const usersApi=await readFile(new URL("../app/api/users/route.ts",import.meta.url),"utf8");
+  const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
+  for(const rule of ["organization_scope_unit_id","hr_unit_contains","with recursive lineage","hr_employee_in_user_scope","admin_set_user_hr_scope"])assert.equal(migration.includes(rule),true);
+  for(const permission of ["ver_datos_personales","ver_salarios","ver_descuentos","consultar_expedientes_disciplinarios"])assert.equal(migration.includes(permission),true);
+  for(const audit of ["HR_SCOPE_UPDATED","HR_EMPLOYEE_LIST_VIEWED","HR_DOSSIER_VIEWED"])assert.equal(migration.includes(audit),true);
+  assert.equal(workflow.includes("hr_security_hierarchical_scope.sql"),true);
+  assert.equal(usersApi.includes('action==="SET_HR_SCOPE"'),true);
+  assert.equal(page.includes("organization_scope_unit_id"),true);
+});
