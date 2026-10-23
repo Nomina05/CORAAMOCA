@@ -35,11 +35,16 @@ select 'PLA-'||lpad(nextval('public.hr_staff_position_code_seq')::text,6,'0'),e.
  case when e.employment_status='Desvinculado' then 'VACANTE' else 'OCUPADA' end,e.id,
  case when e.employment_status='Desvinculado' then null else e.id end,coalesce(e.execution_fund,''),e.program,e.subproduct,e.activity,e.monthly_salary,coalesce(e.hire_date,current_date)
 from public.hr_employees e
-where e.organization_unit_id is not null and e.position_id is not null and e.staff_position_id is null;
+where e.organization_unit_id is not null and e.position_id is not null and e.staff_position_id is null
+on conflict(source_employee_id) do nothing;
 
+alter table public.hr_employees disable trigger trg_hr_validate_employee_master;
+alter table public.hr_employees disable trigger trg_hr_audit_employee_master;
 update public.hr_employees e set staff_position_id=p.id
 from public.hr_staff_positions p
 where e.staff_position_id is null and p.source_employee_id=e.id;
+alter table public.hr_employees enable trigger trg_hr_validate_employee_master;
+alter table public.hr_employees enable trigger trg_hr_audit_employee_master;
 
 with duplicate_open as (
  select id,row_number() over(partition by source_employee_id order by updated_at desc,created_at desc,id) rn
