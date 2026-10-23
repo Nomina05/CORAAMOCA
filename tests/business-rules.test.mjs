@@ -484,3 +484,17 @@ test("las acciones de personal siguen revisión, aprobación y aplicación separ
  assert.equal(component.includes("Aplicar al expediente"),true);
  assert.equal(component.includes("Reimprimir"),true);
 });
+
+test("la fase 4 consolida permisos, vacaciones y amonestaciones con trazabilidad",async()=>{
+ const migration=await readFile(new URL("../supabase/hr_cases_phase4.sql",import.meta.url),"utf8");
+ const workflow=await readFile(new URL("../.github/workflows/supabase-migrate.yml",import.meta.url),"utf8");
+ const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
+ for(const rule of ["hr_novelties_type_number_uidx","assign_hr_novelty_module_number","hr_business_days","La solicitud excede el balance de vacaciones disponible","hr_employee_in_user_scope"])assert.equal(migration.includes(rule),true);
+ for(const stage of ["REVISADA_ENCARGADO","VALIDADA_RRHH","APROBADA","APLICADA_NOMINA","DEVUELTA","RECHAZADA"])assert.equal(migration.includes(stage),true);
+ for(const audit of ["hr_novelty_history","hr_disciplinary_history","TRANSICION_NOVEDAD"])assert.equal(migration.includes(audit),true);
+ assert.equal(migration.includes("No se permite saltar ni repetir etapas"),true);
+ assert.equal(migration.includes("procesar_nomina"),true);
+ assert.equal(workflow.includes("hr_cases_phase4.sql"),true);
+ assert.equal(page.includes('section==="Vacaciones"&&<HrNoveltyWorkflow vacationsOnly'),true);
+ assert.equal(page.includes('section==="Vacaciones"&&<EmployeeCases'),false);
+});

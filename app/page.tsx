@@ -6,7 +6,6 @@ import TravelAllowanceManagement from "./components/TravelAllowanceManagement";
 import EmployeeProfileForm,{type EmployeeProfileData} from "./components/EmployeeProfileForm";
 import PersonnelAction from "./components/PersonnelAction";
 import VacancyDashboard from "./components/VacancyDashboard";
-import EmployeeCases from "./components/EmployeeCases";
 import HrCaseAnalytics from "./components/HrCaseAnalytics";
 import SearchableEmployeeSelect from "./components/SearchableEmployeeSelect";
 import FinancialAssets from "./components/FinancialAssets";
@@ -99,7 +98,7 @@ institutionalDirections[1].modules.splice(7,0,{label:"Asistencia y puntualidad",
 institutionalDirections[1].modules.splice(8,0,{label:"Panel de indicadores RR. HH.",section:"Indicadores Operativos RRHH",icon:"▦",permission:"ver_indicadores_rrhh" as keyof Permissions});
 institutionalDirections[1].modules.splice(4,0,{label:"Permisos laborales",section:"Permisos Laborales",icon:"◷",permission:"ver_permisos_laborales"},{label:"Amonestaciones",section:"Amonestaciones",icon:"!",permission:"ver_amonestaciones"},{label:"Vacaciones",section:"Vacaciones",icon:"☼",permission:"ver_vacaciones"});
 institutionalDirections[1].modules.splice(4,0,{label:"Indicadores de novedades",section:"Indicadores RRHH",icon:"▥",permission:"ver_indicadores_rrhh" as keyof Permissions});
-institutionalDirections[1].modules.splice(5,0,{label:"Aprobación de novedades",section:"Flujo de Novedades",icon:"⇢",permission:"ver_recursos_humanos"},{label:"Control de vacaciones",section:"Control de Vacaciones",icon:"☷",permission:"ver_vacaciones"});
+institutionalDirections[1].modules.splice(5,0,{label:"Aprobación de novedades",section:"Flujo de Novedades",icon:"⇢",permission:"ver_recursos_humanos"});
 institutionalDirections[1].modules=institutionalDirections[1].modules.filter(module=>module.section!=="Histórico de Empleados");
 
 const organizationalStructure:OrganizationUnit={name:"Dirección General",children:[
@@ -477,7 +476,7 @@ export default function Home() {
     return()=>{active=false;window.clearInterval(interval)};
   },[currentUser?.id]);
 
-  useEffect(()=>{if(!currentUser||currentUser.role==="Administrador")return;const views:Array<[string,keyof Permissions]>=[["Resumen","ver_resumen"],["Proyectos","ver_proyectos"],["Proyectos Técnicos","ver_proyectos_tecnicos"],["Cubicaciones","ver_cubicaciones"],["Activos","ver_activos" as keyof Permissions],["Gestión Presupuestaria","ver_gestion_presupuestaria"],["Apropiaciones y Adjudicaciones","ver_apropiaciones_adjudicaciones"],["Calendario","ver_calendario"],["Reportes","ver_reportes"],["Auditoría","ver_auditoria_seguridad"],["Registro de Empleados","ver_recursos_humanos"],["Ficha de Empleado","ver_recursos_humanos"],["Acción de Personal","ver_recursos_humanos"],["Vacantes por Área","ver_recursos_humanos"],["Indicadores RRHH","ver_indicadores_rrhh" as keyof Permissions],["Flujo de Novedades","ver_recursos_humanos"],["Control de Vacaciones","ver_vacaciones"],["Permisos Laborales","ver_permisos_laborales"],["Amonestaciones","ver_amonestaciones"],["Vacaciones","ver_vacaciones"],["Generar Nómina","ver_recursos_humanos"],["Comparación de Nómina","ver_recursos_humanos"],["Prima de Transporte","ver_recursos_humanos"],["Viáticos","ver_recursos_humanos"],["Horas Extras","ver_recursos_humanos"],["Histórico de Empleados","ver_recursos_humanos"],["Presupuesto de Nómina","ver_recursos_humanos"],["Estructura Organizacional","ver_estructura_organizacional"],["Catálogos","ver_catalogos"]];const allowed=views.filter(([,key])=>Boolean(currentUser.permissions?.[key])).map(([name])=>name);if(!allowed.includes(section))setSection(allowed[0]||"Acceso restringido");},[currentUser,section]);
+  useEffect(()=>{if(!currentUser||currentUser.role==="Administrador")return;const views:Array<[string,keyof Permissions]>=[["Resumen","ver_resumen"],["Proyectos","ver_proyectos"],["Proyectos Técnicos","ver_proyectos_tecnicos"],["Cubicaciones","ver_cubicaciones"],["Activos","ver_activos" as keyof Permissions],["Gestión Presupuestaria","ver_gestion_presupuestaria"],["Apropiaciones y Adjudicaciones","ver_apropiaciones_adjudicaciones"],["Calendario","ver_calendario"],["Reportes","ver_reportes"],["Auditoría","ver_auditoria_seguridad"],["Registro de Empleados","ver_recursos_humanos"],["Ficha de Empleado","ver_recursos_humanos"],["Acción de Personal","ver_recursos_humanos"],["Vacantes por Área","ver_recursos_humanos"],["Indicadores RRHH","ver_indicadores_rrhh" as keyof Permissions],["Flujo de Novedades","ver_recursos_humanos"],["Permisos Laborales","ver_permisos_laborales"],["Amonestaciones","ver_amonestaciones"],["Vacaciones","ver_vacaciones"],["Generar Nómina","ver_recursos_humanos"],["Comparación de Nómina","ver_recursos_humanos"],["Prima de Transporte","ver_recursos_humanos"],["Viáticos","ver_recursos_humanos"],["Horas Extras","ver_recursos_humanos"],["Histórico de Empleados","ver_recursos_humanos"],["Presupuesto de Nómina","ver_recursos_humanos"],["Estructura Organizacional","ver_estructura_organizacional"],["Catálogos","ver_catalogos"]];const allowed=views.filter(([,key])=>Boolean(currentUser.permissions?.[key])).map(([name])=>name);if(!allowed.includes(section))setSection(allowed[0]||"Acceso restringido");},[currentUser,section]);
 
   async function loadTechnicalProjects() {
     setTechnicalLoading(true);
@@ -714,10 +713,9 @@ export default function Home() {
           {section==="Indicadores Operativos RRHH"&&<><HrOperationalIndicators/><HrDataQuality/></>}
           {section==="Indicadores RRHH"&&<HrCaseAnalytics onNavigate={setSection}/>}
           {section==="Flujo de Novedades"&&<HrNoveltyWorkflow canCreate={canView("crear_recursos_humanos")} canApprove={canView("aprobar_recursos_humanos")}/>}
-          {section==="Control de Vacaciones"&&<HrNoveltyWorkflow vacationsOnly canCreate={canView("registrar_vacaciones")} canApprove={canView("aprobar_vacaciones")}/>}
           {section==="Permisos Laborales"&&<HrPermissionControl canCreate={canView("registrar_permisos_laborales")} canValidate={canView("aprobar_recursos_humanos")}/>} 
           {section==="Amonestaciones"&&<HrDisciplinaryManagement canCreate={canView("registrar_amonestaciones")} canManage={canView("notificar_amonestaciones")}/>}
-          {section==="Vacaciones"&&<EmployeeCases type="VACACION" canCreate={canView("registrar_vacaciones")} canApprove={canView("aprobar_vacaciones")}/>}
+          {section==="Vacaciones"&&<HrNoveltyWorkflow vacationsOnly canCreate={canView("registrar_vacaciones")} canApprove={canView("aprobar_vacaciones")}/>}
           {section==="Generar Nómina"&&<PayrollProcessing type="NOMINA"/>}
           {section==="Comparación de Nómina"&&<PayrollMonthlyComparison/>}
           {section==="Prima de Transporte"&&<PayrollProcessing type="PRIMA_TRANSPORTE"/>}
