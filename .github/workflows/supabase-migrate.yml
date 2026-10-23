@@ -56,6 +56,7 @@ jobs:
             "supabase/hr_personnel_actions.sql"
             "supabase/hr_vacancy_planning.sql"
             "supabase/hr_recruitment_selection.sql"
+            "supabase/hr_performance_management.sql"
             "supabase/hr_personnel_action_batches.sql"
             "supabase/hr_employee_cases.sql"
             "supabase/hr_employee_dossier.sql"

@@ -370,3 +370,16 @@ test("reclutamiento conecta solicitud, candidatos, evaluaciones y nombramiento c
  assert.equal(component.includes("Registrar candidato"),true);
  assert.equal(component.includes("Nombrar"),true);
 });
+
+test("desempeño integra metas, competencias, doble evaluación y planes de mejora",async()=>{
+ const migration=await readFile(new URL("../supabase/hr_performance_management.sql",import.meta.url),"utf8");
+ const component=await readFile(new URL("../app/components/PerformanceManagement.tsx",import.meta.url),"utf8");
+ for(const table of ["hr_performance_cycles","hr_performance_evaluations","hr_performance_goals","hr_performance_competencies","hr_improvement_plans"])assert.equal(migration.includes(table),true);
+ assert.equal(migration.includes("g*.40+c*.30+s*.10+sup*.20"),true);
+ assert.equal(migration.includes("recommend_training"),true);
+ assert.equal(migration.includes("recommend_promotion"),true);
+ assert.equal(migration.includes("recommend_compensation"),true);
+ assert.equal(component.includes("Metas individuales y de unidad"),true);
+ assert.equal(component.includes("Competencias del cargo"),true);
+ assert.equal(component.includes("Plan de mejora"),true);
+});
