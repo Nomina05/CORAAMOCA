@@ -383,3 +383,14 @@ test("desempeño integra metas, competencias, doble evaluación y planes de mejo
  assert.equal(component.includes("Competencias del cargo"),true);
  assert.equal(component.includes("Plan de mejora"),true);
 });
+
+test("capacitación integra necesidades, plan anual, cursos, costos y certificados",async()=>{
+ const migration=await readFile(new URL("../supabase/hr_training_management.sql",import.meta.url),"utf8");
+ const component=await readFile(new URL("../app/components/TrainingManagement.tsx",import.meta.url),"utf8");
+ for(const table of ["hr_training_needs","hr_training_plans","hr_training_courses","hr_training_participants"])assert.equal(migration.includes(table),true);
+ for(const field of ["attendance_percent","learning_score","certificate_url","planned_cost","actual_cost"])assert.equal(migration.includes(field),true);
+ assert.equal(migration.includes("performance_evaluation_id"),true);
+ assert.equal(component.includes("Historial de capacitación por empleado"),true);
+ assert.equal(component.includes("EJECUCIÓN DEL PLAN"),true);
+ assert.equal(component.includes("Certificado"),true);
+});
