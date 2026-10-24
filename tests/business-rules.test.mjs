@@ -396,6 +396,19 @@ test("la fase 7 cierra períodos presupuestarios y bloquea operaciones posterior
  assert.equal(route.includes('body.action==="period"'),true);
 });
 
+test("la fase 8 genera reportes oficiales de RRHH con Excel y PDF institucional",async()=>{
+ const migration=await readFile(new URL("../supabase/hr_official_reports_phase8.sql",import.meta.url),"utf8");
+ const component=await readFile(new URL("../app/components/HrOfficialReports.tsx",import.meta.url),"utf8");
+ const route=await readFile(new URL("../app/api/hr/official-reports/route.ts",import.meta.url),"utf8");
+ const styles=await readFile(new URL("../app/globals.css",import.meta.url),"utf8");
+ for(const source of ["hr_payroll_batch_lines","hr_employee_cases","hr_personnel_actions","hr_vacancies","hr_payroll_budget_lines"])assert.equal(migration.includes(source),true);
+ for(const report of ["Nómina del mes","Prima de transporte","Viáticos","Horas extras","Otros descuentos","Entradas y salidas","Vacaciones","Permisos y licencias","Amonestaciones","Vacantes y disponibilidad","Ejecución presupuestaria"])assert.equal(component.includes(report),true);
+ assert.equal(component.includes("application/vnd.ms-excel"),true);
+ assert.equal(component.includes("print-hr-official-report"),true);
+ assert.equal(styles.includes("body.print-hr-official-report #hr-official-report"),true);
+ assert.equal(route.includes("list_hr_official_reports"),true);
+});
+
 test("las desvinculaciones liberan plazas que pueden planificarse, reclutarse y ocuparse",async()=>{
   const base=await readFile(new URL("../supabase/hr_personnel_actions.sql",import.meta.url),"utf8");
   const migration=await readFile(new URL("../supabase/hr_vacancy_planning.sql",import.meta.url),"utf8");
