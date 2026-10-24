@@ -730,7 +730,7 @@ export default function Home() {
           {section==="Prima de Transporte"&&<PayrollProcessing type="PRIMA_TRANSPORTE"/>}
           {section==="Viáticos"&&<TravelAllowanceManagement/>}
           {section==="Horas Extras"&&<PayrollProcessing type="HORAS_EXTRAS"/>}
-          {section==="Presupuesto de Nómina"&&<PayrollBudgetOperations year={payrollYear} month={payrollMonth} canEdit={canView("editar_recursos_humanos")} onChanged={loadPayrollBudget}/>}
+          {section==="Presupuesto de Nómina"&&<PayrollBudgetOperations year={payrollYear} month={payrollMonth} canEdit={canView("editar_recursos_humanos")} canClose={canView("cerrar_nomina")} onChanged={loadPayrollBudget}/>}
           <div className="page-head"><div><span className="eyebrow">CENTRO DE OPERACIONES · DATOS DE SUPABASE</span><h1>{section === "Resumen" ? "Resumen institucional" : section}</h1><p>Seguimiento integral de metas, recursos y resultados · {dashboardPeriod}</p></div><button className="outline" onClick={() => printActiveView("printing-dashboard")}>⇩ Imprimir / exportar PDF</button></div>
 
           {section==="Resumen"&&<section className="personal-dashboard">

@@ -10,7 +10,9 @@ export async function GET(request:Request){
   if(error||!data?.success)return NextResponse.json({error:data?.error||"No fue posible cargar el presupuesto de nómina."},{status:403});
   const {data:operations,error:operationsError}=await authDatabase().rpc("list_hr_payroll_budget_operations",{p_token:token,p_year:year,p_month:month});
   if(operationsError||!operations?.success)return NextResponse.json({error:operations?.error||operationsError?.message||"No fue posible calcular la ejecución presupuestaria."},{status:403});
-  return NextResponse.json({year:data.year,lines:data.lines||[],caps:data.caps||[],summary:operations.summary||{},execution:operations.execution||[],monthly_execution:operations.monthly_execution||[],modifications:operations.modifications||[]});
+  const {data:period,error:periodError}=await authDatabase().rpc("get_hr_payroll_budget_period",{p_token:token,p_year:year,p_month:month});
+  if(periodError||!period?.success)return NextResponse.json({error:period?.error||periodError?.message||"No fue posible consultar el período presupuestario."},{status:403});
+  return NextResponse.json({year:data.year,lines:data.lines||[],caps:data.caps||[],summary:operations.summary||{},execution:operations.execution||[],monthly_execution:operations.monthly_execution||[],modifications:operations.modifications||[],period:period.period});
 }
 
 export async function POST(request:Request){
@@ -23,6 +25,10 @@ export async function POST(request:Request){
   }
   if(body.action==="simulate"){
     const {data,error}=await authDatabase().rpc("simulate_hr_payroll_budget",{p_token:token,p_year:Number(body.year),p_month:Number(body.month),p_salary_increase:Number(body.salary_increase||0),p_new_hires:Number(body.new_hires||0),p_new_hire_salary:Number(body.new_hire_salary||0)});
+    if(error||!data?.success)return NextResponse.json({error:data?.error||error?.message},{status:400});return NextResponse.json(data);
+  }
+  if(body.action==="period"){
+    const {data,error}=await authDatabase().rpc("set_hr_payroll_budget_period_status",{p_token:token,p_year:Number(body.year),p_month:Number(body.month),p_status:String(body.status||""),p_reason:String(body.reason||"")});
     if(error||!data?.success)return NextResponse.json({error:data?.error||error?.message},{status:400});return NextResponse.json(data);
   }
   if(body.action==="cap"){

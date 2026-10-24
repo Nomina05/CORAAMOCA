@@ -385,6 +385,17 @@ test("el presupuesto de nómina calcula ejecución, proyección, sobregiros y si
   assert.equal(route.includes("save_hr_payroll_budget_modification"),true);
 });
 
+test("la fase 7 cierra períodos presupuestarios y bloquea operaciones posteriores",async()=>{
+ const migration=await readFile(new URL("../supabase/hr_payroll_budget_phase7.sql",import.meta.url),"utf8");
+ const component=await readFile(new URL("../app/components/PayrollBudgetOperations.tsx",import.meta.url),"utf8");
+ const route=await readFile(new URL("../app/api/hr/payroll-budget/route.ts",import.meta.url),"utf8");
+ for(const rule of ["hr_payroll_budget_periods","set_hr_payroll_budget_period_status","hr_protect_closed_budget_period","hr_protect_closed_budget_modification","CERRAR_PERIODO_PRESUPUESTO_NOMINA"])assert.equal(migration.includes(rule),true);
+ assert.equal(component.includes("PERÍODO PRESUPUESTARIO"),true);
+ assert.equal(component.includes("Cerrar período"),true);
+ assert.equal(route.includes("get_hr_payroll_budget_period"),true);
+ assert.equal(route.includes('body.action==="period"'),true);
+});
+
 test("las desvinculaciones liberan plazas que pueden planificarse, reclutarse y ocuparse",async()=>{
   const base=await readFile(new URL("../supabase/hr_personnel_actions.sql",import.meta.url),"utf8");
   const migration=await readFile(new URL("../supabase/hr_vacancy_planning.sql",import.meta.url),"utf8");
