@@ -409,6 +409,17 @@ test("la fase 8 genera reportes oficiales de RRHH con Excel y PDF institucional"
  assert.equal(route.includes("list_hr_official_reports"),true);
 });
 
+test("la fase 9 consolida indicadores y genera alertas dirigidas de RRHH",async()=>{
+ const migration=await readFile(new URL("../supabase/hr_indicators_alerts_phase9.sql",import.meta.url),"utf8");
+ const component=await readFile(new URL("../app/components/HrOperationalIndicators.tsx",import.meta.url),"utf8");
+ const route=await readFile(new URL("../app/api/hr/indicators/route.ts",import.meta.url),"utf8");
+ for(const indicator of ["payroll_variation","benefits_by_unit","consecutive_licenses","directed_alerts"])assert.equal(migration.includes(indicator),true);
+ assert.equal(migration.includes("app_notifications"),true);
+ assert.equal(migration.includes("hr_employee_in_user_scope"),true);
+ for(const label of ["Licencias consecutivas","VARIACIÓN BRUTA MENSUAL","Alertas para su intervención","Beneficios y horas extras por unidad"])assert.equal(component.includes(label),true);
+ assert.equal(route.includes("list_hr_decision_indicators"),true);
+});
+
 test("las desvinculaciones liberan plazas que pueden planificarse, reclutarse y ocuparse",async()=>{
   const base=await readFile(new URL("../supabase/hr_personnel_actions.sql",import.meta.url),"utf8");
   const migration=await readFile(new URL("../supabase/hr_vacancy_planning.sql",import.meta.url),"utf8");
