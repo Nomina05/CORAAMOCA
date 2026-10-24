@@ -533,8 +533,11 @@ test("Recursos Humanos abre un centro de módulos y no expande la barra lateral"
  assert.equal(page.includes('isHr?"Centro de módulos"'),true);
  assert.equal(page.includes('setSection("Recursos Humanos")'),true);
  assert.equal(page.includes("hr-module-hub"),true);
- assert.equal(page.includes("Solo se muestran los módulos autorizados"),true);
+ assert.equal(page.includes("Solo se muestran las funciones autorizadas"),true);
  assert.equal(styles.includes(".hr-hub-grid"),true);
+ for(const unit of ["Sección de Registro y Control de Nómina","Sección de Evaluación del Desempeño y Capacitación","Sección de Organización del Trabajo y Compensaciones"])assert.equal(page.includes(unit),true);
+ assert.equal(page.includes("hrUnitGroups"),true);
+ assert.equal(styles.includes(".hr-unit-groups"),true);
 });
 
 test("el ingreso de empleados distingue creación y sustitución de vacantes",async()=>{
