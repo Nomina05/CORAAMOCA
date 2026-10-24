@@ -514,3 +514,25 @@ test("la fase 5 vincula empleados, plazas, vacantes y presupuesto institucional"
  assert.equal(component.includes("Crear plaza vacante"),true);
  assert.equal(route.includes('body.action==="CREAR_PLAZA"'),true);
 });
+
+test("la fase 6 segmenta, valida, cierra y reabre la nómina con auditoría",async()=>{
+ const migration=await readFile(new URL("../supabase/hr_payroll_engine_phase6.sql",import.meta.url),"utf8");
+ const workflow=await readFile(new URL("../.github/workflows/supabase-migrate.yml",import.meta.url),"utf8");
+ const component=await readFile(new URL("../app/components/PayrollProcessing.tsx",import.meta.url),"utf8");
+ for(const dimension of ["execution_fund","program","subproduct","activity","account_code"])assert.equal(migration.includes(dimension),true);
+ for(const rule of ["reopen_hr_payroll_batch","hr_protect_closed_payroll_line","REABRIR_NOMINA","applied_batch_id"])assert.equal(migration.includes(rule),true);
+ assert.equal(migration.includes("ACUMULADO_MENSUAL_INCREMENTAL"),true);
+ assert.equal(workflow.includes("hr_payroll_engine_phase6.sql"),true);
+ assert.equal(component.includes("Segmento presupuestario"),true);
+ assert.equal(component.includes("Reabrir con motivo"),true);
+});
+
+test("Recursos Humanos abre un centro de módulos y no expande la barra lateral",async()=>{
+ const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
+ const styles=await readFile(new URL("../app/globals.css",import.meta.url),"utf8");
+ assert.equal(page.includes('isHr?"Centro de módulos"'),true);
+ assert.equal(page.includes('setSection("Recursos Humanos")'),true);
+ assert.equal(page.includes("hr-module-hub"),true);
+ assert.equal(page.includes("Solo se muestran los módulos autorizados"),true);
+ assert.equal(styles.includes(".hr-hub-grid"),true);
+});

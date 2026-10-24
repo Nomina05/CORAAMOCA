@@ -33,6 +33,8 @@ begin
  insert into public.hr_payroll_validation_results(batch_id,severity,code,employee_id,employee_name,message,current_value)
  select p_batch_id,'ERROR','NETO_INVALIDO',l.employee_id,l.employee_name,'El total de descuentos supera el ingreso bruto.',l.net_amount from public.hr_payroll_batch_lines l where l.batch_id=p_batch_id and l.net_amount<0;
  insert into public.hr_payroll_validation_results(batch_id,severity,code,employee_id,employee_name,message,detail)
+ select p_batch_id,'ERROR','EMPLEADO_DUPLICADO',min(l.employee_id),min(l.employee_name),'El empleado aparece más de una vez dentro del mismo segmento de nómina.',jsonb_build_object('records',count(*)) from public.hr_payroll_batch_lines l where l.batch_id=p_batch_id group by l.employee_id having count(*)>1;
+ insert into public.hr_payroll_validation_results(batch_id,severity,code,employee_id,employee_name,message,detail)
  select p_batch_id,'ADVERTENCIA','ACCION_PENDIENTE',a.employee_id,e.full_name,'Existe una acción de personal con fecha efectiva dentro del período que aún no está aprobada.',jsonb_build_object('action_type',a.action_type,'effective_date',a.effective_date,'status',a.status)
  from public.hr_personnel_actions a join public.hr_employees e on e.id=a.employee_id where a.status not in('APLICADA','ANULADA') and a.effective_date between v_start and v_end;
  insert into public.hr_payroll_validation_results(batch_id,severity,code,employee_id,employee_name,message,detail)
