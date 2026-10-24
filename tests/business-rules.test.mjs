@@ -536,3 +536,17 @@ test("Recursos Humanos abre un centro de módulos y no expande la barra lateral"
  assert.equal(page.includes("Solo se muestran los módulos autorizados"),true);
  assert.equal(styles.includes(".hr-hub-grid"),true);
 });
+
+test("el ingreso de empleados distingue creación y sustitución de vacantes",async()=>{
+ const migration=await readFile(new URL("../supabase/hr_employee_entry_management.sql",import.meta.url),"utf8");
+ const component=await readFile(new URL("../app/components/EmployeeProfileForm.tsx",import.meta.url),"utf8");
+ const dossier=await readFile(new URL("../app/components/EmployeeDossier.tsx",import.meta.url),"utf8");
+ const route=await readFile(new URL("../app/api/hr/employee-profile/route.ts",import.meta.url),"utf8");
+ for(const field of ["entry_type","entry_vacancy_id","referred_by_internal"])assert.equal(migration.includes(field),true);
+ assert.equal(migration.includes("status='OCUPADA'"),true);
+ assert.equal(migration.includes("filled_by_employee_id=v_employee_id"),true);
+ assert.equal(component.includes("Filtrar vacantes por área"),true);
+ assert.equal(component.includes("Recomendado por — uso interno"),true);
+ assert.equal(dossier.includes("INFORMACIÓN INTERNA DE INGRESO"),true);
+ assert.equal(route.includes("save_hr_employee_profile_with_entry"),true);
+});

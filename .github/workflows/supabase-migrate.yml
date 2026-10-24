@@ -76,6 +76,7 @@ jobs:
             "supabase/hr_cases_phase4.sql"
             "supabase/hr_positions_phase5.sql"
             "supabase/hr_payroll_engine_phase6.sql"
+            "supabase/hr_employee_entry_management.sql"
             "supabase/system_module_integration.sql"
             "supabase/project_catalog_relations.sql"
             "supabase/budget_management.sql"
