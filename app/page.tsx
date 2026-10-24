@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useState } from "react";
+import Image from "next/image";
 import PayrollProcessing from "./components/PayrollProcessing";
 import TravelAllowanceManagement from "./components/TravelAllowanceManagement";
 import EmployeeProfileForm,{type EmployeeProfileData} from "./components/EmployeeProfileForm";
@@ -389,6 +390,14 @@ export default function Home() {
   const [completeAudit,setCompleteAudit]=useState<CompleteAudit[]>([]);
   const [auditLoading,setAuditLoading]=useState(false);
 
+  const loadBudgetEvent=useEffectEvent((allYears?:boolean)=>loadBudget(allYears));
+  const loadReportsEvent=useEffectEvent(()=>loadReports());
+  const canViewReportEvent=useEffectEvent((type:ReportType)=>canViewReport(type));
+  const loadPayrollBudgetEvent=useEffectEvent(()=>loadPayrollBudget());
+  const loadPayrollRunsEvent=useEffectEvent(()=>loadPayrollRuns());
+  const loadEmployeeRegistryEvent=useEffectEvent(()=>loadEmployeeRegistry());
+  const synchronizeProjectDataEvent=useEffectEvent(()=>synchronizeProjectData());
+
   useEffect(() => {
     let active = true;
     async function refreshSession() {
@@ -430,32 +439,32 @@ export default function Home() {
     if(section==="Catálogos"||section==="Proyectos Técnicos")loadCatalogs();
   }, [section]);
 
-  useEffect(()=>{if(section==="Gestión Presupuestaria"||section==="Apropiaciones y Adjudicaciones")loadBudget(section==="Apropiaciones y Adjudicaciones")},[section,budgetYear]);
-  useEffect(()=>{if(section==="Reportes")loadReports()},[section,reportYear]);
-  useEffect(()=>{if(section!=="Reportes"||canViewReport(reportType))return;const firstAllowed=reportOptions.find(option=>canViewReport(option.value));if(firstAllowed)setReportType(firstAllowed.value)},[section,reportType,currentUser]);
+  useEffect(()=>{if(section==="Gestión Presupuestaria"||section==="Apropiaciones y Adjudicaciones")loadBudgetEvent(section==="Apropiaciones y Adjudicaciones")},[section,budgetYear]);
+  useEffect(()=>{if(section==="Reportes")loadReportsEvent()},[section,reportYear]);
+  useEffect(()=>{if(section!=="Reportes"||canViewReportEvent(reportType))return;const firstAllowed=reportOptions.find(option=>canViewReportEvent(option.value));if(firstAllowed)setReportType(firstAllowed.value)},[section,reportType,currentUser]);
   useEffect(()=>{if(section==="Auditoría")loadCompleteAudit()},[section]);
   useEffect(()=>{if(section==="Registro Técnico")loadTechnicalErrors()},[section]);
-  useEffect(()=>{if(currentUser&&(section==="Resumen"||section==="Proyectos"))loadInstitutionalProjects()},[section,currentUser?.id]);
-  useEffect(()=>{if(currentUser&&section==="Estructura Organizacional")loadOrganizationUnits()},[section,currentUser?.id]);
-  useEffect(()=>{if(currentUser&&section==="Recursos Humanos")loadHrEmployees()},[section,currentUser?.id]);
-  useEffect(()=>{if(currentUser&&section==="Presupuesto de Nómina"){loadPayrollBudget();loadPayrollRuns();}},[section,payrollYear,payrollMonth,currentUser?.id]);
-  useEffect(()=>{if(currentUser&&(section==="Registro de Empleados"||section==="Histórico de Empleados"))loadEmployeeRegistry()},[section,payrollYear,payrollMonth,currentUser?.id]);
+  useEffect(()=>{if(currentUser&&(section==="Resumen"||section==="Proyectos"))loadInstitutionalProjects()},[section,currentUser]);
+  useEffect(()=>{if(currentUser&&section==="Estructura Organizacional")loadOrganizationUnits()},[section,currentUser]);
+  useEffect(()=>{if(currentUser&&section==="Recursos Humanos")loadHrEmployees()},[section,currentUser]);
+  useEffect(()=>{if(currentUser&&section==="Presupuesto de Nómina"){loadPayrollBudgetEvent();loadPayrollRunsEvent();}},[section,payrollYear,payrollMonth,currentUser]);
+  useEffect(()=>{if(currentUser&&(section==="Registro de Empleados"||section==="Histórico de Empleados"))loadEmployeeRegistryEvent()},[section,payrollYear,payrollMonth,currentUser]);
 
   useEffect(()=>{
     if(!currentUser)return;
     loadInstitutionalProjects();
     loadTechnicalProjects();
     loadHrEmployees();
-    loadBudget();
-  },[currentUser?.id]);
+    loadBudgetEvent();
+  },[currentUser]);
 
   useEffect(()=>{
     if(!currentUser)return;
-    const refresh=()=>{if(document.visibilityState==="visible")synchronizeProjectData()};
+    const refresh=()=>{if(document.visibilityState==="visible")synchronizeProjectDataEvent()};
     window.addEventListener("focus",refresh);
     document.addEventListener("visibilitychange",refresh);
     return()=>{window.removeEventListener("focus",refresh);document.removeEventListener("visibilitychange",refresh)};
-  },[currentUser?.id,budgetYear,reportYear]);
+  },[currentUser,budgetYear,reportYear]);
 
   useEffect(()=>{
     if(section!=="Resumen"||!currentUser)return;
@@ -467,7 +476,7 @@ export default function Home() {
       .catch(()=>{if(active)setDashboard(null);})
       .finally(()=>{if(active)setDashboardLoading(false);});
     return()=>{active=false;};
-  },[section,currentUser?.id,currentUser?.permissions_version]);
+  },[section,currentUser]);
 
   useEffect(()=>{
     if(!currentUser)return;
@@ -476,7 +485,7 @@ export default function Home() {
     refresh();
     const interval=window.setInterval(refresh,30000);
     return()=>{active=false;window.clearInterval(interval)};
-  },[currentUser?.id]);
+  },[currentUser]);
 
   useEffect(()=>{
     if(!currentUser)return;
@@ -485,7 +494,7 @@ export default function Home() {
     refresh();
     const interval=window.setInterval(refresh,60000);
     return()=>{active=false;window.clearInterval(interval)};
-  },[currentUser?.id]);
+  },[currentUser]);
 
   useEffect(()=>{if(!currentUser||currentUser.role==="Administrador")return;const views:Array<[string,keyof Permissions]>=[["Resumen","ver_resumen"],["Proyectos","ver_proyectos"],["Proyectos Técnicos","ver_proyectos_tecnicos"],["Cubicaciones","ver_cubicaciones"],["Activos","ver_activos" as keyof Permissions],["Gestión Presupuestaria","ver_gestion_presupuestaria"],["Apropiaciones y Adjudicaciones","ver_apropiaciones_adjudicaciones"],["Calendario","ver_calendario"],["Reportes","ver_reportes"],["Auditoría","ver_auditoria_seguridad"],["Recursos Humanos","ver_recursos_humanos"],["Registro de Empleados","ver_recursos_humanos"],["Ficha de Empleado","ver_recursos_humanos"],["Acción de Personal","ver_recursos_humanos"],["Vacantes por Área","ver_recursos_humanos"],["Indicadores RRHH","ver_indicadores_rrhh" as keyof Permissions],["Flujo de Novedades","ver_recursos_humanos"],["Permisos Laborales","ver_permisos_laborales"],["Amonestaciones","ver_amonestaciones"],["Vacaciones","ver_vacaciones"],["Generar Nómina","ver_recursos_humanos"],["Comparación de Nómina","ver_recursos_humanos"],["Reportes Oficiales RRHH","ver_recursos_humanos"],["Prima de Transporte","ver_recursos_humanos"],["Viáticos","ver_recursos_humanos"],["Horas Extras","ver_recursos_humanos"],["Histórico de Empleados","ver_recursos_humanos"],["Presupuesto de Nómina","ver_recursos_humanos"],["Estructura Organizacional","ver_estructura_organizacional"],["Catálogos","ver_catalogos"]];const allowed=views.filter(([,key])=>Boolean(currentUser.permissions?.[key])).map(([name])=>name);if(!allowed.includes(section))setSection(allowed[0]||"Acceso restringido");},[currentUser,section]);
 
@@ -793,7 +802,7 @@ export default function Home() {
           </section>}
 
           {section==="Reportes"&&<section className="reports-panel">
-            <div className="report-letterhead"><img src="/institutional-logo.svg" alt="CORAAMOCA"/><div><span>CORPORACIÓN DEL ACUEDUCTO Y ALCANTARILLADO DE MOCA</span><h2>Centro de reportes institucionales</h2><p>Dirección de Planificación y Desarrollo · Informe generado {reports?new Date(reports.generated_at).toLocaleString("es-DO"):""}</p></div></div>
+            <div className="report-letterhead"><Image src="/institutional-logo.svg" alt="CORAAMOCA" width={64} height={64} sizes="64px"/><div><span>CORPORACIÓN DEL ACUEDUCTO Y ALCANTARILLADO DE MOCA</span><h2>Centro de reportes institucionales</h2><p>Dirección de Planificación y Desarrollo · Informe generado {reports?new Date(reports.generated_at).toLocaleString("es-DO"):""}</p></div></div>
             <div className="reports-toolbar"><div><label>Período<select value={reportYear} onChange={e=>setReportYear(e.target.value==="Todos"?"Todos":Number(e.target.value))}><option>Todos</option>{Array.from({length:8},(_,index)=>new Date().getFullYear()+1-index).map(year=><option key={year}>{year}</option>)}</select></label><label>Tipo de informe<select value={reportType} onChange={e=>setReportType(e.target.value as ReportType)}>{reportOptions.filter(option=>canViewReport(option.value)).map(option=><option key={option.value} value={option.value}>{option.label}</option>)}</select></label></div>{canUseGranularPermission("exportar_reportes")&&<div><button className="outline" onClick={exportReportExcel}>Exportar Excel</button><button className="primary" onClick={exportReportPdf}>Exportar PDF</button></div>}</div>
             {reports&&<div className="report-kpis"><article><span>INVERSIÓN TOTAL</span><strong>{money(reports.investment.reduce((s,x)=>s+Number(x.total_investment),0))}</strong></article><article><span>TOTAL PAGADO</span><strong>{money(reports.supplierPayments.reduce((s,x)=>s+Number(x.total_paid),0))}</strong></article><article><span>CUBICACIONES PENDIENTES</span><strong>{reports.pendingMeasurements.length}</strong></article><article><span>PROYECTOS ATRASADOS</span><strong>{reports.delayedProjects.length}</strong></article></div>}
             {reportEditMessage&&<div className={reportEditMessage.startsWith("Proyecto actualizado")?"users-success":"auth-error"}>{reportEditMessage}</div>}

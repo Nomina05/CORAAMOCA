@@ -211,7 +211,7 @@ test("apropiaciones y adjudicaciones actualizan el proyecto y los reportes",asyn
   assert.equal(page.includes('section==="Apropiaciones y Adjudicaciones"'),true);
   assert.equal(page.includes('label:"Apropiaciones y adjudicaciones",section:"Apropiaciones y Adjudicaciones"'),true);
   assert.equal(page.includes('permission:"ver_apropiaciones_adjudicaciones"'),true);
-  assert.equal(page.includes('loadBudget(section==="Apropiaciones y Adjudicaciones")'),true);
+  assert.equal(page.includes('loadBudgetEvent(section==="Apropiaciones y Adjudicaciones")'),true);
   assert.equal(page.includes('allYears?"all":budgetYear'),true);
   assert.equal(page.includes("1. Seleccionar lote"),true);
   assert.equal(page.includes("2. Municipio o distrito"),true);
@@ -259,7 +259,6 @@ test("el reporte presidencial organiza obras y separa contrataciones",async()=>{
 });
 
 test("los activos reflejan apropiación y libramiento en los reportes",async()=>{
-  const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
   const assets=await readFile(new URL("../app/components/FinancialAssets.tsx",import.meta.url),"utf8");
   const route=await readFile(new URL("../app/api/reports/route.ts",import.meta.url),"utf8");
   const migration=await readFile(new URL("../supabase/financial_assets_workflow.sql",import.meta.url),"utf8");
