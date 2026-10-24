@@ -300,6 +300,11 @@ export default function TrainingManagement({
       </div>
       <div className="training-summary">
         <article>
+          <h3>Derivadas de desempeño</h3>
+          <strong>{needs.filter((n) => n.source === "DESEMPENO").length}</strong>
+          <span>Generadas automáticamente al validar evaluaciones</span>
+        </article>
+        <article>
           <h3>Necesidades detectadas</h3>
           <strong>
             {needs.filter((n) => n.status === "DETECTADA").length}

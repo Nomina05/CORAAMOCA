@@ -588,3 +588,13 @@ test("el ingreso de empleados distingue creación y sustitución de vacantes",as
  assert.equal(dossier.includes("INFORMACIÓN INTERNA DE INGRESO"),true);
  assert.equal(route.includes("save_hr_employee_profile_with_entry"),true);
 });
+
+test("la fase 10 integra reclutamiento, desempeño y capacitación",async()=>{
+ const migration=await readFile(new URL("../supabase/hr_talent_cycle_phase10.sql",import.meta.url),"utf8");
+ const workflow=await readFile(new URL("../.github/workflows/supabase-migrate.yml",import.meta.url),"utf8");
+ const training=await readFile(new URL("../app/components/TrainingManagement.tsx",import.meta.url),"utf8");
+ for(const integration of ["hr_sync_performance_training_need","hr_performance_training_need_trg","performance_evaluation_id","DESEMPENO","list_hr_talent_cycle"])assert.equal(migration.includes(integration),true);
+ for(const area of ["recruitment","performance","training"])assert.equal(migration.includes(`'${area}'`),true);
+ assert.equal(workflow.includes("hr_talent_cycle_phase10.sql"),true);
+ assert.equal(training.includes("Derivadas de desempeño"),true);
+});
