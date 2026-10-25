@@ -276,3 +276,73 @@ img,svg,canvas,video{max-width:100%;height:auto}
  .employee-profile-form .profile-actions>div{margin-right:0}
  .employee-profile-form .profile-actions button{width:100%}
 }
+/* Capa profesional común: legibilidad, consistencia y accesibilidad */
+@media screen{
+ :root{--focus:#1683c7;--card-shadow:0 8px 26px rgba(20,52,76,.07);--card-shadow-hover:0 12px 32px rgba(20,52,76,.12)}
+ html{scroll-behavior:smooth}
+ body{min-width:320px;line-height:1.45;text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased}
+ button,input,select,textarea{max-width:100%}
+ button{transition:background-color .18s,border-color .18s,color .18s,box-shadow .18s,transform .18s}
+ button:not(:disabled):active{transform:translateY(1px)}
+ :where(button,a,input,select,textarea,summary):focus-visible{outline:3px solid color-mix(in srgb,var(--focus) 28%,transparent);outline-offset:2px}
+ input::placeholder,textarea::placeholder{color:#8b9aa7;opacity:1}
+ select{white-space:nowrap;text-overflow:ellipsis}
+ .content{min-width:0}
+ .page-head h1,.employee-registry-head h2,.payroll-head h2,.workflow-head h2{line-height:1.2;overflow-wrap:anywhere}
+ .eyebrow{font-size:9px!important;line-height:1.35;letter-spacing:1.05px}
+ .direction-strip{min-height:44px;font-size:10px;line-height:1.4;box-shadow:0 4px 14px rgba(13,49,82,.12)}
+ .direction-strip strong{font-size:9px}
+ .direction-strip span{font-size:9px}
+ .technical-card,.users-card,.table-card,.payroll-card,.profile-card,.employee-registry-panel,.hr-unit-card,.hr-official-sheet{box-shadow:var(--card-shadow)}
+ .technical-card,.users-card,.table-card,.payroll-card,.profile-card{border-color:#d8e2e9}
+ .primary,.outline,.row-action,.advance-action,.return-action{min-height:36px;line-height:1.2}
+ .primary:not(:disabled):hover{background:#0d59cc;box-shadow:0 7px 17px rgba(18,104,232,.24)}
+ .outline:not(:disabled):hover,.row-action:not(:disabled):hover{border-color:#83a9c2;background:#f2f8fb;color:#164e73}
+ .form-message,.profile-message,.auth-error{font-size:11px;line-height:1.5}
+ .users-empty,.technical-empty,.empty,.assignment-empty,.dossier-empty{font-size:11px;line-height:1.55}
+ .users-empty,.technical-empty,.empty{min-height:110px;display:grid;place-items:center;padding:28px;text-align:center}
+ .users-table-wrap,.table-wrap,.report-table-wrap{border-radius:9px}
+ table{border-collapse:separate;border-spacing:0}
+ th{font-size:9px!important;line-height:1.35;letter-spacing:.035em}
+ td{font-size:10px;line-height:1.45;overflow-wrap:anywhere}
+ td strong,td b{line-height:1.4}
+ td small{font-size:9px!important;line-height:1.4}
+ .users-table-wrap thead th,.table-wrap thead th{position:sticky;top:0;z-index:2;box-shadow:0 1px 0 #dbe4ea}
+ tbody tr{transition:background-color .15s}
+ tbody tr:hover{background:#f6fafc}
+ .technical-kpis span,.measurement-kpis span,.kpis span,.payroll-kpis span,.report-kpis span{font-size:9px;line-height:1.35}
+ .technical-kpis strong,.measurement-kpis strong,.kpis strong,.payroll-kpis strong,.report-kpis strong{overflow-wrap:anywhere}
+ .work-status,.measurement-status,.status,.user-status,.area-pill{font-size:9px;line-height:1.3}
+ .modal-head h2{line-height:1.25;overflow-wrap:anywhere}
+ .modal-head p{font-size:10px;line-height:1.45}
+ .modal label{font-size:10px;line-height:1.35}
+ .modal input,.modal select{min-height:42px;font-size:11px}
+ .sidebar-scroll{scrollbar-width:thin;scrollbar-color:#54728c transparent}
+ .sidebar button strong{line-height:1.25}
+ .area-nav-button strong{font-size:12px}
+ .area-nav-button small{font-size:9px}
+ .hr-hub-grid small,.hr-unit-card header small,.hr-unit-modules small{font-size:8px}
+ .hr-hub-grid strong{font-size:12px}
+ .hr-hub-grid span,.hr-unit-card header span{font-size:9px;line-height:1.4}
+ .hr-unit-modules strong{font-size:10px;line-height:1.35}
+ .hr-unit-detail strong{font-size:9px}.hr-unit-detail span{font-size:9px;line-height:1.5}
+ .employee-dossier-tabs button{min-height:36px;font-size:10px}
+ .employee-dossier-content h3{font-size:14px}
+ .dossier-overview dt,.dossier-overview dd,.dossier-list span,.dossier-timeline span{font-size:10px;line-height:1.45}
+ .dossier-list strong,.dossier-timeline strong{font-size:11px}
+ .dossier-list small,.dossier-timeline small{font-size:9px}
+}
+@media screen and (max-width:700px){
+ .content{padding-bottom:max(34px,env(safe-area-inset-bottom))}
+ .header-actions{gap:7px}
+ .direction-strip{align-items:flex-start}
+ .technical-kpis article,.measurement-kpis article,.kpis article,.payroll-kpis article{padding:14px}
+ .employee-dossier-header h2{font-size:17px}
+ .employee-dossier-header p{font-size:9px;overflow-wrap:anywhere}
+ .employee-dossier-kpis article{padding:10px}
+ .employee-dossier-kpis strong{font-size:13px}
+ .modal-actions{flex-wrap:wrap}
+}
+@media(prefers-reduced-motion:reduce){
+ *,*::before,*::after{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important}
+}

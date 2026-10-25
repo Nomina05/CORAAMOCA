@@ -628,3 +628,13 @@ test("la ficha del empleado mantiene datos legibles sin secciones intercaladas",
  assert.equal(component.includes('field={field} initial={initial}'),true);
  for(const number of ["01","02","03","04","05","06","07","08"])assert.equal(component.includes(`<span>${number}</span>`),true);
 });
+
+test("la interfaz institucional aplica una base visual profesional y accesible",async()=>{
+ const styles=await readFile(new URL("../app/globals.css",import.meta.url),"utf8");
+ const packageFile=JSON.parse(await readFile(new URL("../package.json",import.meta.url),"utf8"));
+ for(const rule of [":focus-visible","text-rendering:optimizeLegibility","font-size:9px!important","position:sticky;top:0","prefers-reduced-motion:reduce","min-width:320px","--card-shadow"])assert.equal(styles.includes(rule),true);
+ assert.equal(packageFile.engines.node,">=22 <25");
+ assert.equal(packageFile.dependencies.next,"^16.4.3");
+ assert.equal(packageFile.dependencies["@supabase/supabase-js"],"^2.118.0");
+ assert.equal(packageFile.devDependencies["eslint-config-next"],"^16.4.3");
+});
