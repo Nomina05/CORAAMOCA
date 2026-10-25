@@ -597,3 +597,9 @@ test("la fase 10 integra reclutamiento, desempeño y capacitación",async()=>{
  assert.equal(workflow.includes("hr_talent_cycle_phase10.sql"),true);
  assert.equal(training.includes("Derivadas de desempeño"),true);
 });
+
+test("formularios y pantallas comparten una capa adaptable sin desbordamientos",async()=>{
+ const styles=await readFile(new URL("../app/globals.css",import.meta.url),"utf8");
+ for(const rule of ["box-sizing:border-box","overflow-wrap:anywhere","max-height:calc(100dvh - 32px)","overscroll-behavior-inline:contain","grid-template-columns:repeat(3,minmax(0,1fr))","@media screen and (max-width:700px)"])assert.equal(styles.includes(rule),true);
+ assert.equal(styles.includes(".personnel-action-sheet{max-width:8.5in"),true);
+});
