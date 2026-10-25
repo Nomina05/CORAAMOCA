@@ -12,14 +12,31 @@ select setval(
 alter table public.hr_employees
  alter column employee_code set default ('EMP-'||lpad(nextval('public.hr_employee_code_seq')::text,6,'0'));
 
--- Corrige empleados importados cuyo código fue cargado con el número de cédula.
-alter table public.hr_employees disable trigger trg_hr_sync_employee_catalog_relations;
-update public.hr_employees
-set employee_code='EMP-'||lpad(nextval('public.hr_employee_code_seq')::text,6,'0'),updated_at=now()
-where nullif(trim(employee_code),'') is null
-   or regexp_replace(employee_code,'\D','','g')=regexp_replace(coalesce(document_number,''),'\D','','g')
-   or employee_code ~ '^[0-9]{11}$';
+-- Una ejecución anterior pudo detenerse después de deshabilitar este trigger.
 alter table public.hr_employees enable trigger trg_hr_sync_employee_catalog_relations;
+
+-- Corrige únicamente el código sin revalidar otros datos históricos. El bloque
+-- garantiza que los controles se reactivan incluso si la actualización falla.
+do $$begin
+ execute 'alter table public.hr_employees disable trigger trg_hr_sync_employee_catalog_relations';
+ execute 'alter table public.hr_employees disable trigger trg_hr_validate_employee_master';
+ execute 'alter table public.hr_employees disable trigger trg_hr_audit_employee_master';
+ begin
+  update public.hr_employees
+  set employee_code='EMP-'||lpad(nextval('public.hr_employee_code_seq')::text,6,'0'),updated_at=now()
+  where nullif(trim(employee_code),'') is null
+     or regexp_replace(employee_code,'\D','','g')=regexp_replace(coalesce(document_number,''),'\D','','g')
+     or employee_code ~ '^[0-9]{11}$';
+ exception when others then
+  execute 'alter table public.hr_employees enable trigger trg_hr_sync_employee_catalog_relations';
+  execute 'alter table public.hr_employees enable trigger trg_hr_validate_employee_master';
+  execute 'alter table public.hr_employees enable trigger trg_hr_audit_employee_master';
+  raise;
+ end;
+ execute 'alter table public.hr_employees enable trigger trg_hr_sync_employee_catalog_relations';
+ execute 'alter table public.hr_employees enable trigger trg_hr_validate_employee_master';
+ execute 'alter table public.hr_employees enable trigger trg_hr_audit_employee_master';
+end$$;
 
 create or replace function public.hr_sync_employee_catalog_relations()
 returns trigger language plpgsql security definer set search_path=public as $$
