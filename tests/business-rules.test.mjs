@@ -617,3 +617,14 @@ test("formularios y pantallas comparten una capa adaptable sin desbordamientos",
  for(const rule of ["box-sizing:border-box","overflow-wrap:anywhere","max-height:calc(100dvh - 32px)","overscroll-behavior-inline:contain","grid-template-columns:repeat(3,minmax(0,1fr))","@media screen and (max-width:700px)"])assert.equal(styles.includes(rule),true);
  assert.equal(styles.includes(".personnel-action-sheet{max-width:8.5in"),true);
 });
+
+test("la ficha del empleado mantiene datos legibles sin secciones intercaladas",async()=>{
+ const styles=await readFile(new URL("../app/globals.css",import.meta.url),"utf8");
+ const component=await readFile(new URL("../app/components/EmployeeProfileForm.tsx",import.meta.url),"utf8");
+ assert.equal(styles.includes(".employee-profile-form>.profile-card,.employee-profile-form>.profile-actions{grid-column:1/-1"),true);
+ assert.equal(styles.includes(".employee-profile-form .profile-grid{grid-template-columns:repeat(3,minmax(0,1fr))"),true);
+ assert.equal(styles.includes(".employee-profile-form .profile-grid label>span{min-height:16px"),true);
+ assert.equal(styles.includes(".employee-profile-form .payroll-assignment-list article{grid-template-columns:repeat(5"),true);
+ assert.equal(component.includes('field={field} initial={initial}'),true);
+ for(const number of ["01","02","03","04","05","06","07","08"])assert.equal(component.includes(`<span>${number}</span>`),true);
+});
