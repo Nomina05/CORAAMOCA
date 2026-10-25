@@ -405,7 +405,21 @@ test("la fase 8 genera reportes oficiales de RRHH con Excel y PDF institucional"
  assert.equal(component.includes("application/vnd.ms-excel"),true);
  assert.equal(component.includes("print-hr-official-report"),true);
  assert.equal(styles.includes("body.print-hr-official-report #hr-official-report"),true);
- assert.equal(route.includes("list_hr_official_reports"),true);
+ assert.equal(route.includes("list_hr_official_report"),true);
+});
+
+test("responsabilidades de RRHH y reportes oficiales poseen permisos específicos",async()=>{
+ const migration=await readFile(new URL("../supabase/hr_responsibilities_reports_permissions.sql",import.meta.url),"utf8");
+ const component=await readFile(new URL("../app/components/HrOfficialReports.tsx",import.meta.url),"utf8");
+ const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
+ const route=await readFile(new URL("../app/api/hr/official-reports/route.ts",import.meta.url),"utf8");
+ const workflow=await readFile(new URL("../.github/workflows/supabase-migrate.yml",import.meta.url),"utf8");
+ for(const permission of ["ver_registro_empleados_rrhh","ver_acciones_personal_rrhh","ver_vacantes_rrhh","ver_reclutamiento_rrhh","ver_desempeno_rrhh","ver_capacitacion_rrhh","ver_asistencia_rrhh","ver_nomina_rrhh","ver_presupuesto_nomina_rrhh","ver_reportes_oficiales_rrhh"])assert.equal(page.includes(permission),true);
+ for(const permission of ["reporte_rrhh_nomina","reporte_rrhh_prima_transporte","reporte_rrhh_viaticos","reporte_rrhh_horas_extras","reporte_rrhh_otros_descuentos","reporte_rrhh_entradas_salidas","reporte_rrhh_vacaciones","reporte_rrhh_permisos","reporte_rrhh_amonestaciones","reporte_rrhh_vacantes","reporte_rrhh_presupuesto"]){assert.equal(migration.includes(permission),true);assert.equal(component.includes(permission),true)}
+ assert.equal(component.includes("hr-report-palette"),true);
+ assert.equal(route.includes("p_report_type"),true);
+ assert.equal(migration.includes("list_hr_official_report"),true);
+ assert.equal(workflow.includes("hr_responsibilities_reports_permissions.sql"),true);
 });
 
 test("la fase 9 consolida indicadores y genera alertas dirigidas de RRHH",async()=>{

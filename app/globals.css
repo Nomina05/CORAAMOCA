@@ -216,3 +216,18 @@ img,svg,canvas,video{max-width:100%;height:auto}
  .hr-hub-grid,.hr-unit-groups,.hr-unit-modules,.area-grid{grid-template-columns:1fr}
  .search{max-width:100%}
 }
+/* Paleta independiente de reportes oficiales de Recursos Humanos */
+.hr-report-palette{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:18px 0 22px}
+.hr-report-palette button{min-width:0;min-height:154px;padding:18px;border:1px solid #d8e2ec;border-radius:16px;background:#fff;color:#17324d;text-align:left;display:grid;grid-template-columns:42px 1fr;grid-template-areas:"icon title" "icon description" "icon unit";gap:5px 12px;cursor:pointer;box-shadow:0 8px 22px rgba(26,57,89,.05);transition:border-color .18s,transform .18s,box-shadow .18s}
+.hr-report-palette button:hover,.hr-report-palette button.is-active{border-color:#2477c9;box-shadow:0 12px 28px rgba(36,119,201,.14);transform:translateY(-2px)}
+.hr-report-palette button.is-active{background:linear-gradient(145deg,#f3f9ff,#fff)}
+.hr-report-palette b{grid-area:icon;width:42px;height:42px;border-radius:12px;background:#e9f3ff;color:#1769b0;display:grid;place-items:center;font-size:20px}
+.hr-report-palette strong{grid-area:title;font-size:15px;line-height:1.25}
+.hr-report-palette span{grid-area:description;color:#61758a;font-size:12px;line-height:1.45}
+.hr-report-palette small{grid-area:unit;color:#2477c9;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.hr-report-actionbar{display:flex;align-items:end;gap:12px;flex-wrap:wrap;padding:16px;border:1px solid #dbe5ee;border-radius:14px;background:#f7fafc;margin-bottom:18px}
+.hr-report-actionbar label{display:grid;gap:5px;color:#53697f;font-size:11px;font-weight:700;text-transform:uppercase}
+.hr-report-actionbar select{min-width:150px;height:42px;border:1px solid #ccd9e4;border-radius:9px;background:#fff;padding:0 12px}
+.hr-report-actionbar button:first-of-type{margin-left:auto}
+@media(max-width:1100px){.hr-report-palette{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:680px){.hr-report-palette{grid-template-columns:1fr}.hr-report-actionbar>*{width:100%}.hr-report-actionbar select{width:100%}.hr-report-actionbar button:first-of-type{margin-left:0}}
