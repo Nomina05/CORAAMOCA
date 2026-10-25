@@ -658,3 +658,16 @@ test("el encabezado y las pestañas del expediente mantienen una lectura compact
  assert.equal(styles.includes("width:auto!important;height:30px!important;min-height:30px!important"),true);
  assert.equal(styles.includes("height:auto!important;min-height:112px"),true);
 });
+
+test("el código del empleado es independiente de la cédula y la acción usa formato dominicano",async()=>{
+ const component=await readFile(new URL("../app/components/PersonnelAction.tsx",import.meta.url),"utf8");
+ const migration=await readFile(new URL("../supabase/hr_employee_code_separation.sql",import.meta.url),"utf8");
+ const payroll=await readFile(new URL("../supabase/hr_payroll_execution.sql",import.meta.url),"utf8");
+ const workflow=await readFile(new URL("../.github/workflows/supabase-migrate.yml",import.meta.url),"utf8");
+ assert.equal(component.includes("const dominicanId="),true);
+ assert.equal(component.includes("dominicanId(employee?.document_number||editing?.document_number)"),true);
+ assert.equal(migration.includes("hr_employees_code_document_distinct"),true);
+ assert.equal(migration.includes("new.employee_code:='EMP-'"),true);
+ assert.equal(payroll.includes("select 'EMP-'||lpad(nextval('public.hr_employee_code_seq')"),true);
+ assert.equal(workflow.includes("hr_employee_code_separation.sql"),true);
+});

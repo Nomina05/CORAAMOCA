@@ -1,4 +1,5 @@
 -- Ejecución mensual de nómina. Los datos personales permanecen exclusivamente en Supabase.
+create sequence if not exists public.hr_employee_code_seq start 1000;
 create table if not exists public.hr_payroll_runs (
   id uuid primary key default gen_random_uuid(),
   payroll_year integer not null check(payroll_year between 2000 and 2100),
@@ -137,7 +138,7 @@ begin
   from jsonb_to_recordset(p_rows) as x(execution_fund text,program integer,subproduct integer,activity integer,first_names text,last_names text,gender text,birth_date date,age integer,document_number text,phone text,academic_level text,hire_date date,years_of_service integer,termination_date date,termination_type text,bank_account text,position_name text,employee_group text,employment_status text,direction_name text,department_name text,division_name text,section_name text,center_name text,monthly_salary numeric);
 
   insert into public.hr_employees(employee_code,document_number,full_name,organization_unit_id,position_name,employment_status,hire_date,created_by,first_names,last_names,gender,birth_date,phone,academic_level,years_of_service,termination_date,termination_type,bank_account,employee_group,payroll_status,direction_name,department_name,division_name,section_name,center_name,execution_fund,program,subproduct,activity,monthly_salary,last_payroll_year,last_payroll_month)
-  select l.document_number,l.document_number,trim(l.first_names||' '||l.last_names),
+  select 'EMP-'||lpad(nextval('public.hr_employee_code_seq')::text,6,'0'),l.document_number,trim(l.first_names||' '||l.last_names),
     (select o.id from public.organization_units o where lower(trim(o.unit_name))=lower(trim(l.direction_name)) limit 1),
     coalesce(l.position_name,'Sin cargo'),case when l.termination_date is null then 'Activo' else 'Desvinculado' end,l.hire_date,v_user.id,l.first_names,l.last_names,l.gender,l.birth_date,l.phone,l.academic_level,l.years_of_service,l.termination_date,l.termination_type,l.bank_account,l.employee_group,l.employment_status,l.direction_name,l.department_name,l.division_name,l.section_name,l.center_name,l.execution_fund,l.program,l.subproduct,l.activity,l.monthly_salary,p_year,p_month
   from public.hr_payroll_run_lines l where l.payroll_run_id=v_run_id
