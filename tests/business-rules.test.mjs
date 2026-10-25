@@ -656,4 +656,5 @@ test("el encabezado y las pestañas del expediente mantienen una lectura compact
  assert.equal(component.includes("employee_code} · Cédula"),false);
  assert.equal(styles.includes(".employee-dossier-tabs>button{display:inline-flex;flex:0 0 auto!important"),true);
  assert.equal(styles.includes("width:auto!important;height:30px!important;min-height:30px!important"),true);
+ assert.equal(styles.includes("height:auto!important;min-height:112px"),true);
 });

@@ -349,18 +349,18 @@ img,svg,canvas,video{max-width:100%;height:auto}
 /* Expediente flotante del empleado: lectura estable sin datos intercalados */
 .employee-dossier-backdrop{padding:clamp(8px,2vw,22px)}
 .employee-dossier-modal{position:relative;width:min(1180px,calc(100vw - 32px));height:min(92dvh,900px);max-height:calc(100dvh - 16px);border-radius:16px}
-.employee-dossier-header{position:relative;grid-template-columns:58px minmax(0,1fr) auto 38px;gap:16px;padding:18px 22px}
+.employee-dossier-header{position:relative;top:auto;z-index:auto;grid-template-columns:58px minmax(0,1fr) auto 38px;align-items:center;height:auto!important;min-height:112px;gap:16px;padding:16px 22px}
 .employee-dossier-header>div:nth-child(2){min-width:0}
 .employee-dossier-header h2{max-width:100%;font-size:20px;line-height:1.25;overflow-wrap:anywhere}
 .employee-dossier-header p{font-size:10px;line-height:1.5;overflow-wrap:anywhere}
 .employee-dossier-header>.user-status{max-width:180px;text-align:center;white-space:normal}
 .employee-dossier-header>button{display:grid;place-items:center;width:38px;height:38px;border-radius:50%;font-size:24px}
-.employee-dossier-identity{display:grid;gap:2px;min-width:0}
-.employee-dossier-identity h2{margin:2px 0 4px}
+.employee-dossier-identity{display:grid;align-self:center;grid-template-rows:auto auto auto auto;gap:3px;min-width:0;padding:2px 0}
+.employee-dossier-identity h2{margin:1px 0 3px}
 .employee-dossier-meta{display:flex;flex-wrap:wrap;gap:4px 16px;color:#61798a;font-size:9px;line-height:1.35}
 .employee-dossier-meta span{display:inline-flex;gap:5px;min-width:0;overflow-wrap:anywhere}
 .employee-dossier-meta b{color:#35586d;font-weight:850}
-.employee-dossier-position{display:block;max-width:100%;margin-top:2px;color:#294e65;font-size:10px;line-height:1.35;overflow-wrap:anywhere}
+.employee-dossier-position{display:block;max-width:100%;margin-top:1px;color:#294e65;font-size:10px;line-height:1.35;overflow-wrap:anywhere}
 .employee-dossier-kpis{grid-template-columns:repeat(5,minmax(0,1fr));background:#fff}
 .employee-dossier-kpis article{min-width:0;padding:12px 15px}
 .employee-dossier-kpis span{font-size:9px;line-height:1.35}
@@ -383,7 +383,7 @@ img,svg,canvas,video{max-width:100%;height:auto}
 .employee-dossier-modal>.modal-actions{position:static;z-index:3;margin:0;padding:11px 20px}
 @media(max-width:900px){
  .employee-dossier-modal{width:calc(100vw - 16px);height:calc(100dvh - 16px)}
- .employee-dossier-header{grid-template-columns:50px minmax(0,1fr) 36px;padding:14px 16px}
+ .employee-dossier-header{grid-template-columns:50px minmax(0,1fr) 36px;min-height:124px;padding:14px 16px}
  .employee-dossier-avatar{width:48px;height:48px;border-radius:13px}
  .employee-dossier-header>.user-status{grid-column:2;justify-self:start}
  .employee-dossier-header>button{grid-column:3;grid-row:1;align-self:start}
@@ -395,7 +395,7 @@ img,svg,canvas,video{max-width:100%;height:auto}
 @media(max-width:600px){
  .employee-dossier-backdrop{padding:0}
  .employee-dossier-modal{width:100vw;height:100dvh;max-height:100dvh;border-radius:0}
- .employee-dossier-header{grid-template-columns:42px minmax(0,1fr) 34px;gap:10px;padding:12px}
+ .employee-dossier-header{grid-template-columns:42px minmax(0,1fr) 34px;gap:10px;min-height:120px;padding:12px}
  .employee-dossier-avatar{width:42px;height:42px;font-size:14px}
  .employee-dossier-header h2{font-size:16px}
  .employee-dossier-header p{font-size:9px}
