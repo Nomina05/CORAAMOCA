@@ -638,3 +638,12 @@ test("la interfaz institucional aplica una base visual profesional y accesible",
  assert.equal(packageFile.dependencies["@supabase/supabase-js"],"^2.118.0");
  assert.equal(packageFile.devDependencies["eslint-config-next"],"^16.4.3");
 });
+
+test("la ficha flotante del empleado conserva cada etiqueta unida a su dato",async()=>{
+ const styles=await readFile(new URL("../app/globals.css",import.meta.url),"utf8");
+ const component=await readFile(new URL("../app/components/EmployeeDossier.tsx",import.meta.url),"utf8");
+ assert.equal(component.includes("function DossierField"),true);
+ assert.equal(component.includes('className="dossier-field-grid"'),true);
+ assert.equal(component.includes("<dl>"),false);
+ for(const rule of [".dossier-field-grid>article.is-wide{grid-column:1/-1}",".employee-dossier-modal{position:relative;width:min(1180px", "height:100dvh", "overflow-wrap:anywhere"])assert.equal(styles.includes(rule),true);
+});

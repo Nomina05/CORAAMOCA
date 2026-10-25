@@ -346,3 +346,59 @@ img,svg,canvas,video{max-width:100%;height:auto}
 @media(prefers-reduced-motion:reduce){
  *,*::before,*::after{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important}
 }
+/* Expediente flotante del empleado: lectura estable sin datos intercalados */
+.employee-dossier-backdrop{padding:clamp(8px,2vw,22px)}
+.employee-dossier-modal{position:relative;width:min(1180px,calc(100vw - 32px));height:min(92dvh,900px);max-height:calc(100dvh - 16px);border-radius:16px}
+.employee-dossier-header{position:relative;grid-template-columns:58px minmax(0,1fr) auto 38px;gap:16px;padding:18px 22px}
+.employee-dossier-header>div:nth-child(2){min-width:0}
+.employee-dossier-header h2{max-width:100%;font-size:20px;line-height:1.25;overflow-wrap:anywhere}
+.employee-dossier-header p{font-size:10px;line-height:1.5;overflow-wrap:anywhere}
+.employee-dossier-header>.user-status{max-width:180px;text-align:center;white-space:normal}
+.employee-dossier-header>button{display:grid;place-items:center;width:38px;height:38px;border-radius:50%;font-size:24px}
+.employee-dossier-kpis{grid-template-columns:repeat(5,minmax(0,1fr));background:#fff}
+.employee-dossier-kpis article{min-width:0;padding:12px 15px}
+.employee-dossier-kpis span{font-size:9px;line-height:1.35}
+.employee-dossier-kpis strong{font-size:14px;line-height:1.35;overflow-wrap:anywhere}
+.employee-dossier-tabs{flex:none;scrollbar-width:thin;padding:9px 16px}
+.employee-dossier-tabs button{flex:0 0 auto;padding:8px 13px}
+.employee-dossier-content{padding:18px 20px;overscroll-behavior:contain}
+.dossier-overview{align-items:start;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.dossier-overview>section{min-width:0;padding:18px}
+.dossier-overview>section>h3{padding-bottom:10px;border-bottom:1px solid #e4ebef}
+.dossier-field-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:13px}
+.dossier-field-grid>article{min-width:0;padding:11px 12px;border:1px solid #e0e8ed;border-radius:9px;background:#f8fafb}
+.dossier-field-grid>article.is-wide{grid-column:1/-1}
+.dossier-field-grid span,.dossier-field-grid strong,.dossier-field-grid small{display:block;min-width:0;max-width:100%;overflow-wrap:anywhere;word-break:normal}
+.dossier-field-grid span{margin-bottom:5px;color:#687f8e;font-size:9px;font-weight:800;letter-spacing:.02em}
+.dossier-field-grid strong{color:#173b55;font-size:11px;line-height:1.45}
+.dossier-field-grid strong small{margin-top:3px;color:#6c8290;font-size:9px;font-weight:600}
+.dossier-exit-grid{grid-template-columns:minmax(150px,.35fr) minmax(0,1fr)}
+.employee-dossier-modal>.modal-actions{position:static;z-index:3;margin:0;padding:11px 20px}
+@media(max-width:900px){
+ .employee-dossier-modal{width:calc(100vw - 16px);height:calc(100dvh - 16px)}
+ .employee-dossier-header{grid-template-columns:50px minmax(0,1fr) 36px;padding:14px 16px}
+ .employee-dossier-avatar{width:48px;height:48px;border-radius:13px}
+ .employee-dossier-header>.user-status{grid-column:2;justify-self:start}
+ .employee-dossier-header>button{grid-column:3;grid-row:1;align-self:start}
+ .employee-dossier-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
+ .employee-dossier-kpis article:nth-child(3){border-right:0}
+ .dossier-overview{grid-template-columns:1fr}
+ .dossier-overview .dossier-exit{grid-column:auto}
+}
+@media(max-width:600px){
+ .employee-dossier-backdrop{padding:0}
+ .employee-dossier-modal{width:100vw;height:100dvh;max-height:100dvh;border-radius:0}
+ .employee-dossier-header{grid-template-columns:42px minmax(0,1fr) 34px;gap:10px;padding:12px}
+ .employee-dossier-avatar{width:42px;height:42px;font-size:14px}
+ .employee-dossier-header h2{font-size:16px}
+ .employee-dossier-header p{font-size:9px}
+ .employee-dossier-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .employee-dossier-kpis article,.employee-dossier-kpis article:nth-child(3){border-right:1px solid #e2e9ed}
+ .employee-dossier-kpis article:nth-child(even){border-right:0}
+ .employee-dossier-kpis article:last-child{grid-column:1/-1;border-right:0}
+ .employee-dossier-content{padding:12px}
+ .dossier-overview>section{padding:14px}
+ .dossier-field-grid,.dossier-exit-grid{grid-template-columns:1fr}
+ .dossier-field-grid>article.is-wide{grid-column:auto}
+ .employee-dossier-modal>.modal-actions button{width:100%}
+}
