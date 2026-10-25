@@ -647,3 +647,13 @@ test("la ficha flotante del empleado conserva cada etiqueta unida a su dato",asy
  assert.equal(component.includes("<dl>"),false);
  for(const rule of [".dossier-field-grid>article.is-wide{grid-column:1/-1}",".employee-dossier-modal{position:relative;width:min(1180px", "height:100dvh", "overflow-wrap:anywhere"])assert.equal(styles.includes(rule),true);
 });
+
+test("el encabezado y las pestañas del expediente mantienen una lectura compacta",async()=>{
+ const styles=await readFile(new URL("../app/globals.css",import.meta.url),"utf8");
+ const component=await readFile(new URL("../app/components/EmployeeDossier.tsx",import.meta.url),"utf8");
+ assert.equal(component.includes("employee-dossier-meta"),true);
+ assert.equal(component.includes("employee-dossier-position"),true);
+ assert.equal(component.includes("employee_code} · Cédula"),false);
+ assert.equal(styles.includes(".employee-dossier-tabs>button{display:inline-flex;flex:0 0 auto!important"),true);
+ assert.equal(styles.includes("width:auto!important;height:30px!important;min-height:30px!important"),true);
+});

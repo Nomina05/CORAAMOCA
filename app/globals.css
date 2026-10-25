@@ -355,12 +355,19 @@ img,svg,canvas,video{max-width:100%;height:auto}
 .employee-dossier-header p{font-size:10px;line-height:1.5;overflow-wrap:anywhere}
 .employee-dossier-header>.user-status{max-width:180px;text-align:center;white-space:normal}
 .employee-dossier-header>button{display:grid;place-items:center;width:38px;height:38px;border-radius:50%;font-size:24px}
+.employee-dossier-identity{display:grid;gap:2px;min-width:0}
+.employee-dossier-identity h2{margin:2px 0 4px}
+.employee-dossier-meta{display:flex;flex-wrap:wrap;gap:4px 16px;color:#61798a;font-size:9px;line-height:1.35}
+.employee-dossier-meta span{display:inline-flex;gap:5px;min-width:0;overflow-wrap:anywhere}
+.employee-dossier-meta b{color:#35586d;font-weight:850}
+.employee-dossier-position{display:block;max-width:100%;margin-top:2px;color:#294e65;font-size:10px;line-height:1.35;overflow-wrap:anywhere}
 .employee-dossier-kpis{grid-template-columns:repeat(5,minmax(0,1fr));background:#fff}
 .employee-dossier-kpis article{min-width:0;padding:12px 15px}
 .employee-dossier-kpis span{font-size:9px;line-height:1.35}
 .employee-dossier-kpis strong{font-size:14px;line-height:1.35;overflow-wrap:anywhere}
-.employee-dossier-tabs{flex:none;scrollbar-width:thin;padding:9px 16px}
-.employee-dossier-tabs button{flex:0 0 auto;padding:8px 13px}
+.employee-dossier-tabs{flex:none;gap:5px;padding:7px 16px;overflow-x:auto;scrollbar-width:none}
+.employee-dossier-tabs::-webkit-scrollbar{display:none}
+.employee-dossier-tabs>button{display:inline-flex;flex:0 0 auto!important;align-items:center;justify-content:center;width:auto!important;height:30px!important;min-height:30px!important;margin:0!important;padding:0 10px!important;border-radius:6px;font-size:9px!important;line-height:1!important;white-space:nowrap}
 .employee-dossier-content{padding:18px 20px;overscroll-behavior:contain}
 .dossier-overview{align-items:start;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
 .dossier-overview>section{min-width:0;padding:18px}
