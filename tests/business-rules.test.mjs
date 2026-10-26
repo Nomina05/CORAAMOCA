@@ -171,11 +171,12 @@ test("el tablero institucional utiliza proyectos, empleados y presupuesto de Sup
 test("la acción de personal se imprime en tamaño carta",async()=>{
   const component=await readFile(new URL("../app/components/PersonnelAction.tsx",import.meta.url),"utf8");
   assert.equal(component.includes("@page{size:letter portrait;margin:0}"),true);
-  assert.equal(component.includes("width:8.5in!important;height:11in!important"),true);
-  assert.equal(component.includes(".action-approvals{height:190px!important;min-height:190px!important"),true);
+  assert.equal(component.includes("width:7.75in!important;height:10.2in!important"),true);
+  assert.equal(component.includes("margin:.2in auto 0!important"),true);
+  assert.equal(component.includes(".action-approvals{flex:1 1 auto!important;height:auto!important;min-height:190px!important"),true);
   assert.equal(component.includes("grid-template-rows:58px 1fr!important"),true);
   assert.equal(component.includes("grid-template-columns:minmax(0,1fr) minmax(0,1.65fr)!important"),true);
-  assert.equal(component.includes("grid-auto-rows:38px!important"),true);
+  assert.equal(component.includes("grid-template-rows:38px 38px!important;align-content:space-between!important"),true);
 });
 
 test("cada exportación PDF utiliza un modo de impresión independiente",async()=>{
