@@ -173,6 +173,9 @@ test("la acción de personal se imprime en tamaño carta",async()=>{
   assert.equal(component.includes("@page{size:letter portrait;margin:0}"),true);
   assert.equal(component.includes("width:8.5in!important;height:11in!important"),true);
   assert.equal(component.includes(".action-approvals{height:190px!important;min-height:190px!important"),true);
+  assert.equal(component.includes("grid-template-rows:58px 1fr!important"),true);
+  assert.equal(component.includes("grid-template-columns:minmax(0,1fr) minmax(0,1.65fr)!important"),true);
+  assert.equal(component.includes("grid-auto-rows:38px!important"),true);
 });
 
 test("cada exportación PDF utiliza un modo de impresión independiente",async()=>{
