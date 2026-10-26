@@ -590,6 +590,9 @@ test("Recursos Humanos abre un centro de módulos y no expande la barra lateral"
  for(const unit of ["Sección de Registro y Control de Nómina","Sección de Evaluación del Desempeño y Capacitación","Sección de Organización del Trabajo y Compensaciones"])assert.equal(page.includes(unit),true);
  assert.equal(page.includes("hrUnitGroups"),true);
  assert.equal(styles.includes(".hr-unit-groups"),true);
+ assert.equal(page.includes('section === "Indicadores RRHH" || section === "Flujo de Novedades" ||'),true);
+ assert.equal(styles.includes(".sidebar { position:fixed;"),true);
+ assert.equal(styles.includes(".app-shell { min-height:100vh; display:block; padding-left:248px; }"),true);
 });
 
 test("las licencias médicas poseen registro operativo y permisos independientes",async()=>{
