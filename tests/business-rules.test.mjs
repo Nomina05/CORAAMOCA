@@ -608,6 +608,25 @@ test("las licencias médicas poseen registro operativo y permisos independientes
  assert.equal(workflow.includes("hr_medical_leave_module.sql"),true);
 });
 
+test("carnetización utiliza empleados activos, Supabase y permisos independientes",async()=>{
+ const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
+ const component=await readFile(new URL("../app/components/HrIdCardManagement.tsx",import.meta.url),"utf8");
+ const route=await readFile(new URL("../app/api/hr/id-cards/route.ts",import.meta.url),"utf8");
+ const styles=await readFile(new URL("../app/globals.css",import.meta.url),"utf8");
+ const migration=await readFile(new URL("../supabase/hr_id_card_management.sql",import.meta.url),"utf8");
+ const workflow=await readFile(new URL("../.github/workflows/supabase-migrate.yml",import.meta.url),"utf8");
+ for(const permission of ["ver_carnets_rrhh","gestionar_carnets_rrhh","imprimir_carnets_rrhh","configurar_carnets_rrhh"])assert.equal(page.includes(permission),true);
+ assert.equal(page.includes('section:"Carnetización"'),true);
+ assert.equal(styles.includes("width:54mm;height:85mm"),true);
+ assert.equal(component.includes("/api/hr/id-cards"),true);
+ assert.equal(component.includes("localStorage"),false);
+ assert.equal(route.includes('rpc("save_hr_id_card"'),true);
+ assert.equal(migration.includes("create table if not exists public.hr_employee_id_cards"),true);
+ assert.equal(migration.includes("public.hr_employee_in_user_scope"),true);
+ assert.equal(migration.includes("HR_ID_CARD_SAVED"),true);
+ assert.equal(workflow.includes("hr_id_card_management.sql"),true);
+});
+
 test("el ingreso de empleados distingue creación y sustitución de vacantes",async()=>{
  const migration=await readFile(new URL("../supabase/hr_employee_entry_management.sql",import.meta.url),"utf8");
  const component=await readFile(new URL("../app/components/EmployeeProfileForm.tsx",import.meta.url),"utf8");
