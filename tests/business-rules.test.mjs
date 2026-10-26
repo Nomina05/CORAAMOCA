@@ -592,6 +592,22 @@ test("Recursos Humanos abre un centro de módulos y no expande la barra lateral"
  assert.equal(styles.includes(".hr-unit-groups"),true);
 });
 
+test("las licencias médicas poseen registro operativo y permisos independientes",async()=>{
+ const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
+ const component=await readFile(new URL("../app/components/HrPermissionControl.tsx",import.meta.url),"utf8");
+ const migration=await readFile(new URL("../supabase/hr_medical_leave_module.sql",import.meta.url),"utf8");
+ const workflow=await readFile(new URL("../.github/workflows/supabase-migrate.yml",import.meta.url),"utf8");
+ for(const permission of ["ver_licencias_medicas","registrar_licencias_medicas","validar_licencias_medicas"])assert.equal(page.includes(permission),true);
+ assert.equal(page.includes('section:"Licencias Médicas"'),true);
+ assert.equal(page.includes("<HrPermissionControl medicalOnly"),true);
+ assert.equal(component.includes('medicalOnly?"Registro de licencias médicas"'),true);
+ assert.equal(component.includes("requires_medical_document"),true);
+ assert.equal(component.includes("medical_document_status"),true);
+ assert.equal(migration.includes("validar_licencias_medicas"),true);
+ assert.equal(migration.includes("VALIDAR_DOCUMENTO_MEDICO"),true);
+ assert.equal(workflow.includes("hr_medical_leave_module.sql"),true);
+});
+
 test("el ingreso de empleados distingue creación y sustitución de vacantes",async()=>{
  const migration=await readFile(new URL("../supabase/hr_employee_entry_management.sql",import.meta.url),"utf8");
  const component=await readFile(new URL("../app/components/EmployeeProfileForm.tsx",import.meta.url),"utf8");
