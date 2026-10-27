@@ -143,3 +143,61 @@ end$$;
 grant execute on function public.hr_benefit_notice_days(integer),public.hr_benefit_severance_days(date,date),public.list_hr_labor_benefits(text,integer),public.save_hr_labor_benefit(text,uuid,jsonb),public.advance_hr_labor_benefit(text,uuid,text,text) to anon,authenticated;
 
 update public.app_users set permissions=permissions||jsonb_build_object('ver_prestaciones_laborales',true,'calcular_prestaciones_laborales',true,'revisar_prestaciones_laborales',true,'aprobar_prestaciones_laborales',true,'pagar_prestaciones_laborales',true),permissions_version=permissions_version+1 where role='Administrador';
+
+-- Régimen especial del servidor público: Ley 41-08 y Reglamento 523-09.
+alter table public.hr_labor_benefit_calculations add column if not exists legal_regime text not null default 'LEY_41_08';
+alter table public.hr_labor_benefit_calculations add column if not exists public_servant_category text not null default 'ESTATUTO_SIMPLIFICADO';
+alter table public.hr_labor_benefit_calculations add column if not exists unjustified_termination boolean not null default false;
+alter table public.hr_labor_benefit_calculations add column if not exists calendar_service_months integer not null default 0;
+alter table public.hr_labor_benefit_calculations add column if not exists labor_benefit_account text not null default '2.1.1.5.03';
+alter table public.hr_labor_benefit_calculations add column if not exists vacation_account text not null default '2.1.1.5.04';
+alter table public.hr_labor_benefit_calculations add column if not exists christmas_account text not null default '2.1.1.4.01';
+
+insert into public.hr_payroll_account_catalog(code,parent_code,name) values
+ ('2.1.1.5',null,'Prestaciones económicas'),
+ ('2.1.1.5.01','2.1.1.5','Prestaciones económicas'),
+ ('2.1.1.5.02','2.1.1.5','Pago de porcentaje por desvinculación de cargo'),
+ ('2.1.1.5.03','2.1.1.5','Prestación laboral por desvinculación'),
+ ('2.1.1.5.04','2.1.1.5','Proporción de vacaciones no disfrutadas')
+on conflict(code) do update set name=excluded.name,active=true;
+
+create or replace function public.hr_public_vacation_days(p_service_days integer,p_calendar_months integer)
+returns numeric language sql immutable as $$
+ select case when p_calendar_months<6 then 0 else round((case when p_service_days<1825 then 15 when p_service_days<3650 then 20 when p_service_days<5475 then 25 else 30 end)*least(p_calendar_months,12)/12.0,2) end
+$$;
+
+create or replace function public.hr_public_indemnity_months(p_entry date,p_exit date,p_category text,p_unjustified boolean)
+returns numeric language plpgsql immutable as $$
+declare v_years integer;v_months integer;v_result integer;
+begin
+ if not p_unjustified or p_category not in ('ESTATUTO_SIMPLIFICADO','SERVICIO_CIVIL','CARRERA_PRE_41_08') or p_exit<p_entry or p_exit-p_entry<365 then return 0;end if;
+ v_years:=extract(year from age(p_exit,p_entry));v_months:=extract(month from age(p_exit,p_entry));
+ v_result:=v_years+case when v_months>6 then 1 else 0 end;
+ return least(v_result,18);
+end$$;
+
+create or replace function public.save_hr_labor_benefit(p_token text,p_id uuid,p_data jsonb)
+returns jsonb language plpgsql security definer set search_path=public,extensions as $$
+declare v_user public.app_users;v_employee public.hr_employees;v_previous public.hr_labor_benefit_calculations;v_id uuid;v_entry date;v_exit date;v_salary numeric;v_daily numeric;v_service integer;v_category text;v_unjustified boolean;v_calendar_months integer;v_indemnity_months numeric;v_vacation_days numeric;v_indemnity numeric;v_vacation numeric;v_christmas numeric;v_other numeric;v_isr numeric;v_deductions numeric;v_gross numeric;v_net numeric;
+begin
+ v_user:=public.hr_authenticated_user(p_token);
+ if v_user.id is null or (v_user.role<>'Administrador' and not coalesce((v_user.permissions->>'calcular_prestaciones_laborales')::boolean,false)) then return jsonb_build_object('success',false,'error','No posee permiso para calcular prestaciones laborales.');end if;
+ select * into v_employee from public.hr_employees where id=nullif(p_data->>'employee_id','')::uuid;
+ if v_employee.id is null or not public.hr_employee_in_user_scope(v_user,v_employee) then return jsonb_build_object('success',false,'error','Servidor público no encontrado o fuera de su alcance.');end if;
+ if p_id is not null then select * into v_previous from public.hr_labor_benefit_calculations where id=p_id for update;if v_previous.id is null then return jsonb_build_object('success',false,'error','Cálculo no encontrado.');end if;if v_previous.status<>'BORRADOR' then return jsonb_build_object('success',false,'error','Solo puede modificar cálculos en borrador.');end if;end if;
+ v_entry:=coalesce(nullif(p_data->>'entry_date','')::date,v_employee.hire_date);v_exit:=nullif(p_data->>'exit_date','')::date;v_salary:=coalesce(nullif(p_data->>'monthly_salary','')::numeric,v_employee.monthly_salary,0);v_category:=coalesce(nullif(p_data->>'public_servant_category',''),'ESTATUTO_SIMPLIFICADO');v_unjustified:=coalesce((p_data->>'unjustified_termination')::boolean,false);v_calendar_months:=greatest(0,least(coalesce(nullif(p_data->>'calendar_service_months','')::integer,0),12));
+ if v_category not in ('LIBRE_NOMBRAMIENTO','CARRERA','CARRERA_PRE_41_08','SERVICIO_CIVIL','ESTATUTO_SIMPLIFICADO','TEMPORAL') then return jsonb_build_object('success',false,'error','Categoría de servidor público inválida.');end if;
+ if v_entry is null or v_exit is null or v_exit<v_entry or v_salary<=0 then return jsonb_build_object('success',false,'error','Revise fecha de entrada, fecha de salida y último sueldo devengado.');end if;
+ v_service:=v_exit-v_entry;v_daily:=round(v_salary/21.67,2);v_indemnity_months:=public.hr_public_indemnity_months(v_entry,v_exit,v_category,v_unjustified);
+ v_vacation_days:=case when coalesce((p_data->>'vacation_taken')::boolean,false) then 0 else coalesce(nullif(p_data->>'vacation_days','')::numeric,public.hr_public_vacation_days(v_service,v_calendar_months)) end;
+ if v_category='TEMPORAL' and v_service<365 then v_vacation_days:=0;end if;
+ v_indemnity:=round(v_salary*v_indemnity_months,2);v_vacation:=round(v_daily*v_vacation_days,2);v_christmas:=case when coalesce((p_data->>'christmas_included')::boolean,true) then round(coalesce(nullif(p_data->>'annual_earned_salary','')::numeric,0)/12,2) else 0 end;
+ v_other:=greatest(coalesce(nullif(p_data->>'other_income','')::numeric,0),0);v_isr:=greatest(coalesce(nullif(p_data->>'isr_withholding','')::numeric,0),0);v_deductions:=greatest(coalesce(nullif(p_data->>'other_deductions','')::numeric,0),0);v_gross:=v_indemnity+v_vacation+v_christmas+v_other;v_net:=greatest(v_gross-v_isr-v_deductions,0);
+ if p_id is null then insert into public.hr_labor_benefit_calculations(employee_id,entry_date,exit_date,termination_reason,calculation_type,monthly_salary,annual_earned_salary,daily_salary,service_days,notice_included,notice_given,notice_days,notice_amount,severance_included,severance_days,severance_amount,vacation_taken,vacation_days,vacation_amount,christmas_included,christmas_amount,other_income,isr_withholding,other_deductions,gross_total,net_total,notes,created_by,legal_regime,public_servant_category,unjustified_termination,calendar_service_months)
+  values(v_employee.id,v_entry,v_exit,trim(coalesce(p_data->>'termination_reason','No especificada')),'ORDINARIO',v_salary,coalesce(nullif(p_data->>'annual_earned_salary','')::numeric,0),v_daily,v_service,false,false,0,0,true,v_indemnity_months,v_indemnity,coalesce((p_data->>'vacation_taken')::boolean,false),v_vacation_days,v_vacation,coalesce((p_data->>'christmas_included')::boolean,true),v_christmas,v_other,v_isr,v_deductions,v_gross,v_net,coalesce(p_data->>'notes',''),v_user.id,'LEY_41_08',v_category,v_unjustified,v_calendar_months) returning id into v_id;
+ else v_id:=p_id;update public.hr_labor_benefit_calculations set entry_date=v_entry,exit_date=v_exit,termination_reason=trim(coalesce(p_data->>'termination_reason','No especificada')),monthly_salary=v_salary,annual_earned_salary=coalesce(nullif(p_data->>'annual_earned_salary','')::numeric,0),daily_salary=v_daily,service_days=v_service,notice_included=false,notice_given=false,notice_days=0,notice_amount=0,severance_included=true,severance_days=v_indemnity_months,severance_amount=v_indemnity,vacation_taken=coalesce((p_data->>'vacation_taken')::boolean,false),vacation_days=v_vacation_days,vacation_amount=v_vacation,christmas_included=coalesce((p_data->>'christmas_included')::boolean,true),christmas_amount=v_christmas,other_income=v_other,isr_withholding=v_isr,other_deductions=v_deductions,gross_total=v_gross,net_total=v_net,notes=coalesce(p_data->>'notes',''),legal_regime='LEY_41_08',public_servant_category=v_category,unjustified_termination=v_unjustified,calendar_service_months=v_calendar_months,updated_at=now() where id=v_id;end if;
+ insert into public.hr_labor_benefit_audit(calculation_id,action,from_status,to_status,comments,actor_user_id)values(v_id,case when p_id is null then 'CREAR' else 'MODIFICAR' end,'BORRADOR','BORRADOR',coalesce(p_data->>'notes',''),v_user.id);
+ return jsonb_build_object('success',true,'id',v_id,'gross_total',v_gross,'net_total',v_net,'legal_regime','LEY_41_08');
+end$$;
+
+grant execute on function public.hr_public_vacation_days(integer,integer),public.hr_public_indemnity_months(date,date,text,boolean) to anon,authenticated;

@@ -635,19 +635,21 @@ test("carnetización utiliza empleados activos, Supabase y permisos independient
  assert.equal(workflow.includes("hr_id_card_management.sql"),true);
 });
 
-test("prestaciones laborales calcula componentes y exige flujo sin saltos",async()=>{
+test("beneficios públicos aplican Ley 41-08, cuentas DIGEPRES y flujo sin saltos",async()=>{
  const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
  const component=await readFile(new URL("../app/components/LaborBenefitsManagement.tsx",import.meta.url),"utf8");
  const route=await readFile(new URL("../app/api/hr/labor-benefits/route.ts",import.meta.url),"utf8");
  const migration=await readFile(new URL("../supabase/hr_labor_benefits.sql",import.meta.url),"utf8");
  const workflow=await readFile(new URL("../.github/workflows/supabase-migrate.yml",import.meta.url),"utf8");
  for(const permission of ["ver_prestaciones_laborales","calcular_prestaciones_laborales","revisar_prestaciones_laborales","aprobar_prestaciones_laborales","pagar_prestaciones_laborales"])assert.equal(page.includes(permission),true);
- for(const amount of ["notice_amount","severance_amount","vacation_amount","christmas_amount","gross_total","net_total"])assert.equal(migration.includes(amount),true);
+ for(const rule of ["LEY_41_08","21.67","ESTATUTO_SIMPLIFICADO","CARRERA_PRE_41_08","hr_public_indemnity_months","hr_public_vacation_days"])assert.equal(migration.includes(rule),true);
+ for(const account of ["2.1.1.5.03","2.1.1.5.04","2.1.1.4.01"])assert.equal(component.includes(account)&&migration.includes(account),true);
  assert.equal(migration.includes("p_action='REVISAR' and v_item.status='BORRADOR'"),true);
  assert.equal(migration.includes("p_action='APROBAR' and v_item.status='REVISADA'"),true);
  assert.equal(migration.includes("p_action='PAGAR' and v_item.status='APROBADA'"),true);
  assert.equal(component.includes("SearchableEmployeeSelect"),true);
- assert.equal(component.includes("Cálculo preliminar"),true);
+ assert.equal(component.includes("RESULTADO PRELIMINAR · LEY 41-08"),true);
+ assert.equal(component.includes("Preaviso"),false);
  assert.equal(route.includes('rpc("save_hr_labor_benefit"'),true);
  assert.equal(workflow.includes("hr_labor_benefits.sql"),true);
 });
