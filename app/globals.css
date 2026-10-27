@@ -454,3 +454,8 @@ img,svg,canvas,video{max-width:100%;height:auto}
 @media(max-width:1000px){.labor-benefits-workspace{grid-template-columns:1fr}.labor-benefits-result{position:static}.labor-benefits-options{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:820px){.labor-benefits-head{align-items:stretch}.labor-benefits-year{width:100%;min-width:0;flex-basis:auto}.labor-benefits-fields>.searchable-employee-select{grid-template-columns:1fr}}
 @media(max-width:620px){.labor-benefits-fields{grid-template-columns:1fr;padding:16px}.labor-benefits-fields .wide,.labor-benefits-fields>small,.labor-benefits-options,.labor-benefits-fields>.searchable-employee-select{grid-column:auto}.labor-benefits-options{grid-template-columns:1fr}.labor-benefits-result{padding:18px}}
+
+/* La fotografía de carnet forma parte del encabezado del expediente único. */
+.employee-dossier-avatar{position:relative;overflow:hidden}
+.employee-dossier-avatar.has-photo{border:2px solid #fff;background:#e7f0f4;box-shadow:0 3px 10px #143c5726}
+.employee-dossier-avatar img{object-fit:cover}

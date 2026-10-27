@@ -177,7 +177,7 @@ begin
  v_deductions:=v_user.role='Administrador' or coalesce((v_user.permissions->>'ver_descuentos')::boolean,false);
  v_discipline:=v_user.role='Administrador' or coalesce((v_user.permissions->>'consultar_expedientes_disciplinarios')::boolean,false);
  v_employee_json:=to_jsonb(v_employee);
- if not v_personal then v_employee_json:=v_employee_json-'document_number'-'birth_date'-'phone'-'cell_phone'-'landline_phone'-'driver_license'-'blood_type'-'home_address'-'bank_account'-'academic_level';end if;
+ if not v_personal then v_employee_json:=v_employee_json-'document_number'-'birth_date'-'phone'-'cell_phone'-'landline_phone'-'driver_license'-'blood_type'-'home_address'-'bank_account'-'academic_level'-'photo_data';end if;
  if not v_salary then v_employee_json:=v_employee_json-'monthly_salary';end if;
  insert into public.security_audit_log(actor_user_id,target_user_id,action,module,detail)
  values(v_user.id,v_employee.app_user_id,'HR_DOSSIER_VIEWED','Recursos Humanos',jsonb_build_object('employee_id',p_employee_id,'personal_data',v_personal,'salary',v_salary,'deductions',v_deductions,'discipline',v_discipline));

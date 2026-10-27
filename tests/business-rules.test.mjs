@@ -632,6 +632,10 @@ test("carnetización utiliza empleados activos, Supabase y permisos independient
  assert.equal(migration.includes("create table if not exists public.hr_employee_id_cards"),true);
  assert.equal(migration.includes("public.hr_employee_in_user_scope"),true);
  assert.equal(migration.includes("HR_ID_CARD_SAVED"),true);
+ assert.equal(migration.includes("alter table public.hr_employees add column if not exists photo_data"),true);
+ assert.equal(migration.includes("update public.hr_employees set photo_data=p_data->>'photo_data'"),true);
+ const dossier=await readFile(new URL("../app/components/EmployeeDossier.tsx",import.meta.url),"utf8");
+ assert.equal(dossier.includes("employee.photo_data"),true);
  assert.equal(workflow.includes("hr_id_card_management.sql"),true);
 });
 

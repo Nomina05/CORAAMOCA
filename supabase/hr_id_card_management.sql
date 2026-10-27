@@ -1,4 +1,6 @@
 -- Carnetización integrada al expediente único de Recursos Humanos.
+alter table public.hr_employees add column if not exists photo_data text not null default '';
+
 create table if not exists public.hr_employee_id_cards(
  id uuid primary key default gen_random_uuid(),
  card_number bigint generated always as identity unique,
@@ -16,6 +18,11 @@ create table if not exists public.hr_employee_id_cards(
  check(expiry_date>=issue_date)
 );
 create index if not exists hr_employee_id_cards_expiry_idx on public.hr_employee_id_cards(status,expiry_date);
+
+-- Recupera fotografías ya emitidas para mostrarlas también en el expediente único.
+update public.hr_employees e set photo_data=c.photo_data
+from public.hr_employee_id_cards c
+where c.employee_id=e.id and c.photo_data<>'' and e.photo_data is distinct from c.photo_data;
 
 create table if not exists public.hr_id_card_configuration(
  singleton boolean primary key default true check(singleton),
@@ -80,6 +87,9 @@ begin
   status=excluded.status,photo_data=case when excluded.photo_data='' then public.hr_employee_id_cards.photo_data else excluded.photo_data end,
   observation=excluded.observation,updated_by=v_user.id,updated_at=now()
  returning id into v_id;
+ if coalesce(p_data->>'photo_data','')<>'' then
+  update public.hr_employees set photo_data=p_data->>'photo_data',updated_at=now() where id=v_employee.id;
+ end if;
  insert into public.security_audit_log(actor_user_id,action,module,detail)
  values(v_user.id,'HR_ID_CARD_SAVED','Recursos Humanos',jsonb_build_object('employee_id',v_employee.id,'card_id',v_id,'status',p_data->>'status'));
  return jsonb_build_object('success',true,'id',v_id);
