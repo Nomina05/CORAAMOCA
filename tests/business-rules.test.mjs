@@ -621,6 +621,11 @@ test("carnetización utiliza empleados activos, Supabase y permisos independient
  for(const permission of ["ver_carnets_rrhh","gestionar_carnets_rrhh","imprimir_carnets_rrhh","configurar_carnets_rrhh"])assert.equal(page.includes(permission),true);
  assert.equal(page.includes('section:"Carnetización"'),true);
  assert.equal(styles.includes("width:54mm;height:85mm"),true);
+ assert.equal(styles.includes("Ajuste final del carnet institucional según el diseño oficial de referencia"),true);
+ assert.equal(styles.includes("radial-gradient(circle at 86% 12%"),true);
+ assert.equal(styles.includes(".id-card-front header{position:relative;inset:auto"),true);
+ assert.equal(component.includes("<b>VALORES</b>"),true);
+ assert.equal(component.includes("<dt>Vigencia</dt>"),true);
  assert.equal(component.includes("/api/hr/id-cards"),true);
  assert.equal(component.includes("localStorage"),false);
  assert.equal(route.includes('rpc("save_hr_id_card"'),true);
