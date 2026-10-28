@@ -19,8 +19,11 @@ export default function CommercialGeoMap({customers,meters}:{customers:CustomerP
   void import("leaflet").then(L=>{
    if(!active||!container.current)return;
    mapRef.current?.remove();
-   const map=L.map(container.current,{zoomControl:true,attributionControl:true});
+   const provinceBounds=L.latLngBounds([[19.3077463,-70.6106827],[19.7140174,-70.0818209]]);
+   const map=L.map(container.current,{zoomControl:true,attributionControl:true,maxBounds:provinceBounds.pad(.015),maxBoundsViscosity:1});
    mapRef.current=map;
+   map.createPane("provinceMask");
+   const maskPane=map.getPane("provinceMask");if(maskPane){maskPane.style.zIndex="650";maskPane.style.pointerEvents="none"}
    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'}).addTo(map);
    const coordinates:LatLngExpression[]=[];
    if(showCustomers)customerPoints.forEach(item=>{
@@ -31,8 +34,21 @@ export default function CommercialGeoMap({customers,meters}:{customers:CustomerP
     const position:LatLngExpression=[Number(item.latitude),Number(item.longitude)];coordinates.push(position);
     L.marker(position,{icon:L.divIcon({className:"commercial-map-marker",html:'<span class="meter-marker">M</span>',iconSize:[26,26],iconAnchor:[13,13]})}).addTo(map).bindPopup(`<strong>Medidor ${escapeHtml(item.meter_number)}</strong><br>Usuario: ${escapeHtml(item.customer_name)}<br>Estado: ${escapeHtml(item.status)}<br>Última lectura: ${item.last_reading??"Sin lectura"}`);
    });
-   if(coordinates.length)map.fitBounds(L.latLngBounds(coordinates).pad(.18),{maxZoom:15});
-   else map.fitBounds([[19.20,-70.90],[19.78,-70.25]]);
+   void fetch("/data/espaillat.geojson").then(response=>response.json()).then(boundary=>{
+    if(!active)return;
+    const province=L.geoJSON(boundary,{pane:"provinceMask",style:{color:"#0c6c8a",weight:3,fill:false,opacity:1}}).addTo(map);
+    const geometry=boundary?.features?.[0]?.geometry;
+    if(geometry?.type==="Polygon"){
+     const provinceRing=geometry.coordinates[0].map((point:number[])=>[point[1],point[0]] as [number,number]);
+     const world:[[number,number],[number,number],[number,number],[number,number]]=[[-90,-180],[-90,180],[90,180],[90,-180]];
+     L.polygon([world,provinceRing],{pane:"provinceMask",stroke:false,fill:true,fillColor:"#dbe3e7",fillOpacity:.9,fillRule:"evenodd",interactive:false}).addTo(map);
+    }
+    province.bringToFront();
+    const bounds=province.getBounds();
+    map.setMaxBounds(bounds.pad(.015));
+    map.fitBounds(bounds,{animate:false});
+    map.setMinZoom(map.getBoundsZoom(bounds));
+   }).catch(()=>{map.fitBounds(provinceBounds);map.setMinZoom(map.getBoundsZoom(provinceBounds))});
   });
   return()=>{active=false;mapRef.current?.remove();mapRef.current=null};
  },[customerPoints,meterPoints,showCustomers,showMeters]);
