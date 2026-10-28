@@ -571,7 +571,6 @@ export default function Home() {
   const performanceIndex=Math.round((totals.avg+financialProgress)/2);
   const nextMilestone=useMemo(()=>portfolioProjects.filter(project=>project.due&&new Date(project.due).getTime()>=Date.now()).sort((left,right)=>new Date(left.due||0).getTime()-new Date(right.due||0).getTime())[0]||null,[portfolioProjects]);
   const milestoneDays=nextMilestone?.due?Math.max(0,Math.ceil((new Date(nextMilestone.due).getTime()-Date.now())/86400000)):null;
-  const dashboardPeriod=new Date().toLocaleDateString("es-DO",{month:"long",year:"numeric"});
 
   async function addProject(e:React.FormEvent<HTMLFormElement>){
     e.preventDefault();
@@ -768,8 +767,6 @@ export default function Home() {
           {section==="Horas Extras"&&<PayrollProcessing type="HORAS_EXTRAS"/>}
           {section==="Prestaciones Laborales"&&<LaborBenefitsManagement canCreate={canView("calcular_prestaciones_laborales" as keyof Permissions)} canReview={canView("revisar_prestaciones_laborales" as keyof Permissions)} canApprove={canView("aprobar_prestaciones_laborales" as keyof Permissions)} canPay={canView("pagar_prestaciones_laborales" as keyof Permissions)}/>}
           {section==="Presupuesto de Nómina"&&<PayrollBudgetOperations year={payrollYear} month={payrollMonth} canEdit={canView("editar_recursos_humanos")} canClose={canView("cerrar_nomina")} onChanged={loadPayrollBudget}/>}
-          <div className="page-head"><div><span className="eyebrow">CENTRO DE OPERACIONES · DATOS DE SUPABASE</span><h1>{section === "Resumen" ? "Dashboard operativo" : section}</h1><p>{section === "Resumen" ? "Medición en tiempo real de proyectos, ejecución y tareas" : "Seguimiento integral de metas, recursos y resultados"} · {dashboardPeriod}</p></div><button className="outline" onClick={() => printActiveView("printing-dashboard")}>⇩ Imprimir / exportar PDF</button></div>
-
           {section==="Resumen"&&<section className="personal-dashboard">
             {dashboardLoading?<div className="technical-empty"><strong>Preparando su panel</strong><span>Consultando tareas, proyectos y alertas autorizadas…</span></div>:!dashboard?<div className="technical-empty"><strong>Panel pendiente de activación</strong><span>Ejecute la migración personal_dashboard.sql en Supabase para utilizar información operativa real.</span></div>:<>
               {(()=>{const statuses=Array.from(new Set(dashboard.projects.map(project=>project.work_status||"Sin estado"))).sort();const projects=dashboardStatus==="Todos"?dashboard.projects:dashboard.projects.filter(project=>(project.work_status||"Sin estado")===dashboardStatus);const totalBudget=projects.reduce((sum,project)=>sum+Number(project.budgeted_amount||0),0);const totalAwarded=projects.reduce((sum,project)=>sum+Number(project.awarded_amount||0),0);const totalPaid=projects.reduce((sum,project)=>sum+Number(project.total_paid||0),0);const avgProgress=projects.length?projects.reduce((sum,project)=>sum+Number(project.work_progress||0),0)/projects.length:0;const financialProgress=totalAwarded?totalPaid/totalAwarded*100:0;const statusCounts=statuses.map(status=>({status,count:dashboard.projects.filter(project=>(project.work_status||"Sin estado")===status).length})).sort((a,b)=>b.count-a.count);const maxStatus=Math.max(1,...statusCounts.map(item=>item.count));return <>

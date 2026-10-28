@@ -165,7 +165,8 @@ test("el tablero institucional utiliza proyectos, empleados y presupuesto de Sup
   assert.equal(page.includes('metric: "428"'),false);
   assert.equal(page.includes("Julio 2026"),false);
   assert.equal(page.includes("4.1% vs. junio"),false);
-  assert.equal(page.includes("DATOS DE SUPABASE"),true);
+  assert.equal(page.includes("CENTRO DE OPERACIONES · DATOS DE SUPABASE"),false);
+  assert.equal(page.includes("DASHBOARD EN TIEMPO REAL"),true);
 });
 
 test("la acción de personal se imprime en tamaño carta",async()=>{
@@ -179,12 +180,12 @@ test("la acción de personal se imprime en tamaño carta",async()=>{
   assert.equal(component.includes("grid-template-rows:38px 38px!important;align-content:space-between!important"),true);
 });
 
-test("cada exportación PDF utiliza un modo de impresión independiente",async()=>{
+test("cada documento exportable utiliza un modo de impresión independiente",async()=>{
   const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
   const component=await readFile(new URL("../app/components/PersonnelAction.tsx",import.meta.url),"utf8");
   const css=await readFile(new URL("../app/globals.css",import.meta.url),"utf8");
   assert.equal(page.includes('printActiveView("printing-report")'),true);
-  assert.equal(page.includes('printActiveView("printing-dashboard")'),true);
+  assert.equal(page.includes('printActiveView("printing-dashboard")'),false);
   assert.equal(component.includes("printing-personnel-action"),true);
   assert.equal(css.includes("body.printing-personnel-action *{visibility:hidden!important}"),true);
   assert.equal(css.includes("body *{visibility:hidden!important}"),false);
