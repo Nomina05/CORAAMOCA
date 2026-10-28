@@ -4,5 +4,6 @@
 .commercial-area-grid span{color:#287b94;font-size:7px;font-weight:900;letter-spacing:.6px;white-space:normal}
 .commercial-area-grid strong{color:#163f59;font-size:18px}
 .commercial-area-grid small{color:#7a8e99;font-size:7px}
+.commercial-auto-code{padding:9px 11px;border:1px solid #bee1e8;border-radius:7px;background:#eff9fa;color:#22677c;font-size:9px;font-weight:750}
 @media(max-width:900px){.commercial-area-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:520px){.commercial-area-grid{grid-template-columns:1fr}}

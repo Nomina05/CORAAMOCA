@@ -759,4 +759,11 @@ test("Gestión Comercial integra sus cuatro áreas operativas con Supabase",asyn
  assert.equal(component.includes('name="assigned_unit"'),true);
  assert.equal(sql.includes("commercial_service_requests"),true);
  assert.equal(sql.includes("assigned_unit"),true);
+ assert.equal(component.includes("No. de contrato"),true);
+ assert.equal(component.includes('name="invoice_number"'),false);
+ assert.equal(component.includes('name="receipt_number"'),false);
+ assert.equal(component.includes('name="code"'),false);
+ for(const sequence of ["commercial_invoice_number_seq","commercial_receipt_number_seq","commercial_operation_code_seq"]){
+  assert.equal(sql.includes(sequence),true);
+ }
 });

@@ -1,4 +1,8 @@
 -- Base operativa de la Dirección Comercial.
+create sequence if not exists public.commercial_invoice_number_seq;
+create sequence if not exists public.commercial_receipt_number_seq;
+create sequence if not exists public.commercial_operation_code_seq;
+
 create table if not exists public.commercial_customers(
  id uuid primary key default gen_random_uuid(), account_code text not null unique,
  full_name text not null, document_number text not null default '', phone text not null default '',
@@ -50,21 +54,24 @@ end $$;
 
 create or replace function public.manage_commercial_record(p_token text,p_action text,p_data jsonb)
 returns jsonb language plpgsql security definer set search_path=public,extensions as $$
-declare v_user public.app_users;v_id uuid;v_customer uuid;v_invoice uuid;v_total numeric;v_paid numeric;
+declare v_user public.app_users;v_id uuid;v_customer uuid;v_invoice uuid;v_total numeric;v_paid numeric;v_code text;
 begin
  v_user:=public.hr_authenticated_user(p_token);
  if v_user.id is null or (v_user.role<>'Administrador' and not coalesce((v_user.permissions->>'gestionar_comercial')::boolean,false)) then return jsonb_build_object('success',false,'error','No posee permiso para registrar operaciones comerciales.');end if;
  if p_action='CUSTOMER' then
   insert into public.commercial_customers(account_code,full_name,document_number,phone,address,sector,created_by) values(trim(p_data->>'account_code'),trim(p_data->>'full_name'),coalesce(p_data->>'document_number',''),coalesce(p_data->>'phone',''),coalesce(p_data->>'address',''),coalesce(p_data->>'sector',''),v_user.id) returning id into v_id;
  elsif p_action='INVOICE' then
-  insert into public.commercial_invoices(invoice_number,customer_id,billing_period,amount,due_date,created_by) values(trim(p_data->>'invoice_number'),(p_data->>'customer_id')::uuid,((p_data->>'billing_period')||'-01')::date,(p_data->>'amount')::numeric,(p_data->>'due_date')::date,v_user.id) returning id into v_id;
+  v_code:='FAC-'||extract(year from current_date)::integer||'-'||lpad(nextval('public.commercial_invoice_number_seq')::text,6,'0');
+  insert into public.commercial_invoices(invoice_number,customer_id,billing_period,amount,due_date,created_by) values(v_code,(p_data->>'customer_id')::uuid,((p_data->>'billing_period')||'-01')::date,(p_data->>'amount')::numeric,(p_data->>'due_date')::date,v_user.id) returning id into v_id;
  elsif p_action='PAYMENT' then
   v_customer:=(p_data->>'customer_id')::uuid;v_invoice:=nullif(p_data->>'invoice_id','')::uuid;
-  insert into public.commercial_payments(receipt_number,customer_id,invoice_id,amount,payment_date,channel,reference,created_by) values(trim(p_data->>'receipt_number'),v_customer,v_invoice,(p_data->>'amount')::numeric,coalesce(nullif(p_data->>'payment_date','')::date,current_date),coalesce(p_data->>'channel','Caja'),coalesce(p_data->>'reference',''),v_user.id) returning id into v_id;
+  v_code:='REC-'||extract(year from current_date)::integer||'-'||lpad(nextval('public.commercial_receipt_number_seq')::text,6,'0');
+  insert into public.commercial_payments(receipt_number,customer_id,invoice_id,amount,payment_date,channel,reference,created_by) values(v_code,v_customer,v_invoice,(p_data->>'amount')::numeric,coalesce(nullif(p_data->>'payment_date','')::date,current_date),coalesce(p_data->>'channel','Caja'),coalesce(p_data->>'reference',''),v_user.id) returning id into v_id;
   if v_invoice is not null then select amount,coalesce((select sum(amount) from public.commercial_payments where invoice_id=v_invoice),0) into v_total,v_paid from public.commercial_invoices where id=v_invoice;update public.commercial_invoices set status=case when v_paid>=v_total then 'Pagada' when v_paid>0 then 'Parcial' else status end,updated_at=now() where id=v_invoice;end if;
  elsif p_action='REQUEST' then
-  insert into public.commercial_service_requests(code,customer_id,category,description,assigned_unit,created_by) values(trim(p_data->>'code'),(p_data->>'customer_id')::uuid,trim(p_data->>'category'),trim(p_data->>'description'),coalesce(p_data->>'assigned_unit','Atención al Cliente'),v_user.id) returning id into v_id;
+  v_code:='OP-'||extract(year from current_date)::integer||'-'||lpad(nextval('public.commercial_operation_code_seq')::text,6,'0');
+  insert into public.commercial_service_requests(code,customer_id,category,description,assigned_unit,created_by) values(v_code,(p_data->>'customer_id')::uuid,trim(p_data->>'category'),trim(p_data->>'description'),coalesce(p_data->>'assigned_unit','Centro de Servicio al Cliente'),v_user.id) returning id into v_id;
  else return jsonb_build_object('success',false,'error','Operación comercial no reconocida.');end if;
- return jsonb_build_object('success',true,'id',v_id);
+ return jsonb_build_object('success',true,'id',v_id,'code',v_code);
 exception when unique_violation then return jsonb_build_object('success',false,'error','El código indicado ya se encuentra registrado.');when others then return jsonb_build_object('success',false,'error',sqlerrm);end $$;
 grant execute on function public.list_commercial_dashboard(text),public.manage_commercial_record(text,text,jsonb) to anon,authenticated;
