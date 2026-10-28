@@ -96,6 +96,7 @@ jobs:
             "supabase/project_digital_file.sql"
             "supabase/personal_dashboard.sql"
             "supabase/institutional_reports.sql"
+            "supabase/commercial_management.sql"
           )
           for migration in "${migrations[@]}"; do
             echo "Aplicando $migration"
@@ -147,5 +148,9 @@ jobs:
                 ,'budget_account_catalog'
                 ,'procurement_process_catalog'
                 ,'supplier_catalog'
+                ,'commercial_customers'
+                ,'commercial_invoices'
+                ,'commercial_payments'
+                ,'commercial_service_requests'
               )
             order by table_name;"
