@@ -752,6 +752,7 @@ test("el código del empleado es independiente de la cédula y la acción usa fo
 
 test("Gestión Comercial integra sus cuatro áreas operativas con Supabase",async()=>{
  const component=await readFile(new URL("../app/components/CommercialManagement.tsx",import.meta.url),"utf8");
+ const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
  const sql=await readFile(new URL("../supabase/commercial_management.sql",import.meta.url),"utf8");
  for(const area of ["Catastro de usuarios","Micro-Medición","Corte y Reconexión","Centro de Servicio al Cliente"]){
   assert.equal(component.includes(area),true);
@@ -775,6 +776,8 @@ test("Gestión Comercial integra sus cuatro áreas operativas con Supabase",asyn
  assert.equal(component.includes("service_channel"),true);
  assert.equal(component.includes("Imprimir informe"),true);
  assert.equal(component.includes("Gestión Humana"),true);
+ assert.equal(page.includes('section:"Gestión Humana Comercial"'),true);
+ assert.equal(page.includes('initialTab="Gestión Humana"'),true);
  assert.equal(component.includes("commercialEmployees"),true);
  assert.equal(component.includes("commercialVacancies"),true);
  assert.equal(sql.includes("commercial_employees"),true);
