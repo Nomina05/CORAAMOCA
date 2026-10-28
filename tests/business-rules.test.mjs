@@ -781,6 +781,9 @@ test("Gestión Comercial integra sus cuatro áreas operativas con Supabase",asyn
  assert.equal(map.includes("meter-marker"),true);
  assert.equal(map.includes('/data/espaillat.geojson'),true);
  assert.equal(map.includes("maxBoundsViscosity:1"),true);
+ assert.equal(map.includes("const isCurrent=()"),true);
+ assert.equal(map.includes("if(isCurrent())"),true);
+ assert.equal(map.includes("mapRef.current=null"),true);
  const boundary=JSON.parse(await readFile(new URL("../public/data/espaillat.geojson",import.meta.url),"utf8"));
  assert.equal(boundary.features[0].properties.osm_id,3412918);
 });

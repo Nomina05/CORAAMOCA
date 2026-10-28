@@ -18,10 +18,10 @@ export default function CommercialGeoMap({customers,meters}:{customers:CustomerP
   let active=true;
   void import("leaflet").then(L=>{
    if(!active||!container.current)return;
-   mapRef.current?.remove();
    const provinceBounds=L.latLngBounds([[19.3077463,-70.6106827],[19.7140174,-70.0818209]]);
    const map=L.map(container.current,{zoomControl:true,attributionControl:true,maxBounds:provinceBounds.pad(.015),maxBoundsViscosity:1});
    mapRef.current=map;
+   const isCurrent=()=>active&&mapRef.current===map&&Boolean(container.current);
    map.createPane("provinceMask");
    const maskPane=map.getPane("provinceMask");if(maskPane){maskPane.style.zIndex="650";maskPane.style.pointerEvents="none"}
    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'}).addTo(map);
@@ -35,7 +35,7 @@ export default function CommercialGeoMap({customers,meters}:{customers:CustomerP
     L.marker(position,{icon:L.divIcon({className:"commercial-map-marker",html:'<span class="meter-marker">M</span>',iconSize:[26,26],iconAnchor:[13,13]})}).addTo(map).bindPopup(`<strong>Medidor ${escapeHtml(item.meter_number)}</strong><br>Usuario: ${escapeHtml(item.customer_name)}<br>Estado: ${escapeHtml(item.status)}<br>Última lectura: ${item.last_reading??"Sin lectura"}`);
    });
    void fetch("/data/espaillat.geojson").then(response=>response.json()).then(boundary=>{
-    if(!active)return;
+    if(!isCurrent())return;
     const province=L.geoJSON(boundary,{pane:"provinceMask",style:{color:"#0c6c8a",weight:3,fill:false,opacity:1}}).addTo(map);
     const geometry=boundary?.features?.[0]?.geometry;
     if(geometry?.type==="Polygon"){
@@ -48,9 +48,15 @@ export default function CommercialGeoMap({customers,meters}:{customers:CustomerP
     map.setMaxBounds(bounds.pad(.015));
     map.fitBounds(bounds,{animate:false});
     map.setMinZoom(map.getBoundsZoom(bounds));
-   }).catch(()=>{map.fitBounds(provinceBounds);map.setMinZoom(map.getBoundsZoom(provinceBounds))});
-  });
-  return()=>{active=false;mapRef.current?.remove();mapRef.current=null};
+   }).catch(()=>{if(isCurrent()){map.fitBounds(provinceBounds);map.setMinZoom(map.getBoundsZoom(provinceBounds))}});
+   window.setTimeout(()=>{if(isCurrent())map.invalidateSize({animate:false})},0);
+  }).catch(()=>undefined);
+  return()=>{
+   active=false;
+   const map=mapRef.current;
+   mapRef.current=null;
+   if(map){try{map.off();map.remove()}catch{/* La instancia ya fue desmontada por React. */}}
+  };
  },[customerPoints,meterPoints,showCustomers,showMeters]);
 
  return <section className="commercial-map-card"><header><div><span>MAPA GEOREFERENCIAL · PROVINCIA ESPAILLAT</span><h3>Usuarios y medidores instalados</h3><p>Los puntos se incorporan automáticamente al registrar coordenadas válidas.</p></div><div className="commercial-map-filters"><label><input type="checkbox" checked={showCustomers} onChange={event=>setShowCustomers(event.target.checked)}/> Usuarios <i className="customer-dot"/></label><label><input type="checkbox" checked={showMeters} onChange={event=>setShowMeters(event.target.checked)}/> Medidores <i className="meter-dot"/></label></div></header><div ref={container} className="commercial-map"/><footer><span><strong>{customerPoints.length}</strong> usuarios georreferenciados</span><span><strong>{meterPoints.length}</strong> medidores georreferenciados</span><span><strong>{customers.length-customerPoints.length+meters.length-meterPoints.length}</strong> registros pendientes de coordenadas</span></footer></section>;
