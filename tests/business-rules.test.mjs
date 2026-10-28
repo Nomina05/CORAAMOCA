@@ -780,6 +780,11 @@ test("Gestión Comercial integra sus cuatro áreas operativas con Supabase",asyn
  assert.equal(page.includes('initialTab="Gestión Humana"'),true);
  assert.equal(component.includes("commercialEmployees"),true);
  assert.equal(component.includes("commercialVacancies"),true);
+ assert.equal(component.includes("setHrView"),true);
+ assert.equal(component.includes("Empleados con permisos solicitados"),true);
+ assert.equal(component.includes("Empleados con licencia médica vigente"),true);
+ assert.equal(component.includes("Empleados de vacaciones actualmente"),true);
+ assert.equal(component.includes("Vacantes disponibles en la Dirección Comercial"),true);
  assert.equal(sql.includes("commercial_employees"),true);
  assert.equal(sql.includes("commercial_vacancies"),true);
  assert.equal(sql.includes("Dirección Comercial"),true);
