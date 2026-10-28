@@ -76,7 +76,7 @@ revoke all on public.commercial_customers,public.commercial_invoices,public.comm
 
 create or replace function public.list_commercial_dashboard(p_token text)
 returns jsonb language plpgsql security definer set search_path=public,extensions as $$
-declare v_user public.app_users;v_customers jsonb;v_invoices jsonb;v_payments jsonb;v_requests jsonb;v_meters jsonb;v_readings jsonb;v_orders jsonb;
+declare v_user public.app_users;v_customers jsonb;v_invoices jsonb;v_payments jsonb;v_requests jsonb;v_meters jsonb;v_readings jsonb;v_orders jsonb;v_hr_employees jsonb;v_hr_vacancies jsonb;
 begin
  v_user:=public.hr_authenticated_user(p_token);
  if v_user.id is null or (v_user.role<>'Administrador' and not coalesce((v_user.permissions->>'ver_gestion_comercial')::boolean,false)) then return jsonb_build_object('success',false,'error','No posee permiso para consultar Gestión Comercial.');end if;
@@ -87,7 +87,20 @@ begin
  select coalesce(jsonb_agg(to_jsonb(x) order by x.created_at desc),'[]'::jsonb) into v_meters from(select m.*,c.account_code,c.full_name customer_name,(select mr.reading_value from public.commercial_meter_readings mr where mr.meter_id=m.id order by mr.reading_date desc limit 1) last_reading,(select mr.reading_date from public.commercial_meter_readings mr where mr.meter_id=m.id order by mr.reading_date desc limit 1) last_reading_date from public.commercial_meters m join public.commercial_customers c on c.id=m.customer_id)x;
  select coalesce(jsonb_agg(to_jsonb(x) order by x.reading_date desc),'[]'::jsonb) into v_readings from(select r.*,m.meter_number,c.full_name customer_name,c.account_code from public.commercial_meter_readings r join public.commercial_meters m on m.id=r.meter_id join public.commercial_customers c on c.id=m.customer_id)x;
  select coalesce(jsonb_agg(to_jsonb(x) order by x.created_at desc),'[]'::jsonb) into v_orders from(select o.*,c.account_code,c.full_name customer_name,m.meter_number from public.commercial_cut_reconnection_orders o join public.commercial_customers c on c.id=o.customer_id left join public.commercial_meters m on m.id=o.meter_id)x;
- return jsonb_build_object('success',true,'customers',v_customers,'invoices',v_invoices,'payments',v_payments,'requests',v_requests,'meters',v_meters,'readings',v_readings,'orders',v_orders);
+ select coalesce(jsonb_agg(to_jsonb(x) order by x.department_name,x.section_name,x.full_name),'[]'::jsonb) into v_hr_employees from(
+  select e.id,e.employee_code,e.full_name,e.position_name,e.employment_status,e.direction_name,e.department_name,e.division_name,e.section_name,e.center_name,
+   count(c.id) filter(where c.case_type='PERMISO' and c.status not in('RECHAZADO','ANULADA'))::integer permission_count,
+   exists(select 1 from public.hr_employee_cases m where m.employee_id=e.id and m.case_type='PERMISO' and m.status in('SOLICITADO','APROBADO') and current_date between m.start_date and m.end_date and (lower(m.category) like '%médic%' or lower(m.category) like '%medic%' or lower(m.category) like '%licencia%' or lower(m.category) like '%enfermedad%')) medical_leave_active,
+   exists(select 1 from public.hr_employee_cases va where va.employee_id=e.id and va.case_type='VACACION' and va.status in('SOLICITADO','APROBADO') and current_date between va.start_date and va.end_date) vacation_active
+  from public.hr_employees e left join public.hr_employee_cases c on c.employee_id=e.id
+  where e.employment_status<>'Desvinculado' and lower(trim(e.direction_name)) in('dirección comercial','direccion comercial')
+  group by e.id
+ )x;
+ select coalesce(jsonb_agg(to_jsonb(x) order by x.department_name,x.section_name,x.position_name),'[]'::jsonb) into v_hr_vacancies from(
+  select v.id,v.position_name,v.direction_name,v.department_name,v.division_name,v.section_name,v.center_name,v.status,v.available_from
+  from public.hr_vacancies v where v.status in('VACANTE','CON_RECLUTAMIENTO') and lower(trim(v.direction_name)) in('dirección comercial','direccion comercial')
+ )x;
+ return jsonb_build_object('success',true,'customers',v_customers,'invoices',v_invoices,'payments',v_payments,'requests',v_requests,'meters',v_meters,'readings',v_readings,'orders',v_orders,'commercial_employees',v_hr_employees,'commercial_vacancies',v_hr_vacancies);
 end $$;
 
 create or replace function public.manage_commercial_record(p_token text,p_action text,p_data jsonb)

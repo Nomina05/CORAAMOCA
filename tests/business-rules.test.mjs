@@ -774,6 +774,12 @@ test("Gestión Comercial integra sus cuatro áreas operativas con Supabase",asyn
  }
  assert.equal(component.includes("service_channel"),true);
  assert.equal(component.includes("Imprimir informe"),true);
+ assert.equal(component.includes("Gestión Humana"),true);
+ assert.equal(component.includes("commercialEmployees"),true);
+ assert.equal(component.includes("commercialVacancies"),true);
+ assert.equal(sql.includes("commercial_employees"),true);
+ assert.equal(sql.includes("commercial_vacancies"),true);
+ assert.equal(sql.includes("Dirección Comercial"),true);
  const map=await readFile(new URL("../app/components/CommercialGeoMap.tsx",import.meta.url),"utf8");
  assert.equal(component.includes("Mapa georreferencial"),true);
  assert.equal(map.includes("tile.openstreetmap.org"),true);
