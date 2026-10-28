@@ -336,6 +336,7 @@ export default function Home() {
   const [catalogMessage,setCatalogMessage]=useState("");
   const [showCatalogForm,setShowCatalogForm]=useState<CatalogType|null>(null);
   const [expandedDirection,setExpandedDirection]=useState("Dirección General");
+  const [recentSections,setRecentSections]=useState<string[]>([]);
   const [technicalProjects, setTechnicalProjects] = useState<TechnicalProject[]>([]);
   const [technicalLoading, setTechnicalLoading] = useState(false);
   const [technicalMessage, setTechnicalMessage] = useState("");
@@ -347,6 +348,7 @@ export default function Home() {
   const [showMeasurementForm,setShowMeasurementForm]=useState(false);
   const [auditMeasurement,setAuditMeasurement]=useState<Measurement|null>(null);
   const [section, setSection] = useState("Resumen");
+  useEffect(()=>{if(section==="Resumen")return;setRecentSections(items=>[section,...items.filter(item=>item!==section)].slice(0,6))},[section]);
   const [filter, setFilter] = useState<Area>("Todos");
   const [query, setQuery] = useState("");
   const [projects,setProjects]=useState<Project[]>([]);
@@ -704,18 +706,15 @@ export default function Home() {
 
   const userName = currentUser.full_name || currentUser.username || "Usuario";
   const userInitials = String(userName).split(" ").map((part: string) => part[0]).join("").slice(0, 2).toUpperCase();
+  const availableDirections=institutionalDirections.map(direction=>({...direction,visibleModules:direction.modules.filter(module=>canSeeModule(module,direction))})).filter(direction=>direction.visibleModules.length);
+  const routeDirection=availableDirections.find(direction=>direction.visibleModules.some(module=>module.section===section));
+  const activeDirection=availableDirections.find(direction=>direction.name===expandedDirection)||routeDirection||availableDirections[0];
 
   return (
     <div className="app-shell">
-      <aside className="sidebar">
-        <div className="brand"><div className="brand-mark">C</div><div><strong>CORAAMOCA</strong><span>Gestión Institucional</span></div></div>
-        <nav className="direction-nav"><p className="nav-label">ESTRUCTURA INSTITUCIONAL</p>{institutionalDirections.map(direction=>{const modules=direction.modules.filter(module=>canSeeModule(module,direction));if(!modules.length)return null;const isHr=direction.name==="Dirección de Recursos Humanos";const open=!isHr&&expandedDirection===direction.name;return <div className="direction-group" key={direction.name}><button className={`direction-toggle ${open||isHr&&section==="Recursos Humanos"?"open":""}`} onClick={()=>{if(isHr){setSection("Recursos Humanos");setExpandedDirection("");setFilter("Gestión Humana")}else setExpandedDirection(open?"":direction.name)}}><span>{direction.icon}</span><div><strong>{direction.shortName}</strong><small>{isHr?"Centro de módulos":`${modules.length} ${modules.length===1?"módulo":"módulos"}`}</small></div><b>{isHr?"→":"⌄"}</b></button>{open&&<div className="direction-modules">{modules.map(module=><button key={`${direction.name}-${module.label}`} className={section===module.section?"active":""} onClick={()=>{setSection(module.section);if(direction.area)setFilter(direction.area as Area)}}><span>{module.icon}</span>{module.label}</button>)}</div>}</div>})}</nav>
-        <div className="sidebar-foot"><div className="avatar">{userInitials}</div><div><strong>{userName}</strong><span>{currentUser.role || "Usuario"}</span></div><button title="Cerrar sesión" onClick={logout}>↪</button></div>
-      </aside>
-
       <main>
-        <header>
-          <div className="mobile-brand">CORAAMOCA</div>
+        <header className="application-header">
+          <button className="top-brand" onClick={()=>setSection("Resumen")}><span className="brand-mark">C</span><span><strong>CORAAMOCA</strong><small>Gestión Institucional</small></span></button>
           <label className="search"><span>⌕</span><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar proyectos, responsables..." /><kbd>⌘ K</kbd></label>
           <div className="header-actions">
             {systemStatus&&<div className={`deployment-status ${systemStatus.status}`} title={`Base de datos: ${systemStatus.database} · Respuesta: ${systemStatus.responseTimeMs} ms`}><i/><div><span>{systemStatus.environment==="production"?"PRODUCCIÓN":systemStatus.environment.toUpperCase()}</span><strong>{systemStatus.status==="operational"?"Operativo":"Con incidencias"} · {systemStatus.version}</strong></div></div>}
@@ -729,8 +728,11 @@ export default function Home() {
               </div>}
             </div>
             {((section==="Cubicaciones"&&canView("registrar_cubicaciones"))||(section==="Proyectos Técnicos"&&canView("crear_proyectos_tecnicos"))||(["Resumen","Proyectos"].includes(section)&&canView("crear_proyectos")))&&<button className="primary" onClick={() => section === "Cubicaciones" ? setShowMeasurementForm(true) : section === "Proyectos Técnicos" ? (setEditingTechnical(null),setShowTechnicalForm(true)) : setShowForm(true)}>＋ {section === "Cubicaciones" ? "Nueva cubicación" : "Nuevo proyecto"}</button>}
+            <div className="top-user"><div className="avatar">{userInitials}</div><span><strong>{userName}</strong><small>{currentUser.role||"Usuario"}</small></span><button title="Cerrar sesión" onClick={logout}>↪</button></div>
           </div>
         </header>
+        <nav className="institutional-top-nav" aria-label="Direcciones institucionales"><button className={section==="Resumen"?"active home":"home"} onClick={()=>setSection("Resumen")}><span>⌂</span> Inicio</button>{availableDirections.map(direction=><button key={direction.name} className={activeDirection?.name===direction.name&&section!=="Resumen"?"active":""} onClick={()=>{setExpandedDirection(direction.name);if(direction.name==="Dirección de Recursos Humanos"){setSection("Recursos Humanos");setFilter("Gestión Humana")}}}><span>{direction.icon}</span>{direction.shortName}<b>{direction.visibleModules.length}</b></button>)}</nav>
+        {section!=="Resumen"&&activeDirection&&<div className="top-module-palette"><div className="route-trail"><button onClick={()=>setSection("Resumen")}>Inicio</button><i>›</i><button onClick={()=>setExpandedDirection(activeDirection.name)}>{activeDirection.shortName}</button>{section!=="Recursos Humanos"&&<><i>›</i><strong>{section}</strong></>}</div><div className="top-module-list">{activeDirection.visibleModules.map(module=><button key={`${activeDirection.name}-${module.section}`} className={section===module.section?"active":""} onClick={()=>{setSection(module.section);if(activeDirection.area)setFilter(activeDirection.area as Area)}}><span>{module.icon}</span>{module.label}</button>)}</div></div>}
 
         <div className="content">
           {section==="Registro de Empleados"&&canView("editar_recursos_humanos")&&<div className="employee-edit-toolbar"><SearchableEmployeeSelect employees={employeeRegistry} value={editingEmployee?.id||""} onChange={id=>setEditingEmployee(employeeRegistry.find(item=>item.id===id)||null)}/><button className="primary" disabled={!editingEmployee} onClick={()=>setSection("Ficha de Empleado")}>Editar empleado</button></div>}
@@ -762,7 +764,7 @@ export default function Home() {
           {section==="Resumen"&&<section className="personal-dashboard">
             {dashboardLoading?<div className="technical-empty"><strong>Preparando su panel</strong><span>Consultando tareas, proyectos y alertas autorizadas…</span></div>:!dashboard?<div className="technical-empty"><strong>Panel pendiente de activación</strong><span>Ejecute la migración personal_dashboard.sql en Supabase para utilizar información operativa real.</span></div>:<>
               <div className="dashboard-welcome"><div><span>ESPACIO DE TRABAJO PERSONAL</span><h2>Buenos días, {userName.split(" ")[0]}</h2><p>{dashboard.direction}{dashboard.department?` · ${dashboard.department}`:""} · {currentUser.role}</p></div><div><strong>{dashboard.tasks.length}</strong><span>tareas pendientes</span></div></div>
-                <div className="dashboard-modules"><div><span>SU DIRECCIÓN Y MÓDULOS AUTORIZADOS</span><strong>{dashboard.direction}</strong></div>{dashboard.modules.map(module=><button key={module.key} onClick={()=>{const sections:Record<string,string>={ver_resumen:"Resumen",ver_proyectos:"Proyectos",ver_proyectos_tecnicos:"Proyectos Técnicos",ver_cubicaciones:"Cubicaciones",ver_gestion_presupuestaria:"Gestión Presupuestaria",ver_apropiaciones_adjudicaciones:"Apropiaciones y Adjudicaciones",ver_catalogos:"Catálogos",ver_reportes:"Reportes",ver_recursos_humanos:"Registro de Empleados",ver_estructura_organizacional:"Estructura Organizacional"};setSection(sections[module.key]||"Resumen")}}>{module.label}<b>→</b></button>)}</div>
+              <div className="dashboard-launch-row"><div className="dashboard-modules"><div><span>SU DIRECCIÓN Y MÓDULOS AUTORIZADOS</span><strong>{dashboard.direction}</strong></div>{dashboard.modules.map(module=><button key={module.key} onClick={()=>{const sections:Record<string,string>={ver_resumen:"Resumen",ver_proyectos:"Proyectos",ver_proyectos_tecnicos:"Proyectos Técnicos",ver_cubicaciones:"Cubicaciones",ver_gestion_presupuestaria:"Gestión Presupuestaria",ver_apropiaciones_adjudicaciones:"Apropiaciones y Adjudicaciones",ver_catalogos:"Catálogos",ver_reportes:"Reportes",ver_recursos_humanos:"Registro de Empleados",ver_estructura_organizacional:"Estructura Organizacional"};setSection(sections[module.key]||"Resumen")}}>{module.label}<b>→</b></button>)}</div><aside className="recent-access-panel"><div><span>ÚLTIMOS ACCESOS</span><strong>Retomar trabajo</strong></div>{recentSections.length?recentSections.map(item=><button key={item} onClick={()=>setSection(item)}><span>{item}</span><b>→</b></button>):<p>Los módulos visitados aparecerán aquí durante su sesión.</p>}</aside></div>
               <div className="dashboard-grid">
                 <article className="dashboard-card dashboard-tasks"><div className="dashboard-card-head"><div><span>PENDIENTES</span><h3>Trabajo que requiere su intervención</h3></div><b>{dashboard.tasks.length}</b></div>{dashboard.tasks.length===0?<div className="dashboard-empty">No tiene cubicaciones pendientes.</div>:dashboard.tasks.map(task=><button key={task.id} onClick={()=>setSection("Cubicaciones")}><i className={`task-${String(task.status||"pendiente").toLowerCase()}`}/><div><strong>{task.task_label}</strong><span>{task.code} · {task.work_name}</span><small>{[task.municipality,task.sector].filter(Boolean).join(" · ")} · {money(Number(task.amount))}</small></div><b>→</b></button>)}</article>
                 <article className="dashboard-card dashboard-alerts"><div className="dashboard-card-head"><div><span>CONTROL PRESUPUESTARIO</span><h3>Alertas que requieren atención</h3></div><b>{dashboard.alerts.length}</b></div>{dashboard.alerts.length===0?<div className="dashboard-empty">No existen alertas presupuestarias.</div>:dashboard.alerts.map(alert=><div className={`budget-alert alert-${alert.severity}`} key={`${alert.id}-${alert.message}`}><i>!</i><div><strong>{alert.work_name}</strong><span>{alert.message}</span></div></div>)}</article>

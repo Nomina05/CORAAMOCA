@@ -579,10 +579,9 @@ test("la fase 6 segmenta, valida, cierra y reabre la nómina con auditoría",asy
  assert.equal(component.includes("Reabrir con motivo"),true);
 });
 
-test("Recursos Humanos abre un centro de módulos y no expande la barra lateral",async()=>{
+test("la navegación institucional usa direcciones superiores, ruta y accesos recientes",async()=>{
  const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
  const styles=await readFile(new URL("../app/globals.css",import.meta.url),"utf8");
- assert.equal(page.includes('isHr?"Centro de módulos"'),true);
  assert.equal(page.includes('setSection("Recursos Humanos")'),true);
  assert.equal(page.includes("hr-module-hub"),true);
  assert.equal(page.includes("Solo se muestran las funciones autorizadas"),true);
@@ -591,8 +590,12 @@ test("Recursos Humanos abre un centro de módulos y no expande la barra lateral"
  assert.equal(page.includes("hrUnitGroups"),true);
  assert.equal(styles.includes(".hr-unit-groups"),true);
  assert.equal(page.includes('section === "Indicadores RRHH" || section === "Flujo de Novedades" ||'),true);
- assert.equal(styles.includes(".sidebar { position:fixed;"),true);
- assert.equal(styles.includes(".app-shell { min-height:100vh; display:block; padding-left:248px; }"),true);
+ assert.equal(page.includes("institutional-top-nav"),true);
+ assert.equal(page.includes("top-module-palette"),true);
+ assert.equal(page.includes("route-trail"),true);
+ assert.equal(page.includes("recent-access-panel"),true);
+ assert.equal(page.includes('<aside className="sidebar">'),false);
+ assert.equal(styles.includes(".app-shell{padding-left:0}"),true);
 });
 
 test("las licencias médicas poseen registro operativo y permisos independientes",async()=>{
