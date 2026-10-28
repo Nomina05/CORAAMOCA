@@ -749,3 +749,14 @@ test("el código del empleado es independiente de la cédula y la acción usa fo
  assert.equal(payroll.includes("select 'EMP-'||lpad(nextval('public.hr_employee_code_seq')"),true);
  assert.equal(workflow.includes("hr_employee_code_separation.sql"),true);
 });
+
+test("Gestión Comercial integra sus cuatro áreas operativas con Supabase",async()=>{
+ const component=await readFile(new URL("../app/components/CommercialManagement.tsx",import.meta.url),"utf8");
+ const sql=await readFile(new URL("../supabase/commercial_management.sql",import.meta.url),"utf8");
+ for(const area of ["Catastro de usuarios","Micro-Medición","Corte y Reconexión","Centro de Servicio al Cliente"]){
+  assert.equal(component.includes(area),true);
+ }
+ assert.equal(component.includes('name="assigned_unit"'),true);
+ assert.equal(sql.includes("commercial_service_requests"),true);
+ assert.equal(sql.includes("assigned_unit"),true);
+});

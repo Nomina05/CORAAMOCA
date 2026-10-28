@@ -1,0 +1,8 @@
+.commercial-area-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.commercial-area-grid button{display:grid;gap:4px;min-width:0;padding:12px 14px;border:1px solid #dce5e9;border-radius:9px;background:#fff;text-align:left}
+.commercial-area-grid button:hover{border-color:#1f8099;background:#f2fafb}
+.commercial-area-grid span{color:#287b94;font-size:7px;font-weight:900;letter-spacing:.6px;white-space:normal}
+.commercial-area-grid strong{color:#163f59;font-size:18px}
+.commercial-area-grid small{color:#7a8e99;font-size:7px}
+@media(max-width:900px){.commercial-area-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){.commercial-area-grid{grid-template-columns:1fr}}
