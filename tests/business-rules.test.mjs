@@ -594,8 +594,12 @@ test("la navegación institucional usa direcciones superiores, ruta y accesos re
  assert.equal(page.includes("top-module-palette"),true);
  assert.equal(page.includes("route-trail"),true);
  assert.equal(page.includes("recent-access-panel"),true);
+ assert.equal(page.includes("direction.visibleModules[0]"),true);
+ assert.equal(page.includes("dashboard-focus-tabs"),true);
+ assert.equal(page.includes("setDashboardPanel(panel)"),true);
  assert.equal(page.includes('<aside className="sidebar">'),false);
  assert.equal(styles.includes(".app-shell{padding-left:0}"),true);
+ assert.equal(styles.includes(".dashboard-focus-tabs"),true);
 });
 
 test("las licencias médicas poseen registro operativo y permisos independientes",async()=>{
