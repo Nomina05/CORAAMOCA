@@ -21,8 +21,10 @@ test("los permisos de Gestión Humana se asignan de forma independiente",()=>{
 test("el selector de permisos conserva desplazamiento y acciones visibles",async()=>{
   const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
   const css=await readFile(new URL("../app/globals.css",import.meta.url),"utf8");
-  assert.equal(page.includes('setPermissionModule("Áreas institucionales")'),true);
+  assert.equal(page.includes('setPermissionModule("Dirección General")'),true);
   assert.equal(page.includes('className="permission-module-toolbar"'),true);
+  assert.equal(page.includes("permissionDirections.map"),true);
+  assert.equal(page.includes("permissionGroupVisible(group.title)"),true);
   assert.equal(css.includes("height:min(94dvh,920px)"),true);
   assert.equal(css.includes("scrollbar-gutter:stable"),true);
   assert.equal(css.includes(".user-create-modal>.modal-actions,.permission-modal>.modal-actions"),true);
@@ -818,6 +820,6 @@ test("Gestión Comercial integra sus cuatro áreas operativas con Supabase",asyn
 
 test("la navegación comercial mantiene tipografía compacta y legible",async()=>{
  const css=await readFile(new URL("../app/globals.css",import.meta.url),"utf8");
- assert.equal(css.includes("min-height:30px;padding:5px 9px"),true);
- assert.equal(css.includes("font-size:9px;letter-spacing:0"),true);
+ assert.equal(css.includes("height:30px;min-height:30px;padding:4px 10px"),true);
+ assert.equal(css.includes("font-size:12px;letter-spacing:0"),true);
 });
