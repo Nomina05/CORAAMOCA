@@ -815,3 +815,9 @@ test("Gestión Comercial integra sus cuatro áreas operativas con Supabase",asyn
  const boundary=JSON.parse(await readFile(new URL("../public/data/espaillat.geojson",import.meta.url),"utf8"));
  assert.equal(boundary.features[0].properties.osm_id,3412918);
 });
+
+test("la navegación comercial mantiene tipografía compacta y legible",async()=>{
+ const css=await readFile(new URL("../app/globals.css",import.meta.url),"utf8");
+ assert.equal(css.includes("min-height:25px;padding:4px 7px"),true);
+ assert.equal(css.includes("font-size:6px;letter-spacing:0"),true);
+});
