@@ -43,6 +43,13 @@ test("el gobierno de usuarios integra las treinta mejoras de seguridad y adminis
   assert.equal(api.includes("admin_manage_user_governance"),true);
 });
 
+test("el módulo de usuarios aplica la estructura visual unificada y adaptable",async()=>{
+  const component=await readFile(new URL("../app/components/UserGovernance.tsx",import.meta.url),"utf8");
+  const css=await readFile(new URL("../app/user-governance.css",import.meta.url),"utf8");
+  for(const feature of ["Usuarios","Perfiles","Matriz","Temporales","Sesiones","Alertas","Auditoría","Solo incidencias","Tabla","Tarjetas","FICHA DE USUARIO","Resumen","Acceso","Permisos"] )assert.equal(component.includes(feature),true);
+  for(const selector of [".user-visual-filters",".visual-user-cards",".user-detail-drawer",".user-summary-grid",".drawer-permission-list","@media(max-width:750px)"])assert.equal(css.includes(selector),true);
+});
+
 test("seguridad de RRHH separa datos sensibles y operaciones críticas",async()=>{
   const migration=await readFile(new URL("../supabase/hr_security_confidentiality.sql",import.meta.url),"utf8");
   const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
