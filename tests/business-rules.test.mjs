@@ -894,3 +894,16 @@ test("carteras comerciales conectan clientes, metas, morosidad e incentivos con 
  assert.equal(api.includes("list_commercial_portfolio_management"),true);
  assert.equal(api.includes("manage_commercial_portfolio"),true);
 });
+
+test("las averías reportadas generan indicadores georreferenciados en el mapa",async()=>{
+ const sql=await readFile(new URL("../supabase/commercial_fault_map.sql",import.meta.url),"utf8");
+ const map=await readFile(new URL("../app/components/CommercialGeoMap.tsx",import.meta.url),"utf8");
+ const commercial=await readFile(new URL("../app/components/CommercialManagement.tsx",import.meta.url),"utf8");
+ assert.equal(sql.includes("commercial_sync_reported_fault"),true);
+ assert.equal(sql.includes("service_request_id"),true);
+ assert.equal(sql.includes("coalesce(new.latitude,c.latitude)"),true);
+ assert.equal(map.includes("fault-marker"),true);
+ assert.equal(map.includes("Incluir resueltas"),true);
+ assert.equal(map.includes("/api/commercial/advanced"),true);
+ for(const field of ['name="fault_priority"','name="latitude"','name="longitude"']) assert.equal(commercial.includes(field),true);
+});

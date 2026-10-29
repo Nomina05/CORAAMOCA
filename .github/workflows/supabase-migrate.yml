@@ -100,6 +100,7 @@ jobs:
             "supabase/commercial_management.sql"
             "supabase/commercial_advanced_25.sql"
             "supabase/commercial_portfolio_incentives.sql"
+            "supabase/commercial_fault_map.sql"
           )
           for migration in "${migrations[@]}"; do
             echo "Aplicando $migration"
