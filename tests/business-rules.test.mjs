@@ -880,3 +880,17 @@ test("la barra del asistente de usuarios conserva los nombres horizontales",asyn
  assert.equal(css.includes("min-width: max-content"),true);
  for(const step of ["Empleado","Cuenta","Permisos"]) assert.equal(wizard.includes(step),true);
 });
+
+test("carteras comerciales conectan clientes, metas, morosidad e incentivos con nómina",async()=>{
+ const sql=await readFile(new URL("../supabase/commercial_portfolio_incentives.sql",import.meta.url),"utf8");
+ const component=await readFile(new URL("../app/components/CommercialPortfolioManagement.tsx",import.meta.url),"utf8");
+ const api=await readFile(new URL("../app/api/commercial/portfolio/route.ts",import.meta.url),"utf8");
+ for(const table of ["commercial_portfolios","commercial_portfolio_customers","commercial_collection_targets","commercial_collection_actions","commercial_incentive_rules","commercial_incentive_calculations","commercial_incentive_payroll_novelties"]) assert.equal(sql.includes(table),true);
+ for(const action of ["CREATE_PORTFOLIO","ASSIGN_CUSTOMER","CREATE_TARGET","LOG_ACTION","ATTRIBUTE_PAYMENT","CALCULATE_INCENTIVE","ADVANCE_INCENTIVE"]) assert.equal(sql.includes(action),true);
+ for(const state of ["CALCULADA","REVISADA","APROBADA","APLICADA_NOMINA"]) assert.equal(sql.includes(state),true);
+ assert.equal(sql.includes("collection_type='MOROSIDAD'"),true);
+ assert.equal(sql.includes("PENDIENTE_NOMINA"),true);
+ for(const panel of ["Carteras","Metas y cobros","Morosidad","Incentivos"]) assert.equal(component.includes(panel),true);
+ assert.equal(api.includes("list_commercial_portfolio_management"),true);
+ assert.equal(api.includes("manage_commercial_portfolio"),true);
+});
