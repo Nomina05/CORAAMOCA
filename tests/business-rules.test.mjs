@@ -907,3 +907,17 @@ test("las averías reportadas generan indicadores georreferenciados en el mapa",
  assert.equal(map.includes("/api/commercial/advanced"),true);
  for(const field of ['name="fault_priority"','name="latitude"','name="longitude"']) assert.equal(commercial.includes(field),true);
 });
+
+test("facturación comercial clasifica clientes, alerta morosidad e imprime por categoría",async()=>{
+ const sql=await readFile(new URL("../supabase/commercial_customer_categories_billing.sql",import.meta.url),"utf8");
+ const component=await readFile(new URL("../app/components/CommercialManagement.tsx",import.meta.url),"utf8");
+ const css=await readFile(new URL("../app/commercial-areas.css",import.meta.url),"utf8");
+ assert.equal(sql.includes("commercial_customer_categories"),true);
+ assert.equal(sql.includes("commercial_overdue_customer_alerts"),true);
+ assert.equal(sql.includes("having count(i.id)>2"),true);
+ for(const category of ["Residencial","Comercial","Industrial","Oficial","Sin fines de lucro"]) assert.equal(component.includes(category),true);
+ assert.equal(component.includes("item.count>2"),true);
+ assert.equal(component.includes("Imprimir facturas por categoría"),true);
+ assert.equal(component.includes("commercial-category-print"),true);
+ assert.equal(css.includes("printing-commercial-invoices"),true);
+});

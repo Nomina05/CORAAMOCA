@@ -101,6 +101,7 @@ jobs:
             "supabase/commercial_advanced_25.sql"
             "supabase/commercial_portfolio_incentives.sql"
             "supabase/commercial_fault_map.sql"
+            "supabase/commercial_customer_categories_billing.sql"
           )
           for migration in "${migrations[@]}"; do
             echo "Aplicando $migration"
@@ -154,6 +155,7 @@ jobs:
                 ,'supplier_catalog'
                 ,'commercial_customers'
                 ,'commercial_invoices'
+                ,'commercial_customer_categories'
                 ,'commercial_payments'
                 ,'commercial_service_requests'
               )
