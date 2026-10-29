@@ -24,6 +24,8 @@ test("el selector de permisos conserva desplazamiento y acciones visibles",async
   assert.equal(page.includes('setPermissionModule("Dirección General")'),true);
   assert.equal(page.includes('className="permission-module-toolbar"'),true);
   assert.equal(page.includes("permissionDirections.map"),true);
+  assert.equal(page.includes("<option>Todas las direcciones</option>"),false);
+  assert.equal(page.includes("permissionGroups.map(group=><option"),false);
   assert.equal(page.includes("permissionGroupVisible(group.title)"),true);
   assert.equal(css.includes("height:min(94dvh,920px)"),true);
   assert.equal(css.includes("scrollbar-gutter:stable"),true);
@@ -820,6 +822,7 @@ test("Gestión Comercial integra sus cuatro áreas operativas con Supabase",asyn
 
 test("la navegación comercial mantiene tipografía compacta y legible",async()=>{
  const css=await readFile(new URL("../app/globals.css",import.meta.url),"utf8");
+ assert.equal(css.includes("flex:1 1 auto;width:auto;min-width:max-content"),true);
  assert.equal(css.includes("height:30px;min-height:30px;padding:4px 10px"),true);
  assert.equal(css.includes("font-size:12px;letter-spacing:0"),true);
 });
