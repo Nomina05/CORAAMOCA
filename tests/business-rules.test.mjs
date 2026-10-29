@@ -818,6 +818,6 @@ test("Gestión Comercial integra sus cuatro áreas operativas con Supabase",asyn
 
 test("la navegación comercial mantiene tipografía compacta y legible",async()=>{
  const css=await readFile(new URL("../app/globals.css",import.meta.url),"utf8");
- assert.equal(css.includes("min-height:26px;padding:4px 7px"),true);
- assert.equal(css.includes("font-size:7px;letter-spacing:0"),true);
+ assert.equal(css.includes("min-height:30px;padding:5px 9px"),true);
+ assert.equal(css.includes("font-size:9px;letter-spacing:0"),true);
 });
