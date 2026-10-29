@@ -871,3 +871,12 @@ test("Gestión Comercial integra las veinticinco mejoras operativas",async()=>{
  assert.equal(api.includes("list_commercial_advanced"),true);
  assert.equal(api.includes("manage_commercial_advanced"),true);
 });
+
+test("la barra del asistente de usuarios conserva los nombres horizontales",async()=>{
+ const css=await readFile(new URL("../app/create-user-wizard-fix.css",import.meta.url),"utf8");
+ const wizard=await readFile(new URL("../app/components/CreateUserWizard.tsx",import.meta.url),"utf8");
+ assert.equal(css.includes("white-space: nowrap"),true);
+ assert.equal(css.includes("word-break: normal"),true);
+ assert.equal(css.includes("min-width: max-content"),true);
+ for(const step of ["Empleado","Cuenta","Permisos"]) assert.equal(wizard.includes(step),true);
+});

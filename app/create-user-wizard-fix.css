@@ -1,0 +1,51 @@
+.create-user-wizard .wizard-progress {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  column-gap: 18px;
+}
+
+.create-user-wizard .wizard-progress button {
+  width: 100%;
+  min-width: 0;
+  padding: 0 12px;
+  white-space: nowrap;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
+.create-user-wizard .wizard-progress button > i {
+  position: relative;
+  z-index: 2;
+  flex: 0 0 24px;
+}
+
+.create-user-wizard .wizard-progress button > span {
+  position: relative;
+  z-index: 2;
+  display: block;
+  flex: 0 0 auto;
+  min-width: max-content;
+  white-space: nowrap;
+  word-break: normal;
+  overflow-wrap: normal;
+  line-height: 1.2;
+}
+
+.create-user-wizard .wizard-progress button::after {
+  z-index: 1;
+}
+
+@media (max-width: 520px) {
+  .create-user-wizard .wizard-progress {
+    column-gap: 4px;
+    padding-inline: 8px;
+  }
+
+  .create-user-wizard .wizard-progress button {
+    gap: 4px;
+    padding-inline: 3px;
+  }
+
+  .create-user-wizard .wizard-progress button > span {
+    font-size: 8px;
+  }
+}
