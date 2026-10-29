@@ -367,6 +367,7 @@ export default function Home() {
   const [section, setSection] = useState("Resumen");
   const [dashboardPanel,setDashboardPanel]=useState<"Pendientes"|"Alertas"|"Proyectos"|"Actividad">("Pendientes");
   const [dashboardStatus,setDashboardStatus]=useState("Todos");
+  const [uiDensity,setUiDensity]=useState<"comfortable"|"compact">("comfortable");
   useEffect(()=>{if(section==="Resumen")return;setRecentSections(items=>[section,...items.filter(item=>item!==section)].slice(0,6))},[section]);
   const [filter, setFilter] = useState<Area>("Todos");
   const [query, setQuery] = useState("");
@@ -729,12 +730,13 @@ export default function Home() {
   const activeDirection=availableDirections.find(direction=>direction.name===expandedDirection)||routeDirection||availableDirections[0];
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ui-density-${uiDensity}`}>
       <main>
         <header className="application-header">
           <button className="top-brand" onClick={()=>setSection("Resumen")}><span className="brand-mark">C</span><span><strong>CORAAMOCA</strong><small>Gestión Institucional</small></span></button>
           <label className="search"><span>⌕</span><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar proyectos, responsables..." /><kbd>⌘ K</kbd></label>
           <div className="header-actions">
+            <button className="density-toggle" title={uiDensity==="comfortable"?"Activar vista compacta":"Activar vista cómoda"} onClick={()=>setUiDensity(value=>value==="comfortable"?"compact":"comfortable")}><span>{uiDensity==="comfortable"?"≡":"☷"}</span><b>{uiDensity==="comfortable"?"Compacta":"Cómoda"}</b></button>
             {systemStatus&&<div className={`deployment-status ${systemStatus.status}`} title={`Base de datos: ${systemStatus.database} · Respuesta: ${systemStatus.responseTimeMs} ms`}><i/><div><span>{systemStatus.environment==="production"?"PRODUCCIÓN":systemStatus.environment.toUpperCase()}</span><strong>{systemStatus.status==="operational"?"Operativo":"Con incidencias"} · {systemStatus.version}</strong></div></div>}
             <div className="notification-center">
               <button className={`icon-btn ${notificationsOpen?"active":""}`} title="Notificaciones y alertas" onClick={()=>{setNotificationsOpen(open=>!open);if(!notificationsOpen)loadNotifications()}}>♧{notice>0&&<b>{notice>99?"99+":notice}</b>}</button>

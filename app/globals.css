@@ -8,6 +8,7 @@
 @import "./commercial-portfolio.css";
 @import "./commercial-fault-map.css";
 @import "./commercial-official-reports.css";
+@import "./system-visual-cleanup.css";
 
 :root { --navy:#0c2743; --blue:#1268e8; --ink:#15283d; --muted:#718096; --line:#e6ebf1; --surface:#f5f7fa; --green:#19a36a; }
 * { box-sizing:border-box; }

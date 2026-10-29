@@ -933,3 +933,12 @@ test("los reportes comerciales generan documentos reales sin imprimir la pantall
  assert.equal(css.includes("printing-commercial-official-report"),true);
  assert.equal(css.includes(".commercial-official-report"),true);
 });
+
+test("el sistema visual unifica espacios, tamaños, densidad y ventanas adaptables",async()=>{
+ const css=await readFile(new URL("../app/system-visual-cleanup.css",import.meta.url),"utf8");
+ const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
+ for(const token of ["--ui-space-4","--ui-control","--ui-title","--ui-text","--ui-border"]) assert.equal(css.includes(token),true);
+ for(const rule of ["ui-density-compact","position:sticky","max-height:94vh","grid-template-columns:repeat(2,minmax(0,1fr))","@media(max-width:640px)"]) assert.equal(css.includes(rule),true);
+ assert.equal(page.includes("density-toggle"),true);
+ assert.equal(page.includes("setUiDensity"),true);
+});
