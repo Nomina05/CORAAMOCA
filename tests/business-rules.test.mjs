@@ -921,3 +921,15 @@ test("facturación comercial clasifica clientes, alerta morosidad e imprime por 
  assert.equal(component.includes("commercial-category-print"),true);
  assert.equal(css.includes("printing-commercial-invoices"),true);
 });
+
+test("los reportes comerciales generan documentos reales sin imprimir la pantalla completa",async()=>{
+ const component=await readFile(new URL("../app/components/CommercialAdvanced.tsx",import.meta.url),"utf8");
+ const css=await readFile(new URL("../app/commercial-official-reports.css",import.meta.url),"utf8");
+ for(const report of ["Clientes por categoría y zona","Facturación mensual","Cobros por caja y método","Cuentas por cobrar","Antigüedad de saldos","Conciliación financiera"]) assert.equal(component.includes(report),true);
+ assert.equal(component.includes('onClick={()=>window.print()}'),false);
+ assert.equal(component.includes("OfficialCommercialReport"),true);
+ assert.equal(component.includes("reportData.invoices"),true);
+ assert.equal(component.includes("reportData.payments"),true);
+ assert.equal(css.includes("printing-commercial-official-report"),true);
+ assert.equal(css.includes(".commercial-official-report"),true);
+});
