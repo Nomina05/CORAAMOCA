@@ -50,6 +50,13 @@ test("el módulo de usuarios aplica la estructura visual unificada y adaptable",
   for(const selector of [".user-visual-filters",".visual-user-cards",".user-detail-drawer",".user-summary-grid",".drawer-permission-list","@media(max-width:750px)"])assert.equal(css.includes(selector),true);
 });
 
+test("la creación de usuarios utiliza un asistente visual de tres pasos",async()=>{
+  const component=await readFile(new URL("../app/components/CreateUserWizard.tsx",import.meta.url),"utf8");
+  const css=await readFile(new URL("../app/create-user-wizard.css",import.meta.url),"utf8");
+  for(const feature of ["Empleado","Cuenta","Permisos","Buscar empleado","Mostrar","Seleccionar todos","Limpiar","CONFIRMACIÓN FINAL","Acciones críticas","Revisar y crear"])assert.equal(component.includes(feature),true);
+  for(const selector of [".wizard-progress",".wizard-employee-card",".wizard-role-grid",".wizard-permission-groups",".wizard-summary",".wizard-confirm","@media(max-width:700px)"])assert.equal(css.includes(selector),true);
+});
+
 test("seguridad de RRHH separa datos sensibles y operaciones críticas",async()=>{
   const migration=await readFile(new URL("../supabase/hr_security_confidentiality.sql",import.meta.url),"utf8");
   const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
