@@ -18,6 +18,16 @@ test("los permisos de Gestión Humana se asignan de forma independiente",()=>{
   assert.equal(permissionGranted("Administrador",{},"aprobar_vacaciones"),true);
 });
 
+test("el selector de permisos conserva desplazamiento y acciones visibles",async()=>{
+  const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
+  const css=await readFile(new URL("../app/globals.css",import.meta.url),"utf8");
+  assert.equal(page.includes('setPermissionModule("Áreas institucionales")'),true);
+  assert.equal(page.includes('className="permission-module-toolbar"'),true);
+  assert.equal(css.includes("height:min(94dvh,920px)"),true);
+  assert.equal(css.includes("scrollbar-gutter:stable"),true);
+  assert.equal(css.includes(".user-create-modal>.modal-actions,.permission-modal>.modal-actions"),true);
+});
+
 test("seguridad de RRHH separa datos sensibles y operaciones críticas",async()=>{
   const migration=await readFile(new URL("../supabase/hr_security_confidentiality.sql",import.meta.url),"utf8");
   const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
@@ -785,7 +795,11 @@ test("Gestión Comercial integra sus cuatro áreas operativas con Supabase",asyn
  assert.equal(component.includes("Empleados con licencia médica vigente"),true);
  assert.equal(component.includes("Empleados de vacaciones actualmente"),true);
  assert.equal(component.includes("Vacantes disponibles en la Dirección Comercial"),true);
+ assert.equal(component.includes("EMPLEADO ANTERIOR"),true);
+ assert.equal(component.includes("SALARIO MENSUAL"),true);
  assert.equal(sql.includes("commercial_employees"),true);
+ assert.equal(sql.includes("previous_employee_name"),true);
+ assert.equal(sql.includes("v.monthly_amount"),true);
  assert.equal(sql.includes("commercial_vacancies"),true);
  assert.equal(sql.includes("Dirección Comercial"),true);
  const map=await readFile(new URL("../app/components/CommercialGeoMap.tsx",import.meta.url),"utf8");

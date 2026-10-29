@@ -97,8 +97,10 @@ begin
   group by e.id
  )x;
  select coalesce(jsonb_agg(to_jsonb(x) order by x.department_name,x.section_name,x.position_name),'[]'::jsonb) into v_hr_vacancies from(
-  select v.id,v.position_name,v.direction_name,v.department_name,v.division_name,v.section_name,v.center_name,v.status,v.available_from
-  from public.hr_vacancies v where v.status in('VACANTE','CON_RECLUTAMIENTO') and lower(trim(v.direction_name)) in('dirección comercial','direccion comercial')
+  select v.id,v.position_name,v.direction_name,v.department_name,v.division_name,v.section_name,v.center_name,v.status,v.available_from,v.monthly_amount,
+   coalesce(e.full_name,'Plaza de nueva creación') previous_employee_name
+  from public.hr_vacancies v left join public.hr_employees e on e.id=v.source_employee_id
+  where v.status in('VACANTE','CON_RECLUTAMIENTO') and lower(trim(v.direction_name)) in('dirección comercial','direccion comercial')
  )x;
  return jsonb_build_object('success',true,'customers',v_customers,'invoices',v_invoices,'payments',v_payments,'requests',v_requests,'meters',v_meters,'readings',v_readings,'orders',v_orders,'commercial_employees',v_hr_employees,'commercial_vacancies',v_hr_vacancies);
 end $$;
