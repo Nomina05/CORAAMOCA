@@ -32,6 +32,17 @@ test("el selector de permisos conserva desplazamiento y acciones visibles",async
   assert.equal(css.includes(".user-create-modal>.modal-actions,.permission-modal>.modal-actions"),true);
 });
 
+test("el gobierno de usuarios integra las treinta mejoras de seguridad y administración",async()=>{
+  const sql=await readFile(new URL("../supabase/user_governance_30_improvements.sql",import.meta.url),"utf8");
+  const component=await readFile(new URL("../app/components/UserGovernance.tsx",import.meta.url),"utf8");
+  const api=await readFile(new URL("../app/api/users/governance/route.ts",import.meta.url),"utf8");
+  for(const capability of ["security_permission_profiles","security_temporary_access","security_permission_requests","security_permission_conflicts","APPLY_PROFILE","COPY_PERMISSIONS","REVOKE_SESSION","REVOKE_ALL_SESSIONS","CREATE_TEMPORARY_ACCESS","REVIEW_PERMISSIONS","SET_ACCOUNT_STATUS","security_sync_employee_user_status","admin_user_governance_snapshot"])assert.equal(sql.includes(capability),true);
+  for(const panel of ["Perfiles","Matriz","Temporales","Sesiones","Alertas","Auditoría","Exportar matriz","Comparación de permisos"])assert.equal(component.includes(panel),true);
+  assert.equal(component.includes("Buscar usuario, empleado, rol, dirección o unidad"),true);
+  assert.equal(component.includes("Imprimir / PDF"),true);
+  assert.equal(api.includes("admin_manage_user_governance"),true);
+});
+
 test("seguridad de RRHH separa datos sensibles y operaciones críticas",async()=>{
   const migration=await readFile(new URL("../supabase/hr_security_confidentiality.sql",import.meta.url),"utf8");
   const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");

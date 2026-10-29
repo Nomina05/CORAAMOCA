@@ -71,6 +71,7 @@ jobs:
             "supabase/hr_data_quality.sql"
             "supabase/hr_module_foundation.sql"
             "supabase/user_employee_link.sql"
+            "supabase/user_governance_30_improvements.sql"
             "supabase/hr_security_hierarchical_scope.sql"
             "supabase/hr_personnel_actions_workflow.sql"
             "supabase/hr_cases_phase4.sql"
