@@ -851,3 +851,23 @@ test("la navegación comercial mantiene tipografía compacta y legible",async()=
  assert.equal(css.includes("height:30px;min-height:30px;padding:4px 10px"),true);
  assert.equal(css.includes("font-size:12px;letter-spacing:0"),true);
 });
+
+test("Gestión Comercial integra las veinticinco mejoras operativas",async()=>{
+ const sql=await readFile(new URL("../supabase/commercial_advanced_25.sql",import.meta.url),"utf8");
+ const component=await readFile(new URL("../app/components/CommercialAdvanced.tsx",import.meta.url),"utf8");
+ const api=await readFile(new URL("../app/api/commercial/advanced/route.ts",import.meta.url),"utf8");
+ for(const table of [
+  "commercial_customer_documents","commercial_contract_history","commercial_tariffs",
+  "commercial_reading_routes","commercial_payment_agreements","commercial_brigades",
+  "commercial_faults","commercial_workflow_requests","commercial_data_quality_issues",
+  "commercial_accounting_batches","commercial_mobile_sync_queue","commercial_import_batches"
+ ]) assert.equal(sql.includes(table),true);
+ for(const panel of ["Indicadores","Expediente","Rutas","Cartera","Brigadas y averías","Flujos","Calidad","Reportes"]){
+  assert.equal(component.includes(panel),true);
+ }
+ for(const action of ["CREATE_ROUTE","CREATE_AGREEMENT","CREATE_BRIGADE","CREATE_FAULT","START_WORKFLOW"]){
+  assert.equal(sql.includes(action),true);
+ }
+ assert.equal(api.includes("list_commercial_advanced"),true);
+ assert.equal(api.includes("manage_commercial_advanced"),true);
+});

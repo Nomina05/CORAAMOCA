@@ -1,0 +1,6 @@
+import {cookies} from "next/headers";
+import {NextResponse} from "next/server";
+import {authDatabase,sessionCookie} from "../../auth/_supabase";
+import {recordAudit} from "../../auth/_audit";
+export async function GET(){const token=(await cookies()).get(sessionCookie)?.value;if(!token)return NextResponse.json({error:"No autorizado."},{status:401});const {data,error}=await authDatabase().rpc("list_commercial_advanced",{p_token:token});if(error||!data?.success)return NextResponse.json({error:data?.error||"No fue posible cargar la operación comercial avanzada."},{status:400});return NextResponse.json(data)}
+export async function POST(request:Request){const token=(await cookies()).get(sessionCookie)?.value;if(!token)return NextResponse.json({error:"No autorizado."},{status:401});const body=await request.json();const {data,error}=await authDatabase().rpc("manage_commercial_advanced",{p_token:token,p_action:body.action,p_data:body.data||{}});if(error||!data?.success)return NextResponse.json({error:data?.error||"No fue posible registrar la operación."},{status:400});await recordAudit(request,token,{action:`COMERCIAL_AVANZADO_${body.action}`,module:"Gestión Comercial",entityType:body.action,entityId:data.id,next:body.data});return NextResponse.json(data)}
