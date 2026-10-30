@@ -946,6 +946,21 @@ test("el mapa comercial filtra jerárquicamente por municipio distrito y sector"
  assert.equal(sql.includes("c.municipality,c.district,c.sector"),true);
 });
 
+test("Espaillat utiliza un catálogo territorial único entre módulos",async()=>{
+ const sql=await readFile(new URL("../supabase/espaillat_territorial_catalog.sql",import.meta.url),"utf8");
+ const workflow=await readFile(new URL("../.github/workflows/supabase-migrate.yml",import.meta.url),"utf8");
+ const commercial=await readFile(new URL("../app/components/CommercialManagement.tsx",import.meta.url),"utf8");
+ const route=await readFile(new URL("../app/api/territory/route.ts",import.meta.url),"utf8");
+ for(const municipality of ["Moca","Cayetano Germosén","Gaspar Hernández","Jamao al Norte","San Víctor"])assert.equal(sql.includes(municipality),true);
+ for(const district of ["José Contreras","Juan López","Las Lagunas","Canca La Reyna","El Higüerito","Monte de La Jagua","La Ortega","Joba Arriba","Veragua","Villa Magante"])assert.equal(sql.includes(district),true);
+ assert.equal(sql.includes("from public.technical_projects"),true);
+ assert.equal(sql.includes("from public.commercial_customers"),true);
+ assert.equal(sql.includes("create or replace function public.list_project_catalogs"),true);
+ assert.equal(route.includes("list_espaillat_territory"),true);
+ assert.equal(commercial.includes('fetch("/api/territory"'),true);
+ assert.equal(workflow.includes("espaillat_territorial_catalog.sql"),true);
+});
+
 test("facturación comercial clasifica clientes, alerta morosidad e imprime por categoría",async()=>{
  const sql=await readFile(new URL("../supabase/commercial_customer_categories_billing.sql",import.meta.url),"utf8");
  const component=await readFile(new URL("../app/components/CommercialManagement.tsx",import.meta.url),"utf8");

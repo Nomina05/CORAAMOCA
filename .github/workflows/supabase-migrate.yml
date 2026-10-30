@@ -101,10 +101,12 @@ jobs:
             "supabase/commercial_advanced_25.sql"
             "supabase/commercial_portfolio_incentives.sql"
             "supabase/commercial_fault_map.sql"
+            "supabase/commercial_management.sql"
             "supabase/commercial_customer_categories_billing.sql"
             "supabase/planning_development_management.sql"
             "supabase/financial_direction_management.sql"
             "supabase/general_direction_management.sql"
+            "supabase/espaillat_territorial_catalog.sql"
           )
           for migration in "${migrations[@]}"; do
             echo "Aplicando $migration"

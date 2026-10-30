@@ -6,10 +6,11 @@ import type {LatLngExpression,Map as LeafletMap} from "leaflet";
 type CustomerPoint={id:string;account_code:string;full_name:string;customer_category:string;municipality:string;district:string;sector:string;latitude:number|null;longitude:number|null};
 type MeterPoint={id:string;customer_id:string;meter_number:string;customer_name:string;status:string;last_reading:number|null;municipality:string;district:string;sector:string;latitude:number|null;longitude:number|null};
 type FaultPoint={id:string;customer_id:string|null;fault_code:string;fault_type:string;description:string;zone:string;priority:string;status:string;affected_customers:number;reported_at:string;latitude:number|null;longitude:number|null};
+type TerritoryItem={id:string;name:string;municipality:string;district:string};
 const normalized=(value:string|undefined|null)=>String(value||"").trim().normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
 const unique=(values:string[])=>Array.from(new Set(values.map(value=>value.trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b,"es"));
 
-export default function CommercialGeoMap({customers,meters}:{customers:CustomerPoint[];meters:MeterPoint[]}){
+export default function CommercialGeoMap({customers,meters,territory}:{customers:CustomerPoint[];meters:MeterPoint[];territory?:{municipalities:TerritoryItem[];districts:TerritoryItem[];sectors:TerritoryItem[]}}){
  const container=useRef<HTMLDivElement>(null);
  const mapRef=useRef<LeafletMap|null>(null);
  const [showCustomers,setShowCustomers]=useState(true);
@@ -20,9 +21,9 @@ export default function CommercialGeoMap({customers,meters}:{customers:CustomerP
  const [municipality,setMunicipality]=useState("");
  const [district,setDistrict]=useState("");
  const [sector,setSector]=useState("");
- const municipalities=useMemo(()=>unique(customers.map(item=>item.municipality)),[customers]);
- const districts=useMemo(()=>unique(customers.filter(item=>!municipality||normalized(item.municipality)===normalized(municipality)).map(item=>item.district)),[customers,municipality]);
- const sectors=useMemo(()=>unique(customers.filter(item=>(!municipality||normalized(item.municipality)===normalized(municipality))&&(!district||normalized(item.district)===normalized(district))).map(item=>item.sector)),[customers,municipality,district]);
+ const municipalities=useMemo(()=>unique([...(territory?.municipalities||[]).map(item=>item.name),...customers.map(item=>item.municipality)]),[customers,territory]);
+ const districts=useMemo(()=>unique([...(territory?.districts||[]).filter(item=>!municipality||normalized(item.municipality)===normalized(municipality)).map(item=>item.name),...customers.filter(item=>!municipality||normalized(item.municipality)===normalized(municipality)).map(item=>item.district)]),[customers,territory,municipality]);
+ const sectors=useMemo(()=>unique([...(territory?.sectors||[]).filter(item=>(!municipality||normalized(item.municipality)===normalized(municipality))&&(!district||normalized(item.district)===normalized(district))).map(item=>item.name),...customers.filter(item=>(!municipality||normalized(item.municipality)===normalized(municipality))&&(!district||normalized(item.district)===normalized(district))).map(item=>item.sector)]),[customers,territory,municipality,district]);
  const locationMatches=useCallback((item:{municipality?:string;district?:string;sector?:string})=>(!municipality||normalized(item.municipality)===normalized(municipality))&&(!district||normalized(item.district)===normalized(district))&&(!sector||normalized(item.sector)===normalized(sector)),[municipality,district,sector]);
  const filteredCustomers=useMemo(()=>customers.filter(locationMatches),[customers,locationMatches]);
  const filteredMeters=useMemo(()=>meters.filter(locationMatches),[meters,locationMatches]);

@@ -62,6 +62,9 @@ create table if not exists public.commercial_service_requests(
 );
 alter table public.commercial_service_requests add column if not exists service_channel text not null default 'Presencial';
 alter table public.commercial_service_requests add column if not exists zone text not null default '';
+alter table public.commercial_service_requests add column if not exists latitude numeric(10,7);
+alter table public.commercial_service_requests add column if not exists longitude numeric(10,7);
+alter table public.commercial_service_requests add column if not exists fault_priority text not null default 'Media';
 create index if not exists commercial_invoices_customer_idx on public.commercial_invoices(customer_id,billing_period desc);
 create index if not exists commercial_payments_customer_idx on public.commercial_payments(customer_id,payment_date desc);
 create index if not exists commercial_requests_customer_idx on public.commercial_service_requests(customer_id,created_at desc);
@@ -131,7 +134,7 @@ begin
   if v_invoice is not null then select amount,coalesce((select sum(amount) from public.commercial_payments where invoice_id=v_invoice),0) into v_total,v_paid from public.commercial_invoices where id=v_invoice;update public.commercial_invoices set status=case when v_paid>=v_total then 'Pagada' when v_paid>0 then 'Parcial' else status end,updated_at=now() where id=v_invoice;end if;
  elsif p_action='REQUEST' then
   v_code:='OP-'||extract(year from current_date)::integer||'-'||lpad(nextval('public.commercial_operation_code_seq')::text,6,'0');
-  insert into public.commercial_service_requests(code,customer_id,category,description,assigned_unit,service_channel,zone,created_by) values(v_code,(p_data->>'customer_id')::uuid,trim(p_data->>'category'),trim(p_data->>'description'),coalesce(p_data->>'assigned_unit','Centro de Servicio al Cliente'),coalesce(p_data->>'service_channel','Presencial'),coalesce(p_data->>'zone',''),v_user.id) returning id into v_id;
+  insert into public.commercial_service_requests(code,customer_id,category,description,assigned_unit,service_channel,zone,latitude,longitude,fault_priority,created_by) values(v_code,(p_data->>'customer_id')::uuid,trim(p_data->>'category'),trim(p_data->>'description'),coalesce(p_data->>'assigned_unit','Centro de Servicio al Cliente'),coalesce(p_data->>'service_channel','Presencial'),coalesce(p_data->>'zone',''),nullif(p_data->>'latitude','')::numeric,nullif(p_data->>'longitude','')::numeric,coalesce(p_data->>'fault_priority','Media'),v_user.id) returning id into v_id;
  elsif p_action='METER' then
   insert into public.commercial_meters(customer_id,meter_number,latitude,longitude,created_by) values((p_data->>'customer_id')::uuid,trim(p_data->>'meter_number'),nullif(p_data->>'latitude','')::numeric,nullif(p_data->>'longitude','')::numeric,v_user.id) returning id into v_id;
   update public.commercial_customers set metering_status='Medido',updated_at=now() where id=(p_data->>'customer_id')::uuid;
