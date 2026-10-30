@@ -967,6 +967,16 @@ test("Espaillat utiliza un catálogo territorial único entre módulos",async()=
  assert.equal(workflow.includes("espaillat_territorial_catalog.sql"),true);
 });
 
+test("el mapa incorpora establecimientos e instituciones identificados",async()=>{
+ const map=await readFile(new URL("../app/components/CommercialGeoMap.tsx",import.meta.url),"utf8");
+ const route=await readFile(new URL("../app/api/map-places/route.ts",import.meta.url),"utf8");
+ assert.equal(map.includes("/api/map-places"),true);
+ assert.equal(map.includes("place-marker"),true);
+ assert.equal(map.includes("bindTooltip(escapeHtml(item.name)"),true);
+ assert.equal(route.includes("overpass-api.de/api/interpreter"),true);
+ for(const type of ['[\"amenity\"]','[\"shop\"]','[\"office\"]','[\"tourism\"]','[\"healthcare\"]','[\"government\"]'])assert.equal(route.includes(type),true);
+});
+
 test("facturación comercial clasifica clientes, alerta morosidad e imprime por categoría",async()=>{
  const sql=await readFile(new URL("../supabase/commercial_customer_categories_billing.sql",import.meta.url),"utf8");
  const component=await readFile(new URL("../app/components/CommercialManagement.tsx",import.meta.url),"utf8");
