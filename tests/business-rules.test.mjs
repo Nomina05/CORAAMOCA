@@ -929,6 +929,23 @@ test("las averías reportadas generan indicadores georreferenciados en el mapa",
  for(const field of ['name="fault_priority"','name="latitude"','name="longitude"']) assert.equal(commercial.includes(field),true);
 });
 
+test("el mapa comercial filtra jerárquicamente por municipio distrito y sector",async()=>{
+ const map=await readFile(new URL("../app/components/CommercialGeoMap.tsx",import.meta.url),"utf8");
+ const commercial=await readFile(new URL("../app/components/CommercialManagement.tsx",import.meta.url),"utf8");
+ const sql=await readFile(new URL("../supabase/commercial_management.sql",import.meta.url),"utf8");
+ assert.equal(map.includes("Todos los municipios"),true);
+ assert.equal(map.includes("Todos los distritos"),true);
+ assert.equal(map.includes("Todos los sectores"),true);
+ assert.equal(map.includes("setDistrict(\"\");setSector(\"\")"),true);
+ assert.equal(map.includes("filteredCustomers"),true);
+ assert.equal(map.includes("filteredMeters"),true);
+ assert.equal(map.includes("filteredFaults"),true);
+ assert.equal(commercial.includes('name="municipality"'),true);
+ assert.equal(commercial.includes('name="district"'),true);
+ assert.equal(sql.includes("add column if not exists municipality text"),true);
+ assert.equal(sql.includes("c.municipality,c.district,c.sector"),true);
+});
+
 test("facturación comercial clasifica clientes, alerta morosidad e imprime por categoría",async()=>{
  const sql=await readFile(new URL("../supabase/commercial_customer_categories_billing.sql",import.meta.url),"utf8");
  const component=await readFile(new URL("../app/components/CommercialManagement.tsx",import.meta.url),"utf8");

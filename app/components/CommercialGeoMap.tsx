@@ -1,11 +1,13 @@
 "use client";
 
-import {useEffect,useMemo,useRef,useState} from "react";
+import {useCallback,useEffect,useMemo,useRef,useState} from "react";
 import type {LatLngExpression,Map as LeafletMap} from "leaflet";
 
-type CustomerPoint={id:string;account_code:string;full_name:string;customer_category:string;sector:string;latitude:number|null;longitude:number|null};
-type MeterPoint={id:string;meter_number:string;customer_name:string;status:string;last_reading:number|null;latitude:number|null;longitude:number|null};
-type FaultPoint={id:string;fault_code:string;fault_type:string;description:string;zone:string;priority:string;status:string;affected_customers:number;reported_at:string;latitude:number|null;longitude:number|null};
+type CustomerPoint={id:string;account_code:string;full_name:string;customer_category:string;municipality:string;district:string;sector:string;latitude:number|null;longitude:number|null};
+type MeterPoint={id:string;customer_id:string;meter_number:string;customer_name:string;status:string;last_reading:number|null;municipality:string;district:string;sector:string;latitude:number|null;longitude:number|null};
+type FaultPoint={id:string;customer_id:string|null;fault_code:string;fault_type:string;description:string;zone:string;priority:string;status:string;affected_customers:number;reported_at:string;latitude:number|null;longitude:number|null};
+const normalized=(value:string|undefined|null)=>String(value||"").trim().normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+const unique=(values:string[])=>Array.from(new Set(values.map(value=>value.trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b,"es"));
 
 export default function CommercialGeoMap({customers,meters}:{customers:CustomerPoint[];meters:MeterPoint[]}){
  const container=useRef<HTMLDivElement>(null);
@@ -15,9 +17,20 @@ export default function CommercialGeoMap({customers,meters}:{customers:CustomerP
  const [showFaults,setShowFaults]=useState(true);
  const [showResolvedFaults,setShowResolvedFaults]=useState(false);
  const [faults,setFaults]=useState<FaultPoint[]>([]);
- const customerPoints=useMemo(()=>customers.filter(item=>Number.isFinite(Number(item.latitude))&&Number.isFinite(Number(item.longitude))),[customers]);
- const meterPoints=useMemo(()=>meters.filter(item=>Number.isFinite(Number(item.latitude))&&Number.isFinite(Number(item.longitude))),[meters]);
- const faultPoints=useMemo(()=>faults.filter(item=>Number.isFinite(Number(item.latitude))&&Number.isFinite(Number(item.longitude))&&(showResolvedFaults||item.status!=="RESUELTA")),[faults,showResolvedFaults]);
+ const [municipality,setMunicipality]=useState("");
+ const [district,setDistrict]=useState("");
+ const [sector,setSector]=useState("");
+ const municipalities=useMemo(()=>unique(customers.map(item=>item.municipality)),[customers]);
+ const districts=useMemo(()=>unique(customers.filter(item=>!municipality||normalized(item.municipality)===normalized(municipality)).map(item=>item.district)),[customers,municipality]);
+ const sectors=useMemo(()=>unique(customers.filter(item=>(!municipality||normalized(item.municipality)===normalized(municipality))&&(!district||normalized(item.district)===normalized(district))).map(item=>item.sector)),[customers,municipality,district]);
+ const locationMatches=useCallback((item:{municipality?:string;district?:string;sector?:string})=>(!municipality||normalized(item.municipality)===normalized(municipality))&&(!district||normalized(item.district)===normalized(district))&&(!sector||normalized(item.sector)===normalized(sector)),[municipality,district,sector]);
+ const filteredCustomers=useMemo(()=>customers.filter(locationMatches),[customers,locationMatches]);
+ const filteredMeters=useMemo(()=>meters.filter(locationMatches),[meters,locationMatches]);
+ const customerById=useMemo(()=>new Map(customers.map(item=>[item.id,item])),[customers]);
+ const filteredFaults=useMemo(()=>faults.filter(item=>{const customer=item.customer_id?customerById.get(item.customer_id):undefined;return locationMatches({municipality:customer?.municipality,district:customer?.district,sector:customer?.sector||item.zone})}),[faults,customerById,locationMatches]);
+ const customerPoints=useMemo(()=>filteredCustomers.filter(item=>Number.isFinite(Number(item.latitude))&&Number.isFinite(Number(item.longitude))),[filteredCustomers]);
+ const meterPoints=useMemo(()=>filteredMeters.filter(item=>Number.isFinite(Number(item.latitude))&&Number.isFinite(Number(item.longitude))),[filteredMeters]);
+ const faultPoints=useMemo(()=>filteredFaults.filter(item=>Number.isFinite(Number(item.latitude))&&Number.isFinite(Number(item.longitude))&&(showResolvedFaults||item.status!=="RESUELTA")),[filteredFaults,showResolvedFaults]);
 
  useEffect(()=>{let active=true;void fetch("/api/commercial/advanced",{cache:"no-store"}).then(response=>response.json()).then(body=>{if(active&&Array.isArray(body.faults))setFaults(body.faults)}).catch(()=>undefined);return()=>{active=false}},[]);
 
@@ -71,7 +84,7 @@ export default function CommercialGeoMap({customers,meters}:{customers:CustomerP
   };
  },[customerPoints,meterPoints,faultPoints,showCustomers,showMeters,showFaults]);
 
- return <section className="commercial-map-card"><header><div><span>MAPA GEOREFERENCIAL · PROVINCIA ESPAILLAT</span><h3>Usuarios, medidores y averías reportadas</h3><p>Los indicadores se incorporan automáticamente al registrar coordenadas válidas.</p></div><div className="commercial-map-filters"><label><input type="checkbox" checked={showCustomers} onChange={event=>setShowCustomers(event.target.checked)}/> Usuarios <i className="customer-dot"/></label><label><input type="checkbox" checked={showMeters} onChange={event=>setShowMeters(event.target.checked)}/> Medidores <i className="meter-dot"/></label><label><input type="checkbox" checked={showFaults} onChange={event=>setShowFaults(event.target.checked)}/> Averías <i className="fault-dot"/></label><label><input type="checkbox" checked={showResolvedFaults} onChange={event=>setShowResolvedFaults(event.target.checked)}/> Incluir resueltas</label></div></header><div className="fault-map-legend"><span><i className="fault-low"/> Media</span><span><i className="fault-high"/> Alta</span><span><i className="fault-critical"/> Crítica</span></div><div ref={container} className="commercial-map"/><footer><span><strong>{customerPoints.length}</strong> usuarios georreferenciados</span><span><strong>{meterPoints.length}</strong> medidores georreferenciados</span><span><strong>{faultPoints.length}</strong> averías visibles</span><span><strong>{faults.filter(item=>item.status!=="RESUELTA").length}</strong> averías abiertas</span><span><strong>{customers.length-customerPoints.length+meters.length-meterPoints.length+faults.filter(item=>!Number.isFinite(Number(item.latitude))||!Number.isFinite(Number(item.longitude))).length}</strong> registros pendientes de coordenadas</span></footer></section>;
+ return <section className="commercial-map-card"><header><div><span>MAPA GEOREFERENCIAL · PROVINCIA ESPAILLAT</span><h3>Usuarios, medidores y averías reportadas</h3><p>Filtre territorialmente los registros visibles del mapa.</p></div><div className="commercial-map-filters"><label><input type="checkbox" checked={showCustomers} onChange={event=>setShowCustomers(event.target.checked)}/> Usuarios <i className="customer-dot"/></label><label><input type="checkbox" checked={showMeters} onChange={event=>setShowMeters(event.target.checked)}/> Medidores <i className="meter-dot"/></label><label><input type="checkbox" checked={showFaults} onChange={event=>setShowFaults(event.target.checked)}/> Averías <i className="fault-dot"/></label><label><input type="checkbox" checked={showResolvedFaults} onChange={event=>setShowResolvedFaults(event.target.checked)}/> Incluir resueltas</label></div></header><div className="commercial-map-location-filters"><label>Municipio<select value={municipality} onChange={event=>{setMunicipality(event.target.value);setDistrict("");setSector("")}}><option value="">Todos los municipios</option>{municipalities.map(value=><option key={value}>{value}</option>)}</select></label><label>Distrito municipal<select value={district} disabled={!districts.length} onChange={event=>{setDistrict(event.target.value);setSector("")}}><option value="">Todos los distritos</option>{districts.map(value=><option key={value}>{value}</option>)}</select></label><label>Sector<select value={sector} disabled={!sectors.length} onChange={event=>setSector(event.target.value)}><option value="">Todos los sectores</option>{sectors.map(value=><option key={value}>{value}</option>)}</select></label>{(municipality||district||sector)&&<button type="button" className="outline" onClick={()=>{setMunicipality("");setDistrict("");setSector("")}}>Limpiar filtros</button>}</div><div className="fault-map-legend"><span><i className="fault-low"/> Media</span><span><i className="fault-high"/> Alta</span><span><i className="fault-critical"/> Crítica</span></div><div ref={container} className="commercial-map"/><footer><span><strong>{customerPoints.length}</strong> usuarios georreferenciados</span><span><strong>{meterPoints.length}</strong> medidores georreferenciados</span><span><strong>{faultPoints.length}</strong> averías visibles</span><span><strong>{filteredFaults.filter(item=>item.status!=="RESUELTA").length}</strong> averías abiertas</span><span><strong>{filteredCustomers.length-customerPoints.length+filteredMeters.length-meterPoints.length+filteredFaults.filter(item=>!Number.isFinite(Number(item.latitude))||!Number.isFinite(Number(item.longitude))).length}</strong> registros pendientes de coordenadas</span></footer></section>;
 }
 
 function escapeHtml(value:string){return String(value??"").replace(/[&<>'"]/g,character=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"})[character]||character)}
