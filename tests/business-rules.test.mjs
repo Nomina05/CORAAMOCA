@@ -855,6 +855,17 @@ test("Catastro comercial clasifica cada usuario como medido o no medido",async()
  assert.equal(component.includes("MEDICIÓN"),true);
 });
 
+test("Catastro comercial permite modificar clientes con historial y motivo",async()=>{
+ const sql=await readFile(new URL("../supabase/commercial_management.sql",import.meta.url),"utf8");
+ const component=await readFile(new URL("../app/components/CommercialManagement.tsx",import.meta.url),"utf8");
+ assert.equal(sql.includes("p_action='UPDATE_CUSTOMER'"),true);
+ assert.equal(sql.includes("commercial_contract_history"),true);
+ assert.equal(sql.includes("previous_value"),true);
+ assert.equal(component.includes('setForm("UPDATE_CUSTOMER")'),true);
+ assert.equal(component.includes("Motivo de modificación"),true);
+ assert.equal(component.includes("Guardar cambios"),true);
+});
+
 test("la navegación comercial mantiene tipografía compacta y legible",async()=>{
  const css=await readFile(new URL("../app/globals.css",import.meta.url),"utf8");
  assert.equal(css.includes("flex:1 1 auto;width:auto;min-width:max-content"),true);

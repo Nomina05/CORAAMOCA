@@ -108,12 +108,17 @@ end $$;
 
 create or replace function public.manage_commercial_record(p_token text,p_action text,p_data jsonb)
 returns jsonb language plpgsql security definer set search_path=public,extensions as $$
-declare v_user public.app_users;v_id uuid;v_customer uuid;v_invoice uuid;v_total numeric;v_paid numeric;v_code text;
+declare v_user public.app_users;v_id uuid;v_customer uuid;v_invoice uuid;v_total numeric;v_paid numeric;v_code text;v_previous jsonb;
 begin
  v_user:=public.hr_authenticated_user(p_token);
  if v_user.id is null or (v_user.role<>'Administrador' and not coalesce((v_user.permissions->>'gestionar_comercial')::boolean,false)) then return jsonb_build_object('success',false,'error','No posee permiso para registrar operaciones comerciales.');end if;
  if p_action='CUSTOMER' then
   insert into public.commercial_customers(account_code,full_name,document_number,phone,address,sector,customer_category,metering_status,latitude,longitude,contract_date,created_by) values(trim(p_data->>'account_code'),trim(p_data->>'full_name'),coalesce(p_data->>'document_number',''),coalesce(p_data->>'phone',''),coalesce(p_data->>'address',''),coalesce(p_data->>'sector',''),coalesce(nullif(p_data->>'customer_category',''),'Residencial'),coalesce(nullif(p_data->>'metering_status',''),'No medido'),nullif(p_data->>'latitude','')::numeric,nullif(p_data->>'longitude','')::numeric,coalesce(nullif(p_data->>'contract_date','')::date,current_date),v_user.id) returning id into v_id;
+ elsif p_action='UPDATE_CUSTOMER' then
+  select to_jsonb(c),c.id into v_previous,v_id from public.commercial_customers c where c.id=(p_data->>'id')::uuid for update;
+  if v_id is null then return jsonb_build_object('success',false,'error','No se encontró el cliente que desea modificar.');end if;
+  update public.commercial_customers set account_code=trim(p_data->>'account_code'),full_name=trim(p_data->>'full_name'),document_number=coalesce(p_data->>'document_number',''),phone=coalesce(p_data->>'phone',''),address=coalesce(p_data->>'address',''),sector=coalesce(p_data->>'sector',''),customer_category=coalesce(nullif(p_data->>'customer_category',''),'Residencial'),metering_status=coalesce(nullif(p_data->>'metering_status',''),'No medido'),latitude=nullif(p_data->>'latitude','')::numeric,longitude=nullif(p_data->>'longitude','')::numeric,contract_date=coalesce(nullif(p_data->>'contract_date','')::date,contract_date),status=coalesce(nullif(p_data->>'status',''),status),updated_at=now() where id=v_id;
+  insert into public.commercial_contract_history(customer_id,action_type,previous_value,new_value,reason,created_by) select v_id,'MODIFICACION_CLIENTE',v_previous,to_jsonb(c),coalesce(p_data->>'reason','Actualización desde Catastro de Usuarios'),v_user.id from public.commercial_customers c where c.id=v_id;
  elsif p_action='INVOICE' then
   v_code:='FAC-'||extract(year from current_date)::integer||'-'||lpad(nextval('public.commercial_invoice_number_seq')::text,6,'0');
   insert into public.commercial_invoices(invoice_number,customer_id,billing_period,amount,due_date,created_by) values(v_code,(p_data->>'customer_id')::uuid,((p_data->>'billing_period')||'-01')::date,(p_data->>'amount')::numeric,(p_data->>'due_date')::date,v_user.id) returning id into v_id;
