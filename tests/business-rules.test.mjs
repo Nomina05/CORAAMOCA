@@ -940,6 +940,9 @@ test("el mapa comercial filtra jerárquicamente por municipio distrito y sector"
  assert.equal(map.includes("filteredCustomers"),true);
  assert.equal(map.includes("filteredMeters"),true);
  assert.equal(map.includes("filteredFaults"),true);
+ assert.equal(map.includes("focusSelection"),true);
+ assert.equal(map.includes("map.setView(coordinates[0],15"),true);
+ assert.equal(map.includes("L.latLngBounds(coordinates)"),true);
  assert.equal(commercial.includes('name="municipality"'),true);
  assert.equal(commercial.includes('name="district"'),true);
  assert.equal(sql.includes("add column if not exists municipality text"),true);
