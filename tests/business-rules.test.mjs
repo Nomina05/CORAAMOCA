@@ -929,6 +929,21 @@ test("las averías reportadas generan indicadores georreferenciados en el mapa",
  for(const field of ['name="fault_priority"','name="latitude"','name="longitude"']) assert.equal(commercial.includes(field),true);
 });
 
+test("las averías comerciales se canalizan y atienden desde Dirección Técnica",async()=>{
+ const sql=await readFile(new URL("../supabase/technical_fault_management.sql",import.meta.url),"utf8");
+ const api=await readFile(new URL("../app/api/technical-faults/route.ts",import.meta.url),"utf8");
+ const component=await readFile(new URL("../app/components/TechnicalFaultManagement.tsx",import.meta.url),"utf8");
+ const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
+ for(const status of ["Atendida","En proceso","En espera de materiales"]) assert.equal(sql.includes(status),true);
+ assert.equal(sql.includes("technical_fault_history"),true);
+ assert.equal(sql.includes("list_technical_faults"),true);
+ assert.equal(sql.includes("manage_technical_fault"),true);
+ assert.equal(api.includes("ACTUALIZAR_AVERIA_TECNICA"),true);
+ assert.equal(component.includes("Averías reportadas"),true);
+ assert.equal(component.includes('type="checkbox"'),true);
+ assert.equal(page.includes('section:"Averías Reportadas"'),true);
+});
+
 test("el mapa comercial filtra jerárquicamente por municipio distrito y sector",async()=>{
  const map=await readFile(new URL("../app/components/CommercialGeoMap.tsx",import.meta.url),"utf8");
  const commercial=await readFile(new URL("../app/components/CommercialManagement.tsx",import.meta.url),"utf8");
