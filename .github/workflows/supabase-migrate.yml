@@ -103,6 +103,7 @@ jobs:
             "supabase/commercial_fault_map.sql"
             "supabase/commercial_customer_categories_billing.sql"
             "supabase/planning_development_management.sql"
+            "supabase/financial_direction_management.sql"
           )
           for migration in "${migrations[@]}"; do
             echo "Aplicando $migration"
@@ -159,5 +160,11 @@ jobs:
                 ,'commercial_customer_categories'
                 ,'commercial_payments'
                 ,'commercial_service_requests'
+                ,'financial_bank_accounts'
+                ,'financial_payment_requests'
+                ,'financial_treasury_movements'
+                ,'financial_bank_reconciliations'
+                ,'financial_accounting_entries'
+                ,'financial_period_closures'
               )
             order by table_name;"

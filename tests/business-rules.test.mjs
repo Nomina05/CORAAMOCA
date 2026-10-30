@@ -988,3 +988,15 @@ test("Planificación y Desarrollo integra POA, indicadores, riesgos, calidad y c
  assert.equal(page.includes("Planificación Institucional"),true);
  assert.equal(page.includes("ver_planificacion_institucional"),true);
 });
+
+test("Dirección Financiera integra pagos, tesorería, conciliación, contabilidad y cierres",async()=>{
+ const sql=await readFile(new URL("../supabase/financial_direction_management.sql",import.meta.url),"utf8");
+ const component=await readFile(new URL("../app/components/FinancialDirection.tsx",import.meta.url),"utf8");
+ const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
+ for(const table of ["financial_bank_accounts","financial_payment_requests","financial_treasury_movements","financial_bank_reconciliations","financial_accounting_entries","financial_period_closures"]) assert.equal(sql.includes(table),true);
+ assert.equal(sql.includes("list_financial_direction"),true);
+ assert.equal(sql.includes("manage_financial_direction"),true);
+ for(const panel of ["Cuentas por pagar","Tesorería","Conciliación bancaria","Contabilidad","Cierre financiero","Reportes"]) assert.equal(component.includes(panel),true);
+ assert.equal(page.includes("Dirección Financiera"),true);
+ assert.equal(page.includes("ver_direccion_financiera"),true);
+});
