@@ -943,6 +943,9 @@ test("el mapa comercial filtra jerárquicamente por municipio distrito y sector"
  assert.equal(map.includes("focusSelection"),true);
  assert.equal(map.includes("map.setView(coordinates[0],15"),true);
  assert.equal(map.includes("L.latLngBounds(coordinates)"),true);
+ assert.equal(map.includes("Ampliar mapa"),true);
+ assert.equal(map.includes("commercial-map-card${expanded?\" is-expanded\":\"\"}"),true);
+ assert.equal(map.includes('event.key==="Escape"'),true);
  assert.equal(commercial.includes('name="municipality"'),true);
  assert.equal(commercial.includes('name="district"'),true);
  assert.equal(sql.includes("add column if not exists municipality text"),true);
