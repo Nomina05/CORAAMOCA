@@ -368,6 +368,12 @@ export default function Home() {
   const [dashboardPanel,setDashboardPanel]=useState<"Pendientes"|"Alertas"|"Proyectos"|"Actividad">("Pendientes");
   const [dashboardStatus,setDashboardStatus]=useState("Todos");
   const [uiDensity,setUiDensity]=useState<"comfortable"|"compact">("comfortable");
+  const [uiSettingsOpen,setUiSettingsOpen]=useState(false);
+  const [showSecondaryMetrics,setShowSecondaryMetrics]=useState(false);
+  const [showModuleFilters,setShowModuleFilters]=useState(true);
+  const [showContextHelp,setShowContextHelp]=useState(false);
+  useEffect(()=>{const timer=window.setTimeout(()=>{try{const raw=document.cookie.split("; ").find(value=>value.startsWith("coraamoca-ui-preferences="))?.split("=").slice(1).join("=");const saved=raw?JSON.parse(decodeURIComponent(raw)):{};if(saved.density==="compact"||saved.density==="comfortable")setUiDensity(saved.density);if(typeof saved.secondaryMetrics==="boolean")setShowSecondaryMetrics(saved.secondaryMetrics);if(typeof saved.moduleFilters==="boolean")setShowModuleFilters(saved.moduleFilters);if(typeof saved.contextHelp==="boolean")setShowContextHelp(saved.contextHelp)}catch{}},0);return()=>window.clearTimeout(timer)},[]);
+  useEffect(()=>{document.cookie=`coraamoca-ui-preferences=${encodeURIComponent(JSON.stringify({density:uiDensity,secondaryMetrics:showSecondaryMetrics,moduleFilters:showModuleFilters,contextHelp:showContextHelp}))}; path=/; max-age=31536000; samesite=lax`},[uiDensity,showSecondaryMetrics,showModuleFilters,showContextHelp]);
   useEffect(()=>{if(section==="Resumen")return;setRecentSections(items=>[section,...items.filter(item=>item!==section)].slice(0,6))},[section]);
   const [filter, setFilter] = useState<Area>("Todos");
   const [query, setQuery] = useState("");
@@ -730,13 +736,13 @@ export default function Home() {
   const activeDirection=availableDirections.find(direction=>direction.name===expandedDirection)||routeDirection||availableDirections[0];
 
   return (
-    <div className={`app-shell ui-density-${uiDensity}`}>
+    <div className={`app-shell ui-density-${uiDensity} ${showSecondaryMetrics?"metrics-expanded":"metrics-condensed"} ${showModuleFilters?"filters-expanded":"filters-collapsed"} ${showContextHelp?"context-help-enabled":"context-help-disabled"}`}>
       <main>
         <header className="application-header">
           <button className="top-brand" onClick={()=>setSection("Resumen")}><span className="brand-mark">C</span><span><strong>CORAAMOCA</strong><small>Gestión Institucional</small></span></button>
           <label className="search"><span>⌕</span><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar proyectos, responsables..." /><kbd>⌘ K</kbd></label>
           <div className="header-actions">
-            <button className="density-toggle" title={uiDensity==="comfortable"?"Activar vista compacta":"Activar vista cómoda"} onClick={()=>setUiDensity(value=>value==="comfortable"?"compact":"comfortable")}><span>{uiDensity==="comfortable"?"≡":"☷"}</span><b>{uiDensity==="comfortable"?"Compacta":"Cómoda"}</b></button>
+            <div className="ui-preferences"><button className={`density-toggle ${uiSettingsOpen?"active":""}`} title="Preferencias de visualización" onClick={()=>setUiSettingsOpen(value=>!value)}><span>⚙</span><b>Vista</b></button>{uiSettingsOpen&&<div className="ui-preferences-panel"><header><div><span>APARIENCIA</span><strong>Preferencias visuales</strong></div><button onClick={()=>setUiSettingsOpen(false)}>×</button></header><label><span><b>Densidad</b><small>Ajusta espacios, controles y tablas.</small></span><select value={uiDensity} onChange={event=>setUiDensity(event.target.value as "comfortable"|"compact")}><option value="comfortable">Cómoda</option><option value="compact">Compacta</option></select></label><label><span><b>Indicadores secundarios</b><small>Muestra más de cinco métricas por panel.</small></span><input type="checkbox" checked={showSecondaryMetrics} onChange={event=>setShowSecondaryMetrics(event.target.checked)}/></label><label><span><b>Filtros del módulo</b><small>Oculta o muestra las franjas de filtros.</small></span><input type="checkbox" checked={showModuleFilters} onChange={event=>setShowModuleFilters(event.target.checked)}/></label><label><span><b>Ayuda contextual</b><small>Muestra explicaciones y textos de apoyo.</small></span><input type="checkbox" checked={showContextHelp} onChange={event=>setShowContextHelp(event.target.checked)}/></label><footer><button onClick={()=>{setUiDensity("comfortable");setShowSecondaryMetrics(false);setShowModuleFilters(true);setShowContextHelp(false)}}>Restablecer</button><button className="primary" onClick={()=>setUiSettingsOpen(false)}>Aplicar</button></footer></div>}</div>
             {systemStatus&&<div className={`deployment-status ${systemStatus.status}`} title={`Base de datos: ${systemStatus.database} · Respuesta: ${systemStatus.responseTimeMs} ms`}><i/><div><span>{systemStatus.environment==="production"?"PRODUCCIÓN":systemStatus.environment.toUpperCase()}</span><strong>{systemStatus.status==="operational"?"Operativo":"Con incidencias"} · {systemStatus.version}</strong></div></div>}
             <div className="notification-center">
               <button className={`icon-btn ${notificationsOpen?"active":""}`} title="Notificaciones y alertas" onClick={()=>{setNotificationsOpen(open=>!open);if(!notificationsOpen)loadNotifications()}}>♧{notice>0&&<b>{notice>99?"99+":notice}</b>}</button>

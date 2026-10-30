@@ -942,3 +942,28 @@ test("el sistema visual unifica espacios, tamaños, densidad y ventanas adaptabl
  assert.equal(page.includes("density-toggle"),true);
  assert.equal(page.includes("setUiDensity"),true);
 });
+
+test("la segunda etapa visual incorpora preferencias persistentes y reducción de carga",async()=>{
+ const css=await readFile(new URL("../app/system-visual-cleanup.css",import.meta.url),"utf8");
+ const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
+ assert.equal(page.includes("coraamoca-ui-preferences"),true);
+ assert.equal(page.includes("showSecondaryMetrics"),true);
+ assert.equal(page.includes("showModuleFilters"),true);
+ assert.equal(page.includes("showContextHelp"),true);
+ assert.equal(page.includes("Preferencias visuales"),true);
+ assert.equal(page.includes("document.cookie"),true);
+ assert.equal(page.includes("localStorage"),false);
+ assert.equal(css.includes("metrics-condensed"),true);
+ assert.equal(css.includes("filters-collapsed"),true);
+ assert.equal(css.includes("context-help-disabled"),true);
+});
+
+test("los filtros de usuarios muestran criterios activos y columnas configurables",async()=>{
+ const component=await readFile(new URL("../app/components/UserGovernance.tsx",import.meta.url),"utf8");
+ const css=await readFile(new URL("../app/system-visual-cleanup.css",import.meta.url),"utf8");
+ assert.equal(component.includes("active-filter-chips"),true);
+ assert.equal(component.includes("Filtros aplicados"),true);
+ assert.equal(component.includes("Limpiar todos"),true);
+ assert.equal(component.includes("showLastAccess"),true);
+ assert.equal(css.includes("hide-last-access"),true);
+});
