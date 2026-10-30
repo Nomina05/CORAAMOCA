@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import "./technical-faults.css";
+import "./cashier-treasury.css";
 
 export const metadata: Metadata = {
   title: "CORAAMOCA | Gestión Institucional",

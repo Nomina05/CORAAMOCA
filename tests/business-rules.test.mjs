@@ -944,6 +944,18 @@ test("las averías comerciales se canalizan y atienden desde Dirección Técnica
  assert.equal(page.includes('section:"Averías Reportadas"'),true);
 });
 
+test("las cajeras de Administrativa y Financiera reportan cobros a Tesorería y Comercial",async()=>{
+ const sql=await readFile(new URL("../supabase/cashier_treasury_integration.sql",import.meta.url),"utf8");
+ const api=await readFile(new URL("../app/api/cashier-treasury/route.ts",import.meta.url),"utf8");
+ const component=await readFile(new URL("../app/components/CashierTreasury.tsx",import.meta.url),"utf8");
+ for(const item of ["financial_cash_locations","commercial_cash_registers","commercial_payments","Tesorería","REGISTER_PAYMENT","CLOSE_REGISTER"]) assert.equal(sql.includes(item),true);
+ assert.equal(sql.includes("cash_register_id"),true);
+ assert.equal(sql.includes("cashier_user_id"),true);
+ assert.equal(api.includes("CAJA_TESORERIA_"),true);
+ assert.equal(component.includes("Cajas y recaudación"),true);
+ assert.equal(component.includes("Cobros compartidos con Comercial"),true);
+});
+
 test("el mapa comercial filtra jerárquicamente por municipio distrito y sector",async()=>{
  const map=await readFile(new URL("../app/components/CommercialGeoMap.tsx",import.meta.url),"utf8");
  const commercial=await readFile(new URL("../app/components/CommercialManagement.tsx",import.meta.url),"utf8");
