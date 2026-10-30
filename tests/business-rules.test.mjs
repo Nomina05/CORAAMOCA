@@ -845,6 +845,16 @@ test("Gestión Comercial integra sus cuatro áreas operativas con Supabase",asyn
  assert.equal(boundary.features[0].properties.osm_id,3412918);
 });
 
+test("Catastro comercial clasifica cada usuario como medido o no medido",async()=>{
+ const sql=await readFile(new URL("../supabase/commercial_management.sql",import.meta.url),"utf8");
+ const component=await readFile(new URL("../app/components/CommercialManagement.tsx",import.meta.url),"utf8");
+ assert.equal(sql.includes("metering_status"),true);
+ assert.equal(sql.includes("check(metering_status in ('Medido','No medido'))"),true);
+ assert.equal(sql.includes("set metering_status='Medido'"),true);
+ assert.equal(component.includes("Tipo de medición"),true);
+ assert.equal(component.includes("MEDICIÓN"),true);
+});
+
 test("la navegación comercial mantiene tipografía compacta y legible",async()=>{
  const css=await readFile(new URL("../app/globals.css",import.meta.url),"utf8");
  assert.equal(css.includes("flex:1 1 auto;width:auto;min-width:max-content"),true);

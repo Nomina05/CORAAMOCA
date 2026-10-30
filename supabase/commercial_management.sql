@@ -14,6 +14,7 @@ alter table public.commercial_customers add column if not exists customer_catego
 alter table public.commercial_customers add column if not exists latitude numeric(10,7);
 alter table public.commercial_customers add column if not exists longitude numeric(10,7);
 alter table public.commercial_customers add column if not exists contract_date date not null default current_date;
+alter table public.commercial_customers add column if not exists metering_status text not null default 'No medido' check(metering_status in ('Medido','No medido'));
 
 create table if not exists public.commercial_meters(
  id uuid primary key default gen_random_uuid(), customer_id uuid not null references public.commercial_customers(id),
@@ -81,7 +82,7 @@ begin
  v_user:=public.hr_authenticated_user(p_token);
  if v_user.id is null or (v_user.role<>'Administrador' and not coalesce((v_user.permissions->>'ver_gestion_comercial')::boolean,false)) then return jsonb_build_object('success',false,'error','No posee permiso para consultar Gestión Comercial.');end if;
  select coalesce(jsonb_agg(to_jsonb(x) order by x.full_name),'[]'::jsonb) into v_customers from(select c.*,(select coalesce(sum(i.amount),0)-coalesce(sum((select coalesce(sum(p.amount),0) from public.commercial_payments p where p.invoice_id=i.id)),0) from public.commercial_invoices i where i.customer_id=c.id and i.status<>'Anulada') balance from public.commercial_customers c)x;
- select coalesce(jsonb_agg(to_jsonb(x) order by x.created_at desc),'[]'::jsonb) into v_invoices from(select i.*,c.account_code,c.full_name customer_name,c.customer_category,coalesce((select sum(p.amount) from public.commercial_payments p where p.invoice_id=i.id),0) paid_amount from public.commercial_invoices i join public.commercial_customers c on c.id=i.customer_id)x;
+ select coalesce(jsonb_agg(to_jsonb(x) order by x.created_at desc),'[]'::jsonb) into v_invoices from(select i.*,c.account_code,c.full_name customer_name,c.customer_category,c.metering_status,coalesce((select sum(p.amount) from public.commercial_payments p where p.invoice_id=i.id),0) paid_amount from public.commercial_invoices i join public.commercial_customers c on c.id=i.customer_id)x;
  select coalesce(jsonb_agg(to_jsonb(x) order by x.created_at desc),'[]'::jsonb) into v_payments from(select p.*,c.account_code,c.full_name customer_name from public.commercial_payments p join public.commercial_customers c on c.id=p.customer_id)x;
  select coalesce(jsonb_agg(to_jsonb(x) order by x.created_at desc),'[]'::jsonb) into v_requests from(select r.*,c.account_code,c.full_name customer_name from public.commercial_service_requests r join public.commercial_customers c on c.id=r.customer_id)x;
  select coalesce(jsonb_agg(to_jsonb(x) order by x.created_at desc),'[]'::jsonb) into v_meters from(select m.*,c.account_code,c.full_name customer_name,(select mr.reading_value from public.commercial_meter_readings mr where mr.meter_id=m.id order by mr.reading_date desc limit 1) last_reading,(select mr.reading_date from public.commercial_meter_readings mr where mr.meter_id=m.id order by mr.reading_date desc limit 1) last_reading_date from public.commercial_meters m join public.commercial_customers c on c.id=m.customer_id)x;
@@ -112,7 +113,7 @@ begin
  v_user:=public.hr_authenticated_user(p_token);
  if v_user.id is null or (v_user.role<>'Administrador' and not coalesce((v_user.permissions->>'gestionar_comercial')::boolean,false)) then return jsonb_build_object('success',false,'error','No posee permiso para registrar operaciones comerciales.');end if;
  if p_action='CUSTOMER' then
-  insert into public.commercial_customers(account_code,full_name,document_number,phone,address,sector,customer_category,latitude,longitude,contract_date,created_by) values(trim(p_data->>'account_code'),trim(p_data->>'full_name'),coalesce(p_data->>'document_number',''),coalesce(p_data->>'phone',''),coalesce(p_data->>'address',''),coalesce(p_data->>'sector',''),coalesce(nullif(p_data->>'customer_category',''),'Residencial'),nullif(p_data->>'latitude','')::numeric,nullif(p_data->>'longitude','')::numeric,coalesce(nullif(p_data->>'contract_date','')::date,current_date),v_user.id) returning id into v_id;
+  insert into public.commercial_customers(account_code,full_name,document_number,phone,address,sector,customer_category,metering_status,latitude,longitude,contract_date,created_by) values(trim(p_data->>'account_code'),trim(p_data->>'full_name'),coalesce(p_data->>'document_number',''),coalesce(p_data->>'phone',''),coalesce(p_data->>'address',''),coalesce(p_data->>'sector',''),coalesce(nullif(p_data->>'customer_category',''),'Residencial'),coalesce(nullif(p_data->>'metering_status',''),'No medido'),nullif(p_data->>'latitude','')::numeric,nullif(p_data->>'longitude','')::numeric,coalesce(nullif(p_data->>'contract_date','')::date,current_date),v_user.id) returning id into v_id;
  elsif p_action='INVOICE' then
   v_code:='FAC-'||extract(year from current_date)::integer||'-'||lpad(nextval('public.commercial_invoice_number_seq')::text,6,'0');
   insert into public.commercial_invoices(invoice_number,customer_id,billing_period,amount,due_date,created_by) values(v_code,(p_data->>'customer_id')::uuid,((p_data->>'billing_period')||'-01')::date,(p_data->>'amount')::numeric,(p_data->>'due_date')::date,v_user.id) returning id into v_id;
@@ -126,6 +127,7 @@ begin
   insert into public.commercial_service_requests(code,customer_id,category,description,assigned_unit,service_channel,zone,created_by) values(v_code,(p_data->>'customer_id')::uuid,trim(p_data->>'category'),trim(p_data->>'description'),coalesce(p_data->>'assigned_unit','Centro de Servicio al Cliente'),coalesce(p_data->>'service_channel','Presencial'),coalesce(p_data->>'zone',''),v_user.id) returning id into v_id;
  elsif p_action='METER' then
   insert into public.commercial_meters(customer_id,meter_number,latitude,longitude,created_by) values((p_data->>'customer_id')::uuid,trim(p_data->>'meter_number'),nullif(p_data->>'latitude','')::numeric,nullif(p_data->>'longitude','')::numeric,v_user.id) returning id into v_id;
+  update public.commercial_customers set metering_status='Medido',updated_at=now() where id=(p_data->>'customer_id')::uuid;
  elsif p_action='READING' then
   insert into public.commercial_meter_readings(meter_id,reading_date,reading_value,applied_to_billing,notes,created_by) values((p_data->>'meter_id')::uuid,coalesce(nullif(p_data->>'reading_date','')::date,current_date),(p_data->>'reading_value')::numeric,coalesce((p_data->>'applied_to_billing')::boolean,false),coalesce(p_data->>'notes',''),v_user.id) returning id into v_id;
  elsif p_action='CUT_ORDER' then
