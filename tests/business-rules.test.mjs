@@ -967,3 +967,12 @@ test("los filtros de usuarios muestran criterios activos y columnas configurable
  assert.equal(component.includes("showLastAccess"),true);
  assert.equal(css.includes("hide-last-access"),true);
 });
+
+test("la experiencia diaria prioriza tareas, búsqueda global, favoritos y modo sencillo",async()=>{
+ const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
+ const css=await readFile(new URL("../app/system-visual-cleanup.css",import.meta.url),"utf8");
+ for(const feature of ["experienceMode","globalSearchResults","workday-start","favoriteSections","Inicio de trabajo","Buscar proyectos, empleados o tareas"]) assert.equal(page.includes(feature),true);
+ assert.equal(page.includes('option value="simple"'),true);
+ assert.equal(page.includes('option value="advanced"'),true);
+ for(const rule of [".global-search-results",".favorite-toggle",".workday-start",".experience-simple",".experience-advanced"]) assert.equal(css.includes(rule),true);
+});
