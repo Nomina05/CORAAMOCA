@@ -1000,3 +1000,15 @@ test("Dirección Financiera integra pagos, tesorería, conciliación, contabilid
  assert.equal(page.includes("Dirección Financiera"),true);
  assert.equal(page.includes("ver_direccion_financiera"),true);
 });
+
+test("Dirección General integra acuerdos, disposiciones, agenda y comunicaciones ejecutivas",async()=>{
+ const sql=await readFile(new URL("../supabase/general_direction_management.sql",import.meta.url),"utf8");
+ const component=await readFile(new URL("../app/components/GeneralDirection.tsx",import.meta.url),"utf8");
+ const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
+ for(const table of ["general_executive_agreements","general_directives","general_executive_agenda","general_communications"]) assert.equal(sql.includes(table),true);
+ assert.equal(sql.includes("list_general_direction"),true);
+ assert.equal(sql.includes("manage_general_direction"),true);
+ for(const panel of ["Panel ejecutivo","Acuerdos","Disposiciones","Agenda","Comunicaciones","Informe ejecutivo"]) assert.equal(component.includes(panel),true);
+ assert.equal(page.includes("Centro ejecutivo"),true);
+ assert.equal(page.includes("ver_direccion_general"),true);
+});

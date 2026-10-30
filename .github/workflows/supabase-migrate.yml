@@ -104,6 +104,7 @@ jobs:
             "supabase/commercial_customer_categories_billing.sql"
             "supabase/planning_development_management.sql"
             "supabase/financial_direction_management.sql"
+            "supabase/general_direction_management.sql"
           )
           for migration in "${migrations[@]}"; do
             echo "Aplicando $migration"
@@ -166,5 +167,9 @@ jobs:
                 ,'financial_bank_reconciliations'
                 ,'financial_accounting_entries'
                 ,'financial_period_closures'
+                ,'general_executive_agreements'
+                ,'general_directives'
+                ,'general_executive_agenda'
+                ,'general_communications'
               )
             order by table_name;"

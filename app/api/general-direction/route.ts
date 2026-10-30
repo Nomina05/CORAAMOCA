@@ -1,0 +1,6 @@
+import {cookies} from "next/headers";
+import {NextResponse} from "next/server";
+import {authDatabase,sessionCookie} from "../auth/_supabase";
+import {recordAudit} from "../auth/_audit";
+export async function GET(request:Request){const token=(await cookies()).get(sessionCookie)?.value;if(!token)return NextResponse.json({error:"No autorizado."},{status:401});const year=Number(new URL(request.url).searchParams.get("year")||new Date().getFullYear());const {data,error}=await authDatabase().rpc("list_general_direction",{p_token:token,p_year:year});if(error||!data?.success)return NextResponse.json({error:data?.error||"No fue posible cargar Dirección General."},{status:400});return NextResponse.json(data)}
+export async function POST(request:Request){const token=(await cookies()).get(sessionCookie)?.value;if(!token)return NextResponse.json({error:"No autorizado."},{status:401});const body=await request.json();const {data,error}=await authDatabase().rpc("manage_general_direction",{p_token:token,p_action:body.action,p_data:body.data||{}});if(error||!data?.success)return NextResponse.json({error:data?.error||"No fue posible registrar la operación."},{status:400});await recordAudit(request,token,{action:`DIRECCION_GENERAL_${body.action}`,module:"Dirección General",entityType:body.action,entityId:data.id,next:body.data});return NextResponse.json(data)}
