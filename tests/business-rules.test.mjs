@@ -976,3 +976,15 @@ test("la experiencia diaria prioriza tareas, búsqueda global, favoritos y modo 
  assert.equal(page.includes('option value="advanced"'),true);
  for(const rule of [".global-search-results",".favorite-toggle",".workday-start",".experience-simple",".experience-advanced"]) assert.equal(css.includes(rule),true);
 });
+
+test("Planificación y Desarrollo integra POA, indicadores, riesgos, calidad y cooperación",async()=>{
+ const sql=await readFile(new URL("../supabase/planning_development_management.sql",import.meta.url),"utf8");
+ const component=await readFile(new URL("../app/components/PlanningDevelopment.tsx",import.meta.url),"utf8");
+ const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
+ for(const table of ["planning_plans","planning_goals","planning_indicators","planning_risks","planning_quality_actions","planning_cooperation"]) assert.equal(sql.includes(table),true);
+ assert.equal(sql.includes("list_planning_development"),true);
+ assert.equal(sql.includes("manage_planning_development"),true);
+ for(const panel of ["Planes POA y PEI","Metas e indicadores","Riesgos VAR","Calidad institucional","Cooperación","Reportes"]) assert.equal(component.includes(panel),true);
+ assert.equal(page.includes("Planificación Institucional"),true);
+ assert.equal(page.includes("ver_planificacion_institucional"),true);
+});
