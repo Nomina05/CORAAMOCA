@@ -140,6 +140,150 @@ main { min-width:0; } header { height:70px; background:white; border-bottom:1px 
  body[class*="printing-personnel"] .personnel-action-sheet .action-approvals textarea{background:none!important}
 }
 .personnel-action-sheet header.personnel-document-header{height:auto!important;min-height:158px;top:auto;z-index:auto;gap:0;overflow:visible}
+
+/* Acción de personal: geometría única, campos alineados y márgenes consistentes. */
+.personnel-action-module .personnel-action-sheet{
+ box-sizing:border-box!important;
+ width:min(8.1in,100%)!important;
+ height:auto!important;
+ min-height:10.5in!important;
+ margin:18px auto!important;
+ border-width:1.5px!important;
+ border-radius:12px!important;
+}
+.personnel-action-module .personnel-action-sheet .action-identification{
+ grid-template-columns:minmax(0,1.55fr) minmax(0,1fr)!important;
+ align-items:center!important;
+ gap:6px 18px!important;
+ padding:8px 18px 7px!important;
+}
+.personnel-action-module .personnel-action-sheet .action-identification label,
+.personnel-action-module .personnel-action-sheet .state-columns label{
+ min-width:0!important;
+ line-height:1.25!important;
+}
+.personnel-action-module .personnel-action-sheet .action-identification b,
+.personnel-action-module .personnel-action-sheet .action-identification input,
+.personnel-action-module .personnel-action-sheet .state-columns b,
+.personnel-action-module .personnel-action-sheet .state-columns input{
+ box-sizing:border-box!important;
+ width:100%!important;
+ min-width:0!important;
+ height:25px!important;
+ line-height:20px!important;
+}
+.personnel-action-module .personnel-action-sheet .state-columns{
+ grid-template-columns:repeat(2,minmax(0,1fr))!important;
+ align-items:stretch!important;
+}
+.personnel-action-module .personnel-action-sheet .state-columns section{padding:5px 18px 9px!important}
+.personnel-action-module .personnel-action-sheet .action-options{
+ grid-template-columns:repeat(3,minmax(0,1fr))!important;
+ align-content:start!important;
+ gap:2px 10px!important;
+ padding:5px 12px!important;
+}
+.personnel-action-module .personnel-action-sheet .action-options label{
+ min-width:0!important;
+ overflow:hidden!important;
+ white-space:normal!important;
+ line-height:1.05!important;
+}
+.personnel-action-module .personnel-action-sheet .action-options .other-action{min-width:0!important;max-width:100%!important}
+.personnel-action-module .personnel-action-sheet .action-notes{box-sizing:border-box!important;padding:6px 12px!important}
+.personnel-action-module .personnel-action-sheet .action-notes textarea{box-sizing:border-box!important;width:100%!important;margin-top:2px!important;padding:1px 3px!important}
+.personnel-action-module .personnel-action-sheet .action-approvals{
+ grid-template-columns:repeat(2,minmax(0,1fr))!important;
+ align-items:stretch!important;
+ min-height:0!important;
+}
+.personnel-action-module .personnel-action-sheet .action-approvals>section{
+ box-sizing:border-box!important;
+ min-width:0!important;
+ padding:6px 12px 8px!important;
+}
+.personnel-action-module .personnel-action-sheet .action-approvals>section>label{display:block!important;margin:0!important}
+.personnel-action-module .personnel-action-sheet .action-approvals textarea{box-sizing:border-box!important;width:100%!important;margin-top:2px!important;padding:1px 3px!important}
+.personnel-action-module .personnel-action-sheet .action-approvals section>div{
+ box-sizing:border-box!important;
+ grid-template-columns:minmax(0,1fr) minmax(0,1.65fr)!important;
+ grid-auto-rows:40px!important;
+ align-content:start!important;
+ gap:12px 16px!important;
+ margin-top:8px!important;
+}
+.personnel-action-module .personnel-action-sheet .action-approvals section>div label{
+ display:grid!important;
+ grid-template-rows:25px 13px!important;
+ align-content:start!important;
+ min-width:0!important;
+ margin:0!important;
+}
+.personnel-action-module .personnel-action-sheet .action-approvals section>div input{
+ box-sizing:border-box!important;
+ width:100%!important;
+ min-width:0!important;
+ height:25px!important;
+ padding:1px 2px!important;
+ overflow:hidden!important;
+ text-overflow:ellipsis!important;
+}
+@media print{
+ @page{size:letter portrait;margin:0!important}
+ body.printing-personnel-action .personnel-action-sheet,
+ body.printing-personnel-batch .personnel-action-sheet{
+  position:relative!important;
+  inset:auto!important;
+  display:flex!important;
+  flex-direction:column!important;
+  box-sizing:border-box!important;
+  width:7.8in!important;
+  height:10.3in!important;
+  min-height:10.3in!important;
+  max-height:10.3in!important;
+  margin:.35in auto!important;
+  border:1.5px solid #103f77!important;
+  border-radius:8px!important;
+  overflow:hidden!important;
+ }
+ body[class*="printing-personnel"] .personnel-action-sheet header.personnel-document-header{
+  flex:0 0 1.28in!important;
+  min-height:1.28in!important;
+  grid-template-columns:1.05in minmax(0,1fr)!important;
+ }
+ body[class*="printing-personnel"] .personnel-action-sheet .personnel-logo{padding:14px 8px 8px!important}
+ body[class*="printing-personnel"] .personnel-action-sheet .personnel-logo img{width:.82in!important;height:auto!important;max-height:.62in!important}
+ body[class*="printing-personnel"] .personnel-action-sheet .personnel-heading{padding:12px 14px 7px!important}
+ body[class*="printing-personnel"] .personnel-action-sheet .personnel-heading>span{margin-bottom:4px!important;font-size:7.5px!important}
+ body[class*="printing-personnel"] .personnel-action-sheet .personnel-heading h1{font-size:16px!important;line-height:1.08!important}
+ body[class*="printing-personnel"] .personnel-action-sheet .personnel-heading>strong{margin:2px 0 5px!important;font-size:12px!important}
+ body[class*="printing-personnel"] .personnel-action-sheet .personnel-heading h2{padding:4px 12px!important;font-size:18px!important}
+ body[class*="printing-personnel"] .personnel-action-sheet .action-identification{flex:0 0 .55in!important;padding:5px 14px 4px!important;gap:3px 14px!important}
+ body[class*="printing-personnel"] .personnel-action-sheet .action-identification label{font-size:10.5px!important}
+ body[class*="printing-personnel"] .personnel-action-sheet .action-identification b,
+ body[class*="printing-personnel"] .personnel-action-sheet .action-identification input{height:19px!important;line-height:17px!important;font-size:10.5px!important}
+ body[class*="printing-personnel"] .personnel-action-sheet .state-columns{flex:0 0 1.55in!important;min-height:1.55in!important}
+ body[class*="printing-personnel"] .personnel-action-sheet .state-columns section{padding:3px 14px 5px!important}
+ body[class*="printing-personnel"] .personnel-action-sheet .state-columns h3{margin:1px 0 4px!important;font-size:14px!important}
+ body[class*="printing-personnel"] .personnel-action-sheet .state-columns label{margin:2px 0!important;font-size:10.5px!important}
+ body[class*="printing-personnel"] .personnel-action-sheet .state-columns b,
+ body[class*="printing-personnel"] .personnel-action-sheet .state-columns input{height:18px!important;line-height:16px!important;font-size:10px!important}
+ body[class*="printing-personnel"] .personnel-action-sheet .action-title{flex:0 0 .28in!important;box-sizing:border-box!important;padding:2px!important;font-size:15px!important;line-height:.2in!important}
+ body[class*="printing-personnel"] .personnel-action-sheet .action-options{flex:0 0 1.24in!important;box-sizing:border-box!important;padding:3px 10px!important;gap:0 8px!important}
+ body[class*="printing-personnel"] .personnel-action-sheet .action-options label{min-height:17px!important;font-size:8px!important;line-height:1!important}
+ body[class*="printing-personnel"] .personnel-action-sheet .action-options i{width:23px!important;height:13px!important}
+ body[class*="printing-personnel"] .personnel-action-sheet .action-options input:checked+i:after{font-size:14px!important;line-height:11px!important}
+ body[class*="printing-personnel"] .personnel-action-sheet .action-notes{flex:0 0 .62in!important;padding:4px 10px!important;font-size:9px!important}
+ body[class*="printing-personnel"] .personnel-action-sheet .action-notes textarea{height:.38in!important;font-size:8.5px!important;line-height:12px!important}
+ body[class*="printing-personnel"] .personnel-action-sheet .action-approvals{flex:1 1 auto!important;height:auto!important;min-height:0!important;overflow:hidden!important}
+ body[class*="printing-personnel"] .personnel-action-sheet .action-approvals>section{display:grid!important;grid-template-rows:.57in 1fr!important;padding:4px 10px 6px!important}
+ body[class*="printing-personnel"] .personnel-action-sheet .action-approvals h4{height:.57in!important;padding-top:2px!important;font-size:10px!important}
+ body[class*="printing-personnel"] .personnel-action-sheet .action-approvals>section>label{height:.57in!important;font-size:9px!important}
+ body[class*="printing-personnel"] .personnel-action-sheet .action-approvals textarea{height:.38in!important;font-size:8.5px!important;line-height:12px!important}
+ body[class*="printing-personnel"] .personnel-action-sheet .action-approvals section>div{grid-template-rows:.52in .52in!important;gap:.14in .18in!important;margin-top:.08in!important}
+ body[class*="printing-personnel"] .personnel-action-sheet .action-approvals section>div label{grid-template-rows:.31in .14in!important;font-size:7.5px!important}
+ body[class*="printing-personnel"] .personnel-action-sheet .action-approvals section>div input{height:.31in!important;font-size:8px!important}
+}
 .employee-edit-toolbar{display:flex;align-items:end;justify-content:flex-end;gap:10px;margin-bottom:12px;padding:12px 14px;border:1px solid #d8e4ea;border-radius:10px;background:#fff}.employee-edit-toolbar label{display:grid;gap:5px;min-width:320px;color:#526b7c;font-size:9px;font-weight:800}.employee-edit-toolbar select{height:38px;padding:0 10px;border:1px solid #d4e0e6;border-radius:8px;background:#fff;color:#173c55}.employee-edit-toolbar button{height:38px}@media(max-width:720px){.employee-edit-toolbar{align-items:stretch;flex-direction:column}.employee-edit-toolbar label{min-width:0}.employee-edit-toolbar button{width:100%}}
 .payroll-assignments-card{grid-column:1/-1}.payroll-assignments-card>header>button{margin-left:auto}.payroll-assignment-list{display:grid;gap:10px;padding:16px}.payroll-assignment-list article{display:grid;grid-template-columns:1.2fr 1fr repeat(7,minmax(80px,1fr)) auto;gap:8px;align-items:end;padding:12px;border:1px solid #dce6ec;border-radius:10px;background:#f8fbfc}.payroll-assignment-list label{display:grid;gap:4px}.payroll-assignment-list label span{color:#607687;font-size:7px;font-weight:800}.payroll-assignment-list input,.payroll-assignment-list select{width:100%;height:36px;padding:0 8px;border:1px solid #d7e2e8;border-radius:7px;background:#fff;color:#173c55;font-size:9px}.assignment-empty{padding:18px;border:1px dashed #cad8e0;border-radius:9px;color:#718492;text-align:center;font-size:9px}@media(max-width:1200px){.payroll-assignment-list article{grid-template-columns:repeat(3,1fr)}}@media(max-width:720px){.payroll-assignment-list article{grid-template-columns:1fr}}
 .pending-actions{display:grid;gap:9px;margin-top:16px;padding:16px;border:1px solid #d8e4ea;border-radius:12px;background:#fff}.pending-actions>div{display:flex;justify-content:space-between;color:#526b7d;font-size:9px;font-weight:850}.pending-actions>div strong{color:#173f5b;font-size:16px}.pending-actions article{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:11px 13px;border:1px solid #e0e8ed;border-radius:9px;background:#f9fbfc}.pending-actions article strong,.pending-actions article span,.pending-actions article small{display:block}.pending-actions article strong{color:#173f5b;font-size:10px}.pending-actions article span,.pending-actions article small{margin-top:3px;color:#718391;font-size:8px}.pending-actions article>b{color:#9b6900;font-size:8px}@media(max-width:720px){.pending-actions article{align-items:stretch;flex-direction:column}}
