@@ -1160,3 +1160,13 @@ test("las acciones de personal cargan el sueldo mediante un acceso específico y
  assert.equal(component.includes("data.employees"),true);
  assert.equal(component.includes("fetch('/api/hr/employees'"),false);
 });
+
+test("la edición del empleado selecciona el centro de servicio desde la jerarquía válida",async()=>{
+ const component=await readFile(new URL("../app/components/EmployeeProfileForm.tsx",import.meta.url),"utf8");
+ assert.equal(component.includes('descendants(departmentId||directionId,"Centro")'),true);
+ assert.equal(component.includes('name="center_name" value={unitName(centerId)}'),true);
+ assert.equal(component.includes('{name:"center_name",label:"Centro de servicio",placeholder:"Si aplica"}'),false);
+ assert.equal(component.includes('setCenterId("")'),true);
+ const sql=await readFile(new URL("../supabase/hr_payroll_processing.sql",import.meta.url),"utf8");
+ assert.equal(sql.includes("coalesce(nullif(p_data->>'department_name',''),p_data->>'direction_name'),p_data->>'center_name','Centro'"),true);
+});
