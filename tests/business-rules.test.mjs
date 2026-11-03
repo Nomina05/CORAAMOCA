@@ -1147,3 +1147,16 @@ test("Dirección General integra acuerdos, disposiciones, agenda y comunicacione
  assert.equal(page.includes("Centro ejecutivo"),true);
  assert.equal(page.includes("ver_direccion_general"),true);
 });
+
+test("las acciones de personal cargan el sueldo mediante un acceso específico y auditado",async()=>{
+ const sql=await readFile(new URL("../supabase/hr_personnel_actions.sql",import.meta.url),"utf8");
+ const route=await readFile(new URL("../app/api/hr/personnel-actions/route.ts",import.meta.url),"utf8");
+ const component=await readFile(new URL("../app/components/PersonnelAction.tsx",import.meta.url),"utf8");
+ assert.equal(sql.includes("list_hr_personnel_action_employees"),true);
+ assert.equal(sql.includes("e.monthly_salary"),true);
+ assert.equal(sql.includes("hr_employee_in_user_scope(v_user,e)"),true);
+ assert.equal(sql.includes("PERSONNEL_ACTION_EMPLOYEE_LIST_VIEWED"),true);
+ assert.equal(route.includes('database.rpc("list_hr_personnel_action_employees"'),true);
+ assert.equal(component.includes("data.employees"),true);
+ assert.equal(component.includes("fetch('/api/hr/employees'"),false);
+});

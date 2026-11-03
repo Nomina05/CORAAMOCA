@@ -51,10 +51,29 @@ alter table public.hr_personnel_actions add column if not exists updated_by uuid
 alter table public.hr_personnel_actions enable row level security;
 revoke all on public.hr_personnel_actions from anon,authenticated;
 
+-- Lista limitada para elaborar acciones: expone sueldo y cédula únicamente dentro
+-- de este flujo y conserva el alcance jerárquico del usuario.
+create or replace function public.list_hr_personnel_action_employees(p_token text)
+returns jsonb language plpgsql security definer set search_path=public,extensions as $$
+declare v_user public.app_users;v_items jsonb;
+begin
+ v_user:=public.hr_authenticated_user(p_token);
+ if v_user.id is null or (v_user.role<>'Administrador' and not coalesce((v_user.permissions->>'ver_acciones_personal_rrhh')::boolean,false) and not coalesce((v_user.permissions->>'crear_recursos_humanos')::boolean,false) and not coalesce((v_user.permissions->>'editar_recursos_humanos')::boolean,false)) then
+  return jsonb_build_object('success',false,'error','No posee permiso para elaborar acciones de personal.');end if;
+ select coalesce(jsonb_agg(to_jsonb(x) order by x.full_name),'[]'::jsonb) into v_items from(
+  select e.id,e.employee_code,e.document_number,e.full_name,e.position_name,e.direction_name,e.department_name,e.division_name,e.section_name,e.monthly_salary,e.immediate_supervisor
+  from public.hr_employees e
+  where e.employment_status<>'Desvinculado' and public.hr_employee_in_user_scope(v_user,e)
+ )x;
+ insert into public.security_audit_log(actor_user_id,action,module,detail) values(v_user.id,'PERSONNEL_ACTION_EMPLOYEE_LIST_VIEWED','Recursos Humanos',jsonb_build_object('result_count',jsonb_array_length(v_items),'includes_salary',true));
+ return jsonb_build_object('success',true,'employees',v_items);
+end $$;
+revoke all on function public.list_hr_personnel_action_employees(text) from public,anon,authenticated;
+
 create or replace function public.list_hr_personnel_actions(p_token text,p_employee_id uuid default null)
 returns jsonb language plpgsql security definer set search_path=public,extensions as $$
 declare v_user public.app_users;begin v_user:=public.hr_authenticated_user(p_token);
- if v_user.id is null or (v_user.role<>'Administrador' and not coalesce((v_user.permissions->>'ver_recursos_humanos')::boolean,false)) then return jsonb_build_object('success',false,'error','No posee permiso para consultar acciones de personal.');end if;
+ if v_user.id is null or (v_user.role<>'Administrador' and not coalesce((v_user.permissions->>'ver_recursos_humanos')::boolean,false) and not coalesce((v_user.permissions->>'ver_acciones_personal_rrhh')::boolean,false) and not coalesce((v_user.permissions->>'crear_recursos_humanos')::boolean,false) and not coalesce((v_user.permissions->>'editar_recursos_humanos')::boolean,false)) then return jsonb_build_object('success',false,'error','No posee permiso para consultar acciones de personal.');end if;
  return jsonb_build_object('success',true,'items',coalesce((select jsonb_agg(to_jsonb(x) order by x.created_at desc) from(
   select a.*,e.employee_code,e.document_number,e.full_name,e.position_name from public.hr_personnel_actions a join public.hr_employees e on e.id=a.employee_id where p_employee_id is null or a.employee_id=p_employee_id)x),'[]'::jsonb));end $$;
 
@@ -122,4 +141,4 @@ declare v_user public.app_users;v_period_end date;begin
   'items',coalesce((select jsonb_agg(to_jsonb(v) order by v.direction_name,v.department_name,v.position_name) from public.hr_vacancies v where v.status='VACANTE' and v.available_from<=v_period_end),'[]'::jsonb),
   'areas',coalesce((select jsonb_agg(to_jsonb(a) order by a.monthly_available desc,a.direction_name,a.department_name) from(select direction_name,department_name,count(*)::integer vacancy_count,sum(monthly_amount)::numeric(18,2) monthly_available from public.hr_vacancies where status='VACANTE' and available_from<=v_period_end group by direction_name,department_name)a),'[]'::jsonb));
 end $$;
-grant execute on function public.list_hr_personnel_actions(text,uuid),public.save_hr_personnel_action(text,jsonb),public.approve_hr_personnel_action(text,uuid),public.list_hr_vacancies(text,integer,integer) to anon,authenticated;
+grant execute on function public.list_hr_personnel_action_employees(text),public.list_hr_personnel_actions(text,uuid),public.save_hr_personnel_action(text,jsonb),public.approve_hr_personnel_action(text,uuid),public.list_hr_vacancies(text,integer,integer) to anon,authenticated;
