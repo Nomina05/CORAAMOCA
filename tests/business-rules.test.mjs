@@ -226,6 +226,9 @@ test("la acción de personal se imprime en tamaño carta",async()=>{
   assert.equal(css.includes('margin:.35in auto!important'),true);
   assert.equal(css.includes('grid-template-columns:minmax(0,1.55fr) minmax(0,1fr)!important'),true);
   assert.equal(css.includes('grid-template-rows:.52in .52in!important'),true);
+  assert.equal(css.includes('grid-template-columns:78px minmax(0,1fr)!important'),true);
+  assert.equal(css.includes('border-bottom:1px solid #103f77!important'),true);
+  assert.equal(css.includes('flex:0 0 1.72in!important'),true);
 });
 
 test("cada documento exportable utiliza un modo de impresión independiente",async()=>{
