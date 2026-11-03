@@ -109,6 +109,7 @@ jobs:
             "supabase/espaillat_territorial_catalog.sql"
             "supabase/technical_fault_management.sql"
             "supabase/cashier_treasury_integration.sql"
+            "supabase/directional_hr_panels.sql"
           )
           for migration in "${migrations[@]}"; do
             echo "Aplicando $migration"

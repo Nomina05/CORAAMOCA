@@ -956,6 +956,30 @@ test("las cajeras de Administrativa y Financiera reportan cobros a Tesorería y 
  assert.equal(component.includes("Cobros compartidos con Comercial"),true);
 });
 
+test("las cajeras se asignan desde empleados activos y se desactivan al desvincularse",async()=>{
+ const sql=await readFile(new URL("../supabase/cashier_treasury_integration.sql",import.meta.url),"utf8");
+ assert.equal(sql.includes("financial_cashier_assignments"),true);
+ assert.equal(sql.includes("deactivate_cashier_on_termination"),true);
+ assert.equal(sql.includes("employment_status='Activo'"),true);
+ assert.equal(sql.includes("lower(e.position_name) like '%cajer%'"),true);
+ assert.equal(sql.includes("app_user_sessions"),true);
+ assert.equal(sql.includes("Cierre automático por desvinculación de la cajera"),true);
+ assert.equal(sql.includes("on conflict(employee_id) do update"),true);
+});
+
+test("cada dirección posee un panel de Gestión Humana filtrado y protegido en Supabase",async()=>{
+ const sql=await readFile(new URL("../supabase/directional_hr_panels.sql",import.meta.url),"utf8");
+ const component=await readFile(new URL("../app/components/DirectionalHumanManagement.tsx",import.meta.url),"utf8");
+ const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
+ assert.equal(sql.includes("list_directional_hr_panel"),true);
+ assert.equal(sql.includes("lower(trim(e.direction_name))=lower(canonical_direction)"),true);
+ assert.equal(sql.includes("required_permission"),true);
+ for(const direction of ["Dirección General","Dirección Administrativa y Financiera","Dirección de Planificación y Desarrollo","Dirección Técnica"])assert.equal(page.includes(`direction=\"${direction}\"`),true);
+ assert.equal(component.includes("Permisos solicitados"),true);
+ assert.equal(component.includes("Licencia médica actual"),true);
+ assert.equal(component.includes("Plazas vacantes"),true);
+});
+
 test("el mapa comercial filtra jerárquicamente por municipio distrito y sector",async()=>{
  const map=await readFile(new URL("../app/components/CommercialGeoMap.tsx",import.meta.url),"utf8");
  const commercial=await readFile(new URL("../app/components/CommercialManagement.tsx",import.meta.url),"utf8");

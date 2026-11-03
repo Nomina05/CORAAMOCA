@@ -20,6 +20,27 @@ alter table public.commercial_payments
 alter table public.financial_cash_locations enable row level security;
 revoke all on public.financial_cash_locations from anon,authenticated;
 
+create table if not exists public.financial_cashier_assignments(
+ id uuid primary key default gen_random_uuid(),employee_id uuid not null unique references public.hr_employees(id),user_id uuid not null unique references public.app_users(id),
+ location_id uuid not null references public.financial_cash_locations(id),active boolean not null default true,assigned_by uuid references public.app_users(id),assigned_at timestamptz not null default now(),updated_at timestamptz not null default now()
+);
+alter table public.financial_cashier_assignments enable row level security;
+revoke all on public.financial_cashier_assignments from anon,authenticated;
+
+create or replace function public.deactivate_cashier_on_termination()
+returns trigger language plpgsql security definer set search_path=public as $$
+declare expected numeric;
+begin
+ if new.employment_status='Desvinculado' and old.employment_status is distinct from new.employment_status and (exists(select 1 from public.financial_cashier_assignments a where a.employee_id=new.id and a.active) or lower(new.position_name) like '%cajer%') then
+  update public.financial_cashier_assignments set active=false,updated_at=now() where employee_id=new.id;
+  update public.app_users set active=false,suspended_at=now(),suspension_reason='Desvinculación automática del empleado de caja',updated_at=now() where id=new.app_user_id;
+  delete from public.app_user_sessions where user_id=new.app_user_id;
+  update public.commercial_cash_registers r set closed_at=now(),expected_amount=r.opening_amount+coalesce((select sum(p.amount) from public.commercial_payments p where p.cash_register_id=r.id),0),counted_amount=r.opening_amount+coalesce((select sum(p.amount) from public.commercial_payments p where p.cash_register_id=r.id),0),difference_amount=0,status='CERRADA',closing_comment='Cierre automático por desvinculación de la cajera' where r.cashier_employee_id=new.id and r.status='ABIERTA';
+ end if;return new;
+end$$;
+drop trigger if exists trg_deactivate_cashier_on_termination on public.hr_employees;
+create trigger trg_deactivate_cashier_on_termination after update of employment_status on public.hr_employees for each row execute function public.deactivate_cashier_on_termination();
+
 create or replace function public.list_cashier_treasury(p_token text,p_year integer default null,p_month integer default null)
 returns jsonb language plpgsql security definer set search_path=public,extensions as $$
 declare u public.app_users;y integer:=coalesce(p_year,extract(year from current_date)::int);m integer:=coalesce(p_month,extract(month from current_date)::int);result jsonb;
@@ -28,7 +49,7 @@ begin
  if u.id is null or (u.role<>'Administrador' and not coalesce((u.permissions->>'ver_cajas_tesoreria')::boolean,false) and not coalesce((u.permissions->>'registrar_cobros_caja')::boolean,false)) then return jsonb_build_object('success',false,'error','No posee permiso para consultar cajas y recaudación.');end if;
  select jsonb_build_object('success',true,
   'locations',coalesce((select jsonb_agg(to_jsonb(l) order by l.name) from public.financial_cash_locations l where l.active),'[]'::jsonb),
-  'cashiers',coalesce((select jsonb_agg(to_jsonb(x) order by x.full_name) from(select au.id user_id,e.id employee_id,e.employee_code,e.full_name,e.position_name,e.direction_name,e.department_name,e.section_name from public.app_users au join public.hr_employees e on e.id=au.employee_id where au.active and e.employment_status='Activo' and (lower(e.position_name) like '%cajer%' or coalesce((au.permissions->>'registrar_cobros_caja')::boolean,false)))x),'[]'::jsonb),
+  'cashiers',coalesce((select jsonb_agg(to_jsonb(x) order by x.full_name) from(select au.id user_id,e.id employee_id,e.employee_code,e.full_name,e.position_name,e.direction_name,e.department_name,e.section_name,a.id assignment_id,a.active assignment_active,a.location_id,l.name location_name,l.location_type from public.app_users au join public.hr_employees e on e.id=au.employee_id left join public.financial_cashier_assignments a on a.employee_id=e.id left join public.financial_cash_locations l on l.id=a.location_id where au.active and e.employment_status='Activo' and lower(e.position_name) like '%cajer%' and lower(coalesce(e.direction_name,'')) like '%administrativa%financiera%')x),'[]'::jsonb),
   'customers',coalesce((select jsonb_agg(jsonb_build_object('id',c.id,'account_code',c.account_code,'full_name',c.full_name) order by c.full_name) from public.commercial_customers c where c.status='Activo'),'[]'::jsonb),
   'invoices',coalesce((select jsonb_agg(to_jsonb(x) order by x.due_date) from(select i.id,i.invoice_number,i.customer_id,i.amount,i.due_date,i.status,c.full_name customer_name,coalesce((select sum(p.amount) from public.commercial_payments p where p.invoice_id=i.id),0) paid_amount from public.commercial_invoices i join public.commercial_customers c on c.id=i.customer_id where i.status not in('Pagada','Anulada'))x),'[]'::jsonb),
   'registers',coalesce((select jsonb_agg(to_jsonb(x) order by x.opened_at desc) from(select r.*,l.name location_name,l.location_type,e.full_name cashier_name,e.employee_code,(select coalesce(sum(p.amount),0) from public.commercial_payments p where p.cash_register_id=r.id) collected_amount,(select count(*) from public.commercial_payments p where p.cash_register_id=r.id) receipt_count from public.commercial_cash_registers r left join public.financial_cash_locations l on l.id=r.location_id left join public.hr_employees e on e.id=r.cashier_employee_id where extract(year from r.opened_at)=y and extract(month from r.opened_at)=m)x),'[]'::jsonb),
@@ -42,13 +63,22 @@ returns jsonb language plpgsql security definer set search_path=public,extension
 declare u public.app_users;new_id uuid;code text;reg public.commercial_cash_registers;total numeric;paid numeric;v_invoice_id uuid;customer_id uuid;expected numeric;
 begin
  u:=public.hr_authenticated_user(p_token);if u.id is null then return jsonb_build_object('success',false,'error','Sesión no válida.');end if;
- if p_action in('CREATE_LOCATION','OPEN_REGISTER','CLOSE_REGISTER') and u.role<>'Administrador' and not coalesce((u.permissions->>'gestionar_cajas_tesoreria')::boolean,false) then return jsonb_build_object('success',false,'error','No posee permiso de Tesorería para esta operación.');end if;
+ if p_action in('CREATE_LOCATION','ASSIGN_CASHIER','OPEN_REGISTER','CLOSE_REGISTER') and u.role<>'Administrador' and not coalesce((u.permissions->>'gestionar_cajas_tesoreria')::boolean,false) then return jsonb_build_object('success',false,'error','No posee permiso de Tesorería para esta operación.');end if;
  if p_action='REGISTER_PAYMENT' and u.role<>'Administrador' and not coalesce((u.permissions->>'registrar_cobros_caja')::boolean,false) then return jsonb_build_object('success',false,'error','No posee permiso para registrar cobros de caja.');end if;
  if p_action='CREATE_LOCATION' then insert into public.financial_cash_locations(code,name,location_type,municipality,district,address) values(upper(trim(p_data->>'code')),trim(p_data->>'name'),p_data->>'location_type',coalesce(p_data->>'municipality','Moca'),coalesce(p_data->>'district',''),coalesce(p_data->>'address','')) returning id into new_id;
+ elsif p_action='ASSIGN_CASHIER' then
+  if not exists(select 1 from public.hr_employees e where e.id=(p_data->>'employee_id')::uuid and e.employment_status='Activo' and lower(e.position_name) like '%cajer%' and lower(coalesce(e.direction_name,'')) like '%administrativa%financiera%') then return jsonb_build_object('success',false,'error','Solo puede asignar empleados activos con cargo de cajera pertenecientes a la Dirección Administrativa y Financiera.');end if;
+  insert into public.financial_cashier_assignments(employee_id,user_id,location_id,active,assigned_by) values((p_data->>'employee_id')::uuid,(p_data->>'cashier_user_id')::uuid,(p_data->>'location_id')::uuid,true,u.id) on conflict(employee_id) do update set user_id=excluded.user_id,location_id=excluded.location_id,active=true,assigned_by=u.id,updated_at=now() returning id into new_id;
+  update public.app_users set area='Dirección Administrativa y Financiera',department='Sección de Tesorería',permissions=permissions||jsonb_build_object('acceso_administrativa_financiera',true,'ver_cajas_tesoreria',true,'registrar_cobros_caja',true),active=true,suspended_at=null,suspension_reason='',updated_at=now() where id=(p_data->>'cashier_user_id')::uuid;
  elsif p_action='OPEN_REGISTER' then
+  if not exists(select 1 from public.app_users au join public.hr_employees e on e.id=au.employee_id where au.id=(p_data->>'cashier_user_id')::uuid and au.active and e.employment_status='Activo' and lower(e.position_name) like '%cajer%' and lower(coalesce(e.direction_name,'')) like '%administrativa%financiera%') then return jsonb_build_object('success',false,'error','Seleccione una empleada activa de la Dirección Administrativa y Financiera con cargo de cajera.');end if;
   if exists(select 1 from public.commercial_cash_registers where cashier_user_id=(p_data->>'cashier_user_id')::uuid and status='ABIERTA') then return jsonb_build_object('success',false,'error','La cajera ya posee un turno de caja abierto.');end if;
+  insert into public.financial_cashier_assignments(employee_id,user_id,location_id,active,assigned_by)
+  select e.id,au.id,(p_data->>'location_id')::uuid,true,u.id from public.app_users au join public.hr_employees e on e.id=au.employee_id where au.id=(p_data->>'cashier_user_id')::uuid
+  on conflict(employee_id) do update set user_id=excluded.user_id,location_id=excluded.location_id,active=true,assigned_by=u.id,updated_at=now();
+  update public.app_users set area='Dirección Administrativa y Financiera',department='Sección de Tesorería',permissions=permissions||jsonb_build_object('acceso_administrativa_financiera',true,'ver_cajas_tesoreria',true,'registrar_cobros_caja',true),updated_at=now() where id=(p_data->>'cashier_user_id')::uuid;
   code:='CAJ-'||extract(year from current_date)::int||'-'||lpad(nextval('public.financial_cash_register_code_seq')::text,6,'0');
-  insert into public.commercial_cash_registers(register_code,cashier_user_id,cashier_employee_id,location_id,opening_amount) values(code,(p_data->>'cashier_user_id')::uuid,(select employee_id from public.app_users where id=(p_data->>'cashier_user_id')::uuid),(p_data->>'location_id')::uuid,coalesce(nullif(p_data->>'opening_amount','')::numeric,0)) returning id into new_id;
+  insert into public.commercial_cash_registers(register_code,cashier_user_id,cashier_employee_id,location_id,opening_amount) select code,a.user_id,a.employee_id,a.location_id,coalesce(nullif(p_data->>'opening_amount','')::numeric,0) from public.financial_cashier_assignments a where a.user_id=(p_data->>'cashier_user_id')::uuid and a.active returning id into new_id;
  elsif p_action='REGISTER_PAYMENT' then
   select * into reg from public.commercial_cash_registers where id=(p_data->>'cash_register_id')::uuid and status='ABIERTA' for update;if reg.id is null then return jsonb_build_object('success',false,'error','Seleccione una caja abierta.');end if;
   if u.role<>'Administrador' and reg.cashier_user_id<>u.id then return jsonb_build_object('success',false,'error','Este turno pertenece a otra cajera.');end if;
