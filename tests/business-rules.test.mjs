@@ -210,6 +210,7 @@ test("el tablero institucional utiliza proyectos, empleados y presupuesto de Sup
 
 test("la acción de personal se imprime en tamaño carta",async()=>{
   const component=await readFile(new URL("../app/components/PersonnelAction.tsx",import.meta.url),"utf8");
+  const css=await readFile(new URL("../app/globals.css",import.meta.url),"utf8");
   assert.equal(component.includes("@page{size:letter portrait;margin:0}"),true);
   assert.equal(component.includes("width:7.75in!important;height:10.2in!important"),true);
   assert.equal(component.includes("margin:.2in auto 0!important"),true);
@@ -217,6 +218,9 @@ test("la acción de personal se imprime en tamaño carta",async()=>{
   assert.equal(component.includes("grid-template-rows:58px 1fr!important"),true);
   assert.equal(component.includes("grid-template-columns:minmax(0,1fr) minmax(0,1.65fr)!important"),true);
   assert.equal(component.includes("grid-template-rows:38px 38px!important;align-content:space-between!important"),true);
+  assert.equal(css.includes('body.printing-personnel-action .personnel-action-sheet input:not([type=radio]):not([type=checkbox])'),true);
+  assert.equal(css.includes('border:0!important'),true);
+  assert.equal(css.includes('body[class*="printing-personnel"] .personnel-action-sheet .action-notes textarea'),true);
 });
 
 test("cada documento exportable utiliza un modo de impresión independiente",async()=>{
