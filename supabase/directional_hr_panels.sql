@@ -42,3 +42,4 @@ begin
  return jsonb_build_object('success',true,'direction',canonical_direction,'employees',employees,'vacancies',vacancies);
 end $$;
 revoke all on function public.list_directional_hr_panel(text,text) from public,anon,authenticated;
+grant execute on function public.list_directional_hr_panel(text,text) to anon,authenticated;

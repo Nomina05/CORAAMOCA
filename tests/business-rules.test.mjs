@@ -987,6 +987,7 @@ test("cada dirección posee un panel de Gestión Humana filtrado y protegido en 
  const component=await readFile(new URL("../app/components/DirectionalHumanManagement.tsx",import.meta.url),"utf8");
  const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
  assert.equal(sql.includes("list_directional_hr_panel"),true);
+ assert.equal(sql.includes("grant execute on function public.list_directional_hr_panel(text,text) to anon,authenticated"),true);
  assert.equal(sql.includes("lower(trim(e.direction_name))=lower(canonical_direction)"),true);
  assert.equal(sql.includes("required_permission"),true);
  for(const direction of ["Dirección General","Dirección Administrativa y Financiera","Dirección de Planificación y Desarrollo","Dirección Técnica"])assert.equal(page.includes(`direction=\"${direction}\"`),true);
