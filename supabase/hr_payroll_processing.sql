@@ -100,7 +100,8 @@ insert into public.hr_employee_payroll_assignments(employee_id,payroll_type,acco
 select b.employee_id,'PRIMA_TRANSPORTE','2.1.2.2.04',e.position_name,coalesce(e.execution_fund,'30'),coalesce(e.program,1),coalesce(e.subproduct,0),coalesce(e.activity,2),b.default_amount,e.hire_date,true
 from public.hr_employee_benefits b join public.hr_employees e on e.id=b.employee_id
 where b.benefit_type='PRIMA_TRANSPORTE' and b.active and b.default_amount>0
-on conflict(employee_id,payroll_type) do update set gross_amount=excluded.gross_amount,account_code=excluded.account_code,active=true,updated_at=now();
+on conflict(employee_id,payroll_type) do nothing;
+update public.hr_employee_benefits set active=false where benefit_type='PRIMA_TRANSPORTE' and active;
 
 insert into public.hr_payroll_parameters(code,effective_from,value,description) values
 ('EMPLOYEE_PENSION_RATE','2026-01-01',0.0287,'Aporte empleado pensión'),('EMPLOYER_PENSION_RATE','2026-01-01',0.0710,'Aporte empleador pensión'),
