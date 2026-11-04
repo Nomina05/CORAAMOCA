@@ -1260,3 +1260,17 @@ test("interinato suplencia y prima generan pagos recurrentes separados",async()=
  assert.equal(engine.includes("coalesce(a.gross_amount,0)"),true);
  assert.equal(engine.includes("pa.end_date>=v_date"),true);
 });
+
+test("la prima descuenta solo el ISR incremental después del cierre de nómina fija",async()=>{
+ const engine=await readFile(new URL("../supabase/hr_payroll_engine_phase6.sql",import.meta.url),"utf8");
+ const processing=await readFile(new URL("../supabase/hr_payroll_processing.sql",import.meta.url),"utf8");
+ const component=await readFile(new URL("../app/components/PayrollProcessing.tsx",import.meta.url),"utf8");
+ assert.equal(engine.includes("v_pending_fixed integer:=0"),true);
+ assert.equal(engine.includes("aún no poseen su nómina fija cerrada"),true);
+ assert.equal(engine.includes("transport_allowance_employee_sfs',0"),true);
+ assert.equal(engine.includes("transport_allowance_employee_pension',0"),true);
+ assert.equal(engine.includes("transport_allowance_other_deductions',0"),true);
+ assert.equal(processing.includes("hr_calculate_incremental_isr_2026"),true);
+ assert.equal(component.includes("ISR acumulado mensual"),true);
+ assert.equal(component.includes("Pensión, SFS y otros descuentos del empleado permanecen en RD$0.00"),true);
+});

@@ -68,13 +68,25 @@ end $$;
 drop function if exists public.generate_hr_payroll(text,integer,integer,text,text,integer);
 create or replace function public.generate_hr_payroll(p_token text,p_year integer,p_month integer,p_type text,p_account_code text,p_program integer,p_execution_fund text,p_subproduct integer,p_activity integer)
 returns jsonb language plpgsql security definer set search_path=public,extensions as $$
-declare v_user public.app_users;v_batch uuid;v_date date:=make_date(p_year,p_month,1);v_ep numeric;v_epr numeric;v_es numeric;v_esr numeric;v_lr numeric;v_pc numeric;v_sc numeric;v_lc numeric;v_closed boolean;
+declare v_user public.app_users;v_batch uuid;v_date date:=make_date(p_year,p_month,1);v_ep numeric;v_epr numeric;v_es numeric;v_esr numeric;v_lr numeric;v_pc numeric;v_sc numeric;v_lc numeric;v_closed boolean;v_pending_fixed integer:=0;
 begin
  v_user:=public.hr_authenticated_user(p_token);
  if v_user.id is null or (v_user.role<>'Administrador' and not coalesce((v_user.permissions->>'procesar_nomina')::boolean,false)) then return jsonb_build_object('success',false,'error','No posee permiso específico para procesar nómina.');end if;
  if nullif(trim(p_account_code),'') is null then return jsonb_build_object('success',false,'error','Seleccione una cuenta presupuestaria.');end if;
  select exists(select 1 from public.hr_payroll_batches where payroll_type=p_type and payroll_year=p_year and payroll_month=p_month and execution_fund=p_execution_fund and program=p_program and subproduct=p_subproduct and activity=p_activity and coalesce(account_code,'')=p_account_code and status='CERRADA') into v_closed;
  if v_closed then return jsonb_build_object('success',false,'error','La nómina está cerrada. Debe reabrirla con autorización y motivo antes de modificarla.');end if;
+ if p_type='PRIMA_TRANSPORTE' then
+  select count(*) into v_pending_fixed
+  from public.hr_employee_payroll_assignments prima
+  where prima.active and prima.payroll_type='PRIMA_TRANSPORTE' and prima.execution_fund=p_execution_fund and prima.program=p_program and prima.subproduct=p_subproduct and prima.activity=p_activity and prima.account_code=p_account_code
+   and (prima.start_date is null or prima.start_date<=(v_date+interval '1 month - 1 day')::date) and (prima.end_date is null or prima.end_date>=v_date)
+   and not exists(
+    select 1 from public.hr_payroll_batch_lines fixed_line join public.hr_payroll_batches fixed_batch on fixed_batch.id=fixed_line.batch_id
+    where fixed_line.employee_id=prima.employee_id and fixed_batch.payroll_year=p_year and fixed_batch.payroll_month=p_month
+     and fixed_batch.payroll_type in('NOMINA','NOMINA_FIJA') and fixed_batch.status='CERRADA'
+   );
+  if v_pending_fixed>0 then return jsonb_build_object('success',false,'error','No se puede generar la prima: '||v_pending_fixed||' empleado(s) aún no poseen su nómina fija cerrada en este período.');end if;
+ end if;
  select value into v_ep from public.hr_payroll_parameters where code='EMPLOYEE_PENSION_RATE' and effective_from<=v_date order by effective_from desc limit 1;
  select value into v_epr from public.hr_payroll_parameters where code='EMPLOYER_PENSION_RATE' and effective_from<=v_date order by effective_from desc limit 1;
  select value into v_es from public.hr_payroll_parameters where code='EMPLOYEE_SFS_RATE' and effective_from<=v_date order by effective_from desc limit 1;
@@ -97,7 +109,7 @@ begin
   case when p_type in('NOMINA','NOMINA_FIJA','SUPLENCIA','INTERINATO','TEMPORAL') then coalesce(d.amount,0) else 0 end,
   t.isr+case when p_type in('NOMINA','NOMINA_FIJA','SUPLENCIA','INTERINATO','TEMPORAL') then round(least(g.gross,v_pc)*v_ep+least(g.gross,v_sc)*v_es,2)+coalesce(d.amount,0) else 0 end,
   g.gross-(t.isr+case when p_type in('NOMINA','NOMINA_FIJA','SUPLENCIA','INTERINATO','TEMPORAL') then round(least(g.gross,v_pc)*v_ep+least(g.gross,v_sc)*v_es,2)+coalesce(d.amount,0) else 0 end),
-  jsonb_build_object('isr_method','ACUMULADO_MENSUAL_INCREMENTAL','employee_pension_rate',v_ep,'employee_sfs_rate',v_es,'employer_pension_rate',v_epr,'employer_sfs_rate',v_esr,'labor_risk_rate',v_lr,'pension_cap',v_pc,'sfs_cap',v_sc,'labor_risk_cap',v_lc,'other_deductions_detail',coalesce(d.detail,'{}'::jsonb))
+  jsonb_build_object('isr_method','ACUMULADO_MENSUAL_INCREMENTAL','income_order',jsonb_build_array('NOMINA_FIJA','SUPLENCIA','INTERINATO','TEMPORAL','PRIMA_TRANSPORTE'),'transport_allowance_employee_sfs',0,'transport_allowance_employee_pension',0,'transport_allowance_other_deductions',0,'employee_pension_rate',v_ep,'employee_sfs_rate',v_es,'employer_pension_rate',v_epr,'employer_sfs_rate',v_esr,'labor_risk_rate',v_lr,'pension_cap',v_pc,'sfs_cap',v_sc,'labor_risk_cap',v_lc,'other_deductions_detail',coalesce(d.detail,'{}'::jsonb))
  from public.hr_employees e
  left join lateral(select pa.* from public.hr_employee_payroll_assignments pa where pa.employee_id=e.id and pa.active and pa.payroll_type=case p_type when 'NOMINA' then 'FIJA' when 'NOMINA_FIJA' then 'FIJA' else p_type end and pa.execution_fund=p_execution_fund and pa.program=p_program and pa.subproduct=p_subproduct and pa.activity=p_activity and coalesce(pa.account_code,p_account_code)=p_account_code and (pa.start_date is null or pa.start_date<=(v_date+interval '1 month - 1 day')::date) and (pa.end_date is null or pa.end_date>=v_date) limit 1)a on true
  cross join lateral(select case when p_type in('NOMINA','NOMINA_FIJA') then coalesce(a.gross_amount,e.monthly_salary,0) when p_type in('SUPLENCIA','INTERINATO','TEMPORAL','PRIMA_TRANSPORTE') then coalesce(a.gross_amount,0) else coalesce((select b.default_amount from public.hr_employee_benefits b where b.employee_id=e.id and b.active and b.benefit_type=p_type),0) end gross)g
