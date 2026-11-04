@@ -165,6 +165,18 @@ test("la programación mensual de nómina 2026 respeta los topes por fondo",()=>
   assert.equal(total10<=3993167.00,true);
 });
 
+test("los viáticos se calculan por solicitud y por conceptos individuales",async()=>{
+ const sql=await readFile(new URL("../supabase/hr_travel_allowances.sql",import.meta.url),"utf8");
+ const component=await readFile(new URL("../app/components/TravelAllowanceManagement.tsx",import.meta.url),"utf8");
+ for(const concept of ["DESAYUNO","ALMUERZO","CENA","ALOJAMIENTO"]) assert.equal(sql.includes(concept),true);
+ assert.equal(sql.includes("hr_travel_allowance_details"),true);
+ assert.equal(sql.includes(">=5"),true);
+ assert.equal(sql.includes("Seleccione por lo menos un concepto de viático"),true);
+ assert.equal(component.includes("Conceptos que corresponden a esta solicitud"),true);
+ assert.equal(component.includes("selectedConcepts.map"),true);
+ assert.equal(component.includes("Máximo cinco solicitudes activas por empleado y mes"),true);
+});
+
 test("los módulos no utilizan almacenamiento local para datos institucionales",async()=>{
   const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
   assert.equal(page.includes("localStorage"),false);

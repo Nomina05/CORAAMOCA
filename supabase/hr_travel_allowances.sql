@@ -17,6 +17,16 @@ insert into public.hr_travel_allowance_rates(category,daily_amount,legal_basis,e
 ('OTROS PUESTOS',3900,'Resolución MAP núm. 173-2025','2025-07-09')
 on conflict(category,effective_from) do update set daily_amount=excluded.daily_amount,legal_basis=excluded.legal_basis;
 
+-- Los componentes se administran por separado para que una solicitud pague
+-- solamente desayuno, almuerzo, cena o alojamiento cuando corresponda.
+create table if not exists public.hr_travel_allowance_concepts(
+ code text primary key, name text not null, rate_percent numeric(5,2) not null check(rate_percent>0 and rate_percent<=100),
+ display_order integer not null, active boolean not null default true
+);
+insert into public.hr_travel_allowance_concepts(code,name,rate_percent,display_order) values
+('DESAYUNO','Desayuno',20,1),('ALMUERZO','Comida / almuerzo',30,2),('CENA','Cena',30,3),('ALOJAMIENTO','Alojamiento',20,4)
+on conflict(code) do update set name=excluded.name,display_order=excluded.display_order;
+
 create table if not exists public.hr_travel_allowances(
  id uuid primary key default gen_random_uuid(), request_number bigint generated always as identity, employee_id uuid not null references public.hr_employees(id),
  rate_id uuid not null references public.hr_travel_allowance_rates(id), destination text not null, purpose text not null,
@@ -30,8 +40,15 @@ create table if not exists public.hr_travel_allowances(
  check(return_at>departure_at)
 );
 create index if not exists hr_travel_allowances_year_idx on public.hr_travel_allowances(departure_at,status);
-alter table public.hr_travel_allowance_rates enable row level security;alter table public.hr_travel_allowances enable row level security;
-revoke all on public.hr_travel_allowance_rates,public.hr_travel_allowances from anon,authenticated;
+create table if not exists public.hr_travel_allowance_details(
+ id uuid primary key default gen_random_uuid(), allowance_id uuid not null references public.hr_travel_allowances(id) on delete cascade,
+ concept_code text not null references public.hr_travel_allowance_concepts(code), quantity integer not null check(quantity between 1 and 31),
+ rate_percent numeric(5,2) not null, unit_amount numeric(14,2) not null check(unit_amount>=0), total_amount numeric(14,2) not null check(total_amount>=0),
+ unique(allowance_id,concept_code)
+);
+create index if not exists hr_travel_allowance_details_request_idx on public.hr_travel_allowance_details(allowance_id);
+alter table public.hr_travel_allowance_rates enable row level security;alter table public.hr_travel_allowance_concepts enable row level security;alter table public.hr_travel_allowances enable row level security;alter table public.hr_travel_allowance_details enable row level security;
+revoke all on public.hr_travel_allowance_rates,public.hr_travel_allowance_concepts,public.hr_travel_allowances,public.hr_travel_allowance_details from anon,authenticated;
 
 create or replace function public.list_hr_travel_allowances(p_token text,p_year integer)
 returns jsonb language plpgsql security definer set search_path=public,extensions as $$
@@ -39,18 +56,30 @@ declare v_user public.app_users;begin v_user:=public.hr_authenticated_user(p_tok
  if v_user.id is null or (v_user.role<>'Administrador' and not coalesce((v_user.permissions->>'ver_recursos_humanos')::boolean,false)) then return jsonb_build_object('success',false,'error','No posee permiso para consultar viáticos.');end if;
  return jsonb_build_object('success',true,
  'rates',coalesce((select jsonb_agg(to_jsonb(r) order by daily_amount desc) from public.hr_travel_allowance_rates r where active and effective_from<=make_date(p_year,12,31) and (effective_to is null or effective_to>=make_date(p_year,1,1))),'[]'::jsonb),
- 'items',coalesce((select jsonb_agg(to_jsonb(x) order by x.departure_at desc) from(select t.*,e.full_name employee_name,e.employee_code,e.position_name,r.category,((select count(*) from generate_series(t.created_at::date,(t.departure_at::date-1),'1 day') d where extract(isodow from d)<6)<10) advance_warning from public.hr_travel_allowances t join public.hr_employees e on e.id=t.employee_id join public.hr_travel_allowance_rates r on r.id=t.rate_id where extract(year from t.departure_at)=p_year)x),'[]'::jsonb));end $$;
+ 'concepts',coalesce((select jsonb_agg(to_jsonb(c) order by c.display_order) from public.hr_travel_allowance_concepts c where c.active),'[]'::jsonb),
+ 'items',coalesce((select jsonb_agg(to_jsonb(x) order by x.departure_at desc) from(select t.*,e.full_name employee_name,e.employee_code,e.position_name,r.category,((select count(*) from generate_series(t.created_at::date,(t.departure_at::date-1),'1 day') d where extract(isodow from d)<6)<10) advance_warning,coalesce((select jsonb_agg(jsonb_build_object('code',d.concept_code,'name',c.name,'quantity',d.quantity,'unit_amount',d.unit_amount,'total_amount',d.total_amount) order by c.display_order) from public.hr_travel_allowance_details d join public.hr_travel_allowance_concepts c on c.code=d.concept_code where d.allowance_id=t.id),'[]'::jsonb) details from public.hr_travel_allowances t join public.hr_employees e on e.id=t.employee_id join public.hr_travel_allowance_rates r on r.id=t.rate_id where extract(year from t.departure_at)=p_year)x),'[]'::jsonb));end $$;
 
 create or replace function public.save_hr_travel_allowance(p_token text,p_data jsonb)
 returns jsonb language plpgsql security definer set search_path=public,extensions as $$
-declare v_user public.app_users;v_rate public.hr_travel_allowance_rates;v_departure timestamptz;v_return timestamptz;v_days integer;v_id uuid;v_number bigint;v_transport numeric;v_tolls numeric;begin
+declare v_user public.app_users;v_rate public.hr_travel_allowance_rates;v_departure timestamptz;v_return timestamptz;v_days integer;v_id uuid;v_number bigint;v_transport numeric;v_tolls numeric;v_allowance numeric:=0;v_detail record;v_concept public.hr_travel_allowance_concepts;v_quantity integer;begin
  v_user:=public.hr_authenticated_user(p_token);if v_user.id is null or (v_user.role<>'Administrador' and not coalesce((v_user.permissions->>'crear_recursos_humanos')::boolean,false)) then return jsonb_build_object('success',false,'error','No posee permiso para registrar viáticos.');end if;
  select * into v_rate from public.hr_travel_allowance_rates where id=(p_data->>'rate_id')::uuid and active;v_departure:=(p_data->>'departure_at')::timestamptz;v_return:=(p_data->>'return_at')::timestamptz;
  if v_rate.id is null or v_departure<v_rate.effective_from or (v_rate.effective_to is not null and v_departure::date>v_rate.effective_to) then return jsonb_build_object('success',false,'error','La tarifa no está vigente para la fecha seleccionada.');end if;if v_return<=v_departure then return jsonb_build_object('success',false,'error','El regreso debe ser posterior a la salida.');end if;
+ if (select count(*) from public.hr_travel_allowances where employee_id=(p_data->>'employee_id')::uuid and date_trunc('month',departure_at)=date_trunc('month',v_departure) and status not in('RECHAZADA','ANULADA'))>=5 then return jsonb_build_object('success',false,'error','El colaborador ya posee cinco solicitudes activas en este mes.');end if;
  v_days:=greatest(1,ceil(extract(epoch from(v_return-v_departure))/86400.0)::integer);v_transport:=greatest(0,coalesce((p_data->>'transport_amount')::numeric,0));v_tolls:=greatest(0,coalesce((p_data->>'toll_amount')::numeric,0));
+ for v_detail in select * from jsonb_to_recordset(coalesce(p_data->'concepts','[]'::jsonb)) as x(code text,quantity integer) loop
+  select * into v_concept from public.hr_travel_allowance_concepts where code=v_detail.code and active;
+  v_quantity:=greatest(0,least(31,coalesce(v_detail.quantity,0)));
+  if v_concept.code is not null and v_quantity>0 then v_allowance:=v_allowance+round(v_rate.daily_amount*v_concept.rate_percent/100,2)*v_quantity;end if;
+ end loop;
+ if v_allowance<=0 then return jsonb_build_object('success',false,'error','Seleccione por lo menos un concepto de viático.');end if;
  insert into public.hr_travel_allowances(employee_id,rate_id,destination,purpose,departure_at,return_at,days,daily_rate,allowance_amount,transport_mode,transport_amount,toll_amount,total_amount,support_url,observations,legal_basis,created_by)
- values((p_data->>'employee_id')::uuid,v_rate.id,trim(p_data->>'destination'),trim(p_data->>'purpose'),v_departure,v_return,v_days,v_rate.daily_amount,v_days*v_rate.daily_amount,coalesce(p_data->>'transport_mode','INSTITUCIONAL'),v_transport,v_tolls,v_days*v_rate.daily_amount+v_transport+v_tolls,coalesce(p_data->>'support_url',''),coalesce(p_data->>'observations',''),v_rate.legal_basis,v_user.id) returning id,request_number into v_id,v_number;
- insert into public.security_audit_log(actor_user_id,action,module,detail) values(v_user.id,'REGISTRAR_VIATICO','Recursos Humanos',jsonb_build_object('entity_type','hr_travel_allowances','entity_id',v_id,'request_number',v_number,'employee_id',p_data->>'employee_id','total',v_days*v_rate.daily_amount+v_transport+v_tolls));return jsonb_build_object('success',true,'id',v_id,'request_number',v_number);
+ values((p_data->>'employee_id')::uuid,v_rate.id,trim(p_data->>'destination'),trim(p_data->>'purpose'),v_departure,v_return,v_days,v_rate.daily_amount,v_allowance,coalesce(p_data->>'transport_mode','INSTITUCIONAL'),v_transport,v_tolls,v_allowance+v_transport+v_tolls,coalesce(p_data->>'support_url',''),coalesce(p_data->>'observations',''),v_rate.legal_basis,v_user.id) returning id,request_number into v_id,v_number;
+ for v_detail in select * from jsonb_to_recordset(coalesce(p_data->'concepts','[]'::jsonb)) as x(code text,quantity integer) loop
+  select * into v_concept from public.hr_travel_allowance_concepts where code=v_detail.code and active;v_quantity:=greatest(0,least(31,coalesce(v_detail.quantity,0)));
+  if v_concept.code is not null and v_quantity>0 then insert into public.hr_travel_allowance_details(allowance_id,concept_code,quantity,rate_percent,unit_amount,total_amount) values(v_id,v_concept.code,v_quantity,v_concept.rate_percent,round(v_rate.daily_amount*v_concept.rate_percent/100,2),round(v_rate.daily_amount*v_concept.rate_percent/100,2)*v_quantity);end if;
+ end loop;
+ insert into public.security_audit_log(actor_user_id,action,module,detail) values(v_user.id,'REGISTRAR_VIATICO','Recursos Humanos',jsonb_build_object('entity_type','hr_travel_allowances','entity_id',v_id,'request_number',v_number,'employee_id',p_data->>'employee_id','concepts',p_data->'concepts','total',v_allowance+v_transport+v_tolls));return jsonb_build_object('success',true,'id',v_id,'request_number',v_number);
  exception when others then return jsonb_build_object('success',false,'error','No fue posible registrar la solicitud: '||sqlerrm);end $$;
 
 create or replace function public.transition_hr_travel_allowance(p_token text,p_id uuid,p_status text,p_notes text default '')
