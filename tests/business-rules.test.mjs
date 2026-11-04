@@ -1079,6 +1079,17 @@ test("el sistema visual unifica espacios, tamaños, densidad y ventanas adaptabl
  assert.equal(page.includes("setUiDensity"),true);
 });
 
+test("la navegación compacta elimina encabezados repetidos y prioriza el contenido",async()=>{
+ const css=await readFile(new URL("../app/system-visual-cleanup.css",import.meta.url),"utf8");
+ for(const rule of [
+  ".app-shell .application-header{height:58px",
+  ".app-shell .top-module-palette{display:flex",
+  ".app-shell :is(.commercial-hero,.hr-hub-hero,.planning-hero,.financial-direction-hero,.general-direction-hero,.profile-hero)",
+  "Las antiguas franjas grandes funcionan ahora como barras contextuales pequeñas",
+  "Navegaciones internas de una sola línea"
+ ]) assert.equal(css.includes(rule),true);
+});
+
 test("la segunda etapa visual incorpora preferencias persistentes y reducción de carga",async()=>{
  const css=await readFile(new URL("../app/system-visual-cleanup.css",import.meta.url),"utf8");
  const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
