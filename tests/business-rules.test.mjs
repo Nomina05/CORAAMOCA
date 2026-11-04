@@ -118,7 +118,7 @@ test("los indicadores de novedades respetan alcance y criterios de seguimiento",
   assert.equal(component.includes("Las alertas no sustituyen la investigación"),true);
   assert.equal(component.includes("Revisar registros →"),true);
   const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
-  assert.equal(page.includes('section === "Vacantes por Área"')&&page.includes('section === "Indicadores RRHH"'),true);
+  assert.equal(page.includes('section==="Vacantes por Área"')&&page.includes('section==="Indicadores RRHH"'),true);
 });
 
 test("el flujo de cubicaciones no permite saltar etapas",()=>{
@@ -644,7 +644,7 @@ test("la navegación institucional usa direcciones superiores, ruta y accesos re
  for(const unit of ["Sección de Registro y Control de Nómina","Sección de Evaluación del Desempeño y Capacitación","Sección de Organización del Trabajo y Compensaciones"])assert.equal(page.includes(unit),true);
  assert.equal(page.includes("hrUnitGroups"),true);
  assert.equal(styles.includes(".hr-unit-groups"),true);
- assert.equal(page.includes('section === "Indicadores RRHH" || section === "Flujo de Novedades" ||'),true);
+ assert.equal(page.includes('section==="Indicadores RRHH"')&&page.includes('section==="Flujo de Novedades"'),true);
  assert.equal(page.includes("institutional-top-nav"),true);
  assert.equal(page.includes("top-module-palette"),true);
  assert.equal(page.includes("route-trail"),true);
@@ -1176,6 +1176,7 @@ test("Alcance institucional es un módulo exclusivo de Dirección General y Plan
  const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
  assert.equal((page.match(/label:"Alcance institucional"/g)||[]).length,2);
  assert.equal(page.includes('ALCANCE INSTITUCIONAL'),true);
+ assert.equal(page.includes('section==="Proyectos"&&<div>'),true);
  assert.equal(page.includes('currentUser.permissions?.acceso_direccion_general'),true);
  assert.equal(page.includes('currentUser.permissions?.acceso_planificacion'),true);
  const navigation=page.slice(page.indexOf("const institutionalDirections"),page.indexOf("const permissionParents"));
