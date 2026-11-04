@@ -1244,3 +1244,15 @@ test("permisos y licencias aplican la clasificación de la Ley 41-08 y el Reglam
  for(const article of ["art. 75.1","art. 75.2","art. 75.4","art. 75.5","art. 75.6","art. 75.7","art. 78.1","art. 78.2","art. 78.3","art. 78.4","art. 78.5"])assert.equal(sql.includes(article),true);
  assert.equal(sql.includes("day_basis='CALENDARIO'"),true);
 });
+
+test("interinato suplencia y prima generan pagos recurrentes separados",async()=>{
+ const sql=await readFile(new URL("../supabase/hr_payroll_processing.sql",import.meta.url),"utf8");
+ const component=await readFile(new URL("../app/components/EmployeeProfileForm.tsx",import.meta.url),"utf8");
+ assert.equal(sql.includes("'FIJA','SUPLENCIA','INTERINATO','TEMPORAL','PRIMA_TRANSPORTE'"),true);
+ assert.equal(sql.includes("Convierte las primas existentes en asignaciones recurrentes"),true);
+ assert.equal(sql.includes("a.payroll_type='PRIMA_TRANSPORTE'"),true);
+ assert.equal(component.includes("Asignaciones recurrentes de pago"),true);
+ assert.equal(component.includes('<option value="PRIMA_TRANSPORTE">Prima de transporte</option>'),true);
+ assert.equal(component.includes('PRIMA_TRANSPORTE:"2.1.2.2.04"'),true);
+ assert.equal(component.includes("Pagos variables autorizados"),true);
+});

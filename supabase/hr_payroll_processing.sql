@@ -25,12 +25,14 @@ create table if not exists public.hr_employee_benefits(
 alter table public.hr_employee_benefits add column if not exists taxable boolean not null default false;
 create table if not exists public.hr_employee_payroll_assignments(
   id uuid primary key default gen_random_uuid(), employee_id uuid not null references public.hr_employees(id) on delete cascade,
-  payroll_type text not null check(payroll_type in ('FIJA','SUPLENCIA','INTERINATO','TEMPORAL')),
+  payroll_type text not null check(payroll_type in ('FIJA','SUPLENCIA','INTERINATO','TEMPORAL','PRIMA_TRANSPORTE')),
   account_code text not null references public.hr_payroll_account_catalog(code), position_name text,
   execution_fund text not null default '30', program integer not null default 1, subproduct integer not null default 0, activity integer not null default 1,
   gross_amount numeric(18,2) not null check(gross_amount>=0), start_date date, end_date date, active boolean not null default true,
   created_at timestamptz not null default now(), updated_at timestamptz not null default now(), unique(employee_id,payroll_type)
 );
+alter table public.hr_employee_payroll_assignments drop constraint if exists hr_employee_payroll_assignments_payroll_type_check;
+alter table public.hr_employee_payroll_assignments add constraint hr_employee_payroll_assignments_payroll_type_check check(payroll_type in ('FIJA','SUPLENCIA','INTERINATO','TEMPORAL','PRIMA_TRANSPORTE'));
 do $$begin if not exists(select 1 from pg_constraint where conname='hr_employee_payroll_assignments_account_code_fkey') then alter table public.hr_employee_payroll_assignments add constraint hr_employee_payroll_assignments_account_code_fkey foreign key(account_code) references public.hr_payroll_account_catalog(code);end if;end$$;
 create table if not exists public.hr_employee_deductions(
   id uuid primary key default gen_random_uuid(), employee_id uuid not null references public.hr_employees(id) on delete cascade,
@@ -93,6 +95,13 @@ insert into public.hr_payroll_account_catalog(code,parent_code,name) values
 ('2.2.3.1',null,'Viáticos dentro del país'),('2.2.3.1.01','2.2.3.1','Viáticos dentro del país'),('2.2.4.4',null,'Peaje'),('2.2.4.4.01','2.2.4.4','Peaje')
 on conflict(code) do update set parent_code=excluded.parent_code,name=excluded.name;
 
+-- Convierte las primas existentes en asignaciones recurrentes con cuenta propia.
+insert into public.hr_employee_payroll_assignments(employee_id,payroll_type,account_code,position_name,execution_fund,program,subproduct,activity,gross_amount,start_date,active)
+select b.employee_id,'PRIMA_TRANSPORTE','2.1.2.2.04',e.position_name,coalesce(e.execution_fund,'30'),coalesce(e.program,1),coalesce(e.subproduct,0),coalesce(e.activity,2),b.default_amount,e.hire_date,true
+from public.hr_employee_benefits b join public.hr_employees e on e.id=b.employee_id
+where b.benefit_type='PRIMA_TRANSPORTE' and b.active and b.default_amount>0
+on conflict(employee_id,payroll_type) do update set gross_amount=excluded.gross_amount,account_code=excluded.account_code,active=true,updated_at=now();
+
 insert into public.hr_payroll_parameters(code,effective_from,value,description) values
 ('EMPLOYEE_PENSION_RATE','2026-01-01',0.0287,'Aporte empleado pensión'),('EMPLOYER_PENSION_RATE','2026-01-01',0.0710,'Aporte empleador pensión'),
 ('EMPLOYEE_SFS_RATE','2026-01-01',0.0304,'Aporte empleado SFS'),('EMPLOYER_SFS_RATE','2026-01-01',0.0709,'Aporte empleador SFS'),
@@ -125,7 +134,7 @@ returns numeric language sql stable security definer set search_path=public as $
   union all select 2,'SUPLENCIA',coalesce((select a.gross_amount from public.hr_employee_payroll_assignments a where a.employee_id=p_employee_id and a.active and a.payroll_type='SUPLENCIA' and (a.start_date is null or a.start_date<=p_date) and (a.end_date is null or a.end_date>=p_date)),0),true
   union all select 3,'INTERINATO',coalesce((select a.gross_amount from public.hr_employee_payroll_assignments a where a.employee_id=p_employee_id and a.active and a.payroll_type='INTERINATO' and (a.start_date is null or a.start_date<=p_date) and (a.end_date is null or a.end_date>=p_date)),0),true
   union all select 4,'TEMPORAL',coalesce((select a.gross_amount from public.hr_employee_payroll_assignments a where a.employee_id=p_employee_id and a.active and a.payroll_type='TEMPORAL' and (a.start_date is null or a.start_date<=p_date) and (a.end_date is null or a.end_date>=p_date)),0),true
-  union all select 5,'PRIMA_TRANSPORTE',coalesce((select b.default_amount from public.hr_employee_benefits b where b.employee_id=p_employee_id and b.active and b.benefit_type='PRIMA_TRANSPORTE'),0),false
+  union all select 5,'PRIMA_TRANSPORTE',coalesce((select a.gross_amount from public.hr_employee_payroll_assignments a where a.employee_id=p_employee_id and a.active and a.payroll_type='PRIMA_TRANSPORTE' and (a.start_date is null or a.start_date<=p_date) and (a.end_date is null or a.end_date>=p_date)),0),false
   union all select 6,'VIATICOS',coalesce((select b.default_amount from public.hr_employee_benefits b where b.employee_id=p_employee_id and b.active and b.taxable and b.benefit_type='VIATICOS'),0),false
  ), taxable as (
   select g.priority,g.payroll_type,g.gross-case when g.applies_tss then round(least(g.gross,r.pension_cap)*r.pension_rate+least(g.gross,r.sfs_cap)*r.sfs_rate,2) else 0 end amount from gross_income g cross join rates r
@@ -163,7 +172,7 @@ begin
        and coalesce(e.payroll_status,e.employment_status,'') not in ('INACTIVO','Inactivo','DESVINCULADO','Desvinculado')
        and coalesce(e.monthly_salary,0)>0
       union all
-      select coalesce(e.program,1),coalesce(e.execution_fund,'30') from public.hr_employees e where p_type in ('PRIMA_TRANSPORTE','VIATICOS','HORAS_EXTRAS') and exists(select 1 from public.hr_employee_benefits b where b.employee_id=e.id and b.active and b.benefit_type=p_type)
+      select coalesce(e.program,1),coalesce(e.execution_fund,'30') from public.hr_employees e where p_type in ('VIATICOS','HORAS_EXTRAS') and exists(select 1 from public.hr_employee_benefits b where b.employee_id=e.id and b.active and b.benefit_type=p_type)
     ) source group by source.program
   )x),'[]'::jsonb),
   'accounts',coalesce((select jsonb_agg(to_jsonb(a) order by a.code) from public.hr_payroll_account_catalog a where a.active),'[]'::jsonb));
@@ -202,7 +211,7 @@ begin
   jsonb_build_object('employee_pension_rate',v_ep,'employee_sfs_rate',v_es,'employer_pension_rate',v_epr,'employer_sfs_rate',v_esr,'labor_risk_rate',v_lr,'pension_cap',v_pc,'sfs_cap',v_sc,'labor_risk_cap',v_lc,'other_deductions_detail',coalesce(d.detail,'{}'::jsonb),'isr_method','ACUMULADO_MENSUAL_INCREMENTAL','isr_priority',case p_type when 'NOMINA' then 1 when 'NOMINA_FIJA' then 1 when 'SUPLENCIA' then 2 when 'INTERINATO' then 3 when 'TEMPORAL' then 4 when 'PRIMA_TRANSPORTE' then 5 when 'VIATICOS' then 6 else 0 end)
  from public.hr_employees e
  cross join lateral(select
-  case when p_type in ('NOMINA','NOMINA_FIJA','SUPLENCIA','INTERINATO','TEMPORAL') then coalesce(a.gross_amount,case when p_type in ('NOMINA','NOMINA_FIJA') then e.monthly_salary else 0 end) else coalesce((select b.default_amount from public.hr_employee_benefits b where b.employee_id=e.id and b.active and b.benefit_type=case p_type when 'PRIMA_TRANSPORTE' then 'PRIMA_TRANSPORTE' when 'VIATICOS' then 'VIATICOS' else 'HORAS_EXTRAS' end),0) end gross,
+  case when p_type in ('NOMINA','NOMINA_FIJA','SUPLENCIA','INTERINATO','TEMPORAL','PRIMA_TRANSPORTE') then coalesce(a.gross_amount,case when p_type in ('NOMINA','NOMINA_FIJA') then e.monthly_salary else 0 end) else coalesce((select b.default_amount from public.hr_employee_benefits b where b.employee_id=e.id and b.active and b.benefit_type=case when p_type='VIATICOS' then 'VIATICOS' else 'HORAS_EXTRAS' end),0) end gross,
   coalesce(a.execution_fund,e.execution_fund,'30') execution_fund,coalesce(a.program,e.program,1) program,coalesce(a.subproduct,e.subproduct,0) subproduct,coalesce(a.activity,e.activity,1) activity,a.account_code,coalesce(a.position_name,e.position_name) position_name
   from (select 1) seed left join lateral(select pa.* from public.hr_employee_payroll_assignments pa where pa.employee_id=e.id and pa.active and pa.payroll_type=case p_type when 'NOMINA' then 'FIJA' when 'NOMINA_FIJA' then 'FIJA' else p_type end and pa.program=p_program and (pa.start_date is null or pa.start_date<=v_date) and (pa.end_date is null or pa.end_date>=v_date) limit 1)a on true)x
  cross join lateral(select public.hr_calculate_incremental_isr_2026(e.id,v_date,p_type) isr)tax
@@ -259,7 +268,7 @@ declare v_user public.app_users;v_id uuid;v_code text;v_existing boolean;v_unit_
  delete from public.hr_employee_payroll_assignments where employee_id=v_id;
  insert into public.hr_employee_payroll_assignments(employee_id,payroll_type,account_code,position_name,execution_fund,program,subproduct,activity,gross_amount,start_date,end_date,active)
  select v_id,upper(x->>'payroll_type'),x->>'account_code',nullif(x->>'position_name',''),coalesce(nullif(x->>'execution_fund',''),'30'),coalesce((x->>'program')::integer,1),coalesce((x->>'subproduct')::integer,0),coalesce((x->>'activity')::integer,1),coalesce((x->>'gross_amount')::numeric,0),nullif(x->>'start_date','')::date,nullif(x->>'end_date','')::date,coalesce((x->>'active')::boolean,true)
- from jsonb_array_elements(coalesce(p_data->'payroll_assignments','[]'))x where upper(x->>'payroll_type') in ('FIJA','SUPLENCIA','INTERINATO','TEMPORAL') and coalesce((x->>'gross_amount')::numeric,0)>0;
+ from jsonb_array_elements(coalesce(p_data->'payroll_assignments','[]'))x where upper(x->>'payroll_type') in ('FIJA','SUPLENCIA','INTERINATO','TEMPORAL','PRIMA_TRANSPORTE') and coalesce((x->>'gross_amount')::numeric,0)>0;
  insert into public.hr_employee_history(employee_id,effective_year,effective_month,position_name,employment_status,payroll_status,direction_name,department_name,division_name,section_name,center_name,execution_fund,program,subproduct,activity,monthly_salary,change_type)
  select e.id,extract(year from current_date)::integer,extract(month from current_date)::integer,e.position_name,e.employment_status,e.payroll_status,e.direction_name,e.department_name,e.division_name,e.section_name,e.center_name,e.execution_fund,e.program,e.subproduct,e.activity,e.monthly_salary,case when v_existing then 'CAMBIO' else 'NUEVO' end from public.hr_employees e where e.id=v_id
  on conflict(employee_id,effective_year,effective_month) do update set position_name=excluded.position_name,employment_status=excluded.employment_status,payroll_status=excluded.payroll_status,direction_name=excluded.direction_name,department_name=excluded.department_name,division_name=excluded.division_name,section_name=excluded.section_name,center_name=excluded.center_name,execution_fund=excluded.execution_fund,program=excluded.program,subproduct=excluded.subproduct,activity=excluded.activity,monthly_salary=excluded.monthly_salary,change_type=excluded.change_type,created_at=now();
