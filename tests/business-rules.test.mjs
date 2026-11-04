@@ -1171,3 +1171,18 @@ test("la edición del empleado selecciona el centro de servicio desde la jerarqu
  const sql=await readFile(new URL("../supabase/hr_payroll_processing.sql",import.meta.url),"utf8");
  assert.equal(sql.includes("coalesce(nullif(p_data->>'department_name',''),p_data->>'direction_name'),p_data->>'center_name','Centro'"),true);
 });
+
+test("Alcance institucional es un módulo exclusivo de Dirección General y Planificación",async()=>{
+ const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
+ assert.equal((page.match(/label:"Alcance institucional"/g)||[]).length,2);
+ assert.equal(page.includes('ALCANCE INSTITUCIONAL'),true);
+ assert.equal(page.includes('currentUser.permissions?.acceso_direccion_general'),true);
+ assert.equal(page.includes('currentUser.permissions?.acceso_planificacion'),true);
+ const navigation=page.slice(page.indexOf("const institutionalDirections"),page.indexOf("const permissionParents"));
+ const technical=navigation.slice(navigation.indexOf('{name:"Dirección Técnica"'),navigation.indexOf('{name:"Dirección de Planificación y Desarrollo"'));
+ const financial=navigation.slice(navigation.indexOf('{name:"Dirección Administrativa y Financiera"'),navigation.indexOf('{name:"Dirección Comercial"'));
+ const commercial=navigation.slice(navigation.indexOf('{name:"Dirección Comercial"'),navigation.indexOf('{name:"Configuración"'));
+ assert.equal(technical.includes('Alcance institucional'),false);
+ assert.equal(financial.includes('Alcance institucional'),false);
+ assert.equal(commercial.includes('Alcance institucional'),false);
+});
