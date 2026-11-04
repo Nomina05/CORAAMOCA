@@ -172,7 +172,14 @@ test("los viáticos se calculan por solicitud y por conceptos individuales",asyn
  assert.equal(sql.includes("hr_travel_allowance_details"),true);
  assert.equal(sql.includes(">=5"),true);
  assert.equal(sql.includes("Seleccione por lo menos un concepto de viático"),true);
- assert.equal(component.includes("Conceptos que corresponden a esta solicitud"),true);
+ for(const rate of ["('DESAYUNO','Desayuno',10,1)","('ALMUERZO','Almuerzo',25,2)","('CENA','Cena',20,3)","('ALOJAMIENTO','Alojamiento',45,4)"])assert.equal(sql.includes(rate),true);
+ assert.equal(sql.includes("v_multiplier:=case when v_tourist then 1.05 else 1 end"),true);
+ assert.equal(sql.includes("rate_percent=excluded.rate_percent"),true);
+ assert.equal(component.includes("Conceptos autorizados - Resolución MAP núm. 173-2025"),true);
+ assert.equal(component.includes("Provincia turística"),true);
+ assert.equal(component.includes("salida entre 6:00 a. m. y 10:00 a. m."),true);
+ assert.equal(component.includes("regreso después de la 1:00 p. m."),true);
+ assert.equal(component.includes("regreso después de las 6:00 p. m."),true);
  assert.equal(component.includes("selectedConcepts.map"),true);
  assert.equal(component.includes("Máximo cinco solicitudes activas por empleado y mes"),true);
 });

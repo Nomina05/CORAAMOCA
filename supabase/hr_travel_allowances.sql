@@ -24,8 +24,8 @@ create table if not exists public.hr_travel_allowance_concepts(
  display_order integer not null, active boolean not null default true
 );
 insert into public.hr_travel_allowance_concepts(code,name,rate_percent,display_order) values
-('DESAYUNO','Desayuno',20,1),('ALMUERZO','Comida / almuerzo',30,2),('CENA','Cena',30,3),('ALOJAMIENTO','Alojamiento',20,4)
-on conflict(code) do update set name=excluded.name,display_order=excluded.display_order;
+('DESAYUNO','Desayuno',10,1),('ALMUERZO','Almuerzo',25,2),('CENA','Cena',20,3),('ALOJAMIENTO','Alojamiento',45,4)
+on conflict(code) do update set name=excluded.name,rate_percent=excluded.rate_percent,display_order=excluded.display_order,active=true;
 
 create table if not exists public.hr_travel_allowances(
  id uuid primary key default gen_random_uuid(), request_number bigint generated always as identity, employee_id uuid not null references public.hr_employees(id),
@@ -34,11 +34,14 @@ create table if not exists public.hr_travel_allowances(
  allowance_amount numeric(14,2) not null, transport_mode text not null check(transport_mode in ('INSTITUCIONAL','PROPIO','PUBLICO')),
  transport_amount numeric(14,2) not null default 0, toll_amount numeric(14,2) not null default 0, total_amount numeric(14,2) not null,
  support_url text not null default '', observations text not null default '', legal_basis text not null,
+ tourist_destination boolean not null default false, uplift_percent numeric(5,2) not null default 0 check(uplift_percent in(0,5)),
  status text not null default 'REGISTRADA' check(status in ('REGISTRADA','APROBADA','RECHAZADA','PAGADA','ANULADA')),
  created_by uuid not null references public.app_users(id), approved_by uuid references public.app_users(id), paid_by uuid references public.app_users(id),
  approved_at timestamptz, paid_at timestamptz, decision_notes text not null default '', created_at timestamptz not null default now(), updated_at timestamptz not null default now(),
  check(return_at>departure_at)
 );
+alter table public.hr_travel_allowances add column if not exists tourist_destination boolean not null default false;
+alter table public.hr_travel_allowances add column if not exists uplift_percent numeric(5,2) not null default 0;
 create index if not exists hr_travel_allowances_year_idx on public.hr_travel_allowances(departure_at,status);
 create table if not exists public.hr_travel_allowance_details(
  id uuid primary key default gen_random_uuid(), allowance_id uuid not null references public.hr_travel_allowances(id) on delete cascade,
@@ -61,23 +64,23 @@ declare v_user public.app_users;begin v_user:=public.hr_authenticated_user(p_tok
 
 create or replace function public.save_hr_travel_allowance(p_token text,p_data jsonb)
 returns jsonb language plpgsql security definer set search_path=public,extensions as $$
-declare v_user public.app_users;v_rate public.hr_travel_allowance_rates;v_departure timestamptz;v_return timestamptz;v_days integer;v_id uuid;v_number bigint;v_transport numeric;v_tolls numeric;v_allowance numeric:=0;v_detail record;v_concept public.hr_travel_allowance_concepts;v_quantity integer;begin
+declare v_user public.app_users;v_rate public.hr_travel_allowance_rates;v_departure timestamptz;v_return timestamptz;v_days integer;v_id uuid;v_number bigint;v_transport numeric;v_tolls numeric;v_allowance numeric:=0;v_detail record;v_concept public.hr_travel_allowance_concepts;v_quantity integer;v_tourist boolean:=false;v_multiplier numeric:=1;begin
  v_user:=public.hr_authenticated_user(p_token);if v_user.id is null or (v_user.role<>'Administrador' and not coalesce((v_user.permissions->>'crear_recursos_humanos')::boolean,false)) then return jsonb_build_object('success',false,'error','No posee permiso para registrar viáticos.');end if;
  select * into v_rate from public.hr_travel_allowance_rates where id=(p_data->>'rate_id')::uuid and active;v_departure:=(p_data->>'departure_at')::timestamptz;v_return:=(p_data->>'return_at')::timestamptz;
  if v_rate.id is null or v_departure<v_rate.effective_from or (v_rate.effective_to is not null and v_departure::date>v_rate.effective_to) then return jsonb_build_object('success',false,'error','La tarifa no está vigente para la fecha seleccionada.');end if;if v_return<=v_departure then return jsonb_build_object('success',false,'error','El regreso debe ser posterior a la salida.');end if;
  if (select count(*) from public.hr_travel_allowances where employee_id=(p_data->>'employee_id')::uuid and date_trunc('month',departure_at)=date_trunc('month',v_departure) and status not in('RECHAZADA','ANULADA'))>=5 then return jsonb_build_object('success',false,'error','El colaborador ya posee cinco solicitudes activas en este mes.');end if;
- v_days:=greatest(1,ceil(extract(epoch from(v_return-v_departure))/86400.0)::integer);v_transport:=greatest(0,coalesce((p_data->>'transport_amount')::numeric,0));v_tolls:=greatest(0,coalesce((p_data->>'toll_amount')::numeric,0));
+ v_days:=greatest(1,ceil(extract(epoch from(v_return-v_departure))/86400.0)::integer);v_transport:=greatest(0,coalesce((p_data->>'transport_amount')::numeric,0));v_tolls:=greatest(0,coalesce((p_data->>'toll_amount')::numeric,0));v_tourist:=coalesce((p_data->>'tourist_destination')::boolean,false);v_multiplier:=case when v_tourist then 1.05 else 1 end;
  for v_detail in select * from jsonb_to_recordset(coalesce(p_data->'concepts','[]'::jsonb)) as x(code text,quantity integer) loop
   select * into v_concept from public.hr_travel_allowance_concepts where code=v_detail.code and active;
   v_quantity:=greatest(0,least(31,coalesce(v_detail.quantity,0)));
-  if v_concept.code is not null and v_quantity>0 then v_allowance:=v_allowance+round(v_rate.daily_amount*v_concept.rate_percent/100,2)*v_quantity;end if;
+  if v_concept.code is not null and v_quantity>0 then v_allowance:=v_allowance+round(v_rate.daily_amount*v_multiplier*v_concept.rate_percent/100,2)*v_quantity;end if;
  end loop;
  if v_allowance<=0 then return jsonb_build_object('success',false,'error','Seleccione por lo menos un concepto de viático.');end if;
- insert into public.hr_travel_allowances(employee_id,rate_id,destination,purpose,departure_at,return_at,days,daily_rate,allowance_amount,transport_mode,transport_amount,toll_amount,total_amount,support_url,observations,legal_basis,created_by)
- values((p_data->>'employee_id')::uuid,v_rate.id,trim(p_data->>'destination'),trim(p_data->>'purpose'),v_departure,v_return,v_days,v_rate.daily_amount,v_allowance,coalesce(p_data->>'transport_mode','INSTITUCIONAL'),v_transport,v_tolls,v_allowance+v_transport+v_tolls,coalesce(p_data->>'support_url',''),coalesce(p_data->>'observations',''),v_rate.legal_basis,v_user.id) returning id,request_number into v_id,v_number;
+ insert into public.hr_travel_allowances(employee_id,rate_id,destination,purpose,departure_at,return_at,days,daily_rate,allowance_amount,transport_mode,transport_amount,toll_amount,total_amount,support_url,observations,legal_basis,tourist_destination,uplift_percent,created_by)
+ values((p_data->>'employee_id')::uuid,v_rate.id,trim(p_data->>'destination'),trim(p_data->>'purpose'),v_departure,v_return,v_days,round(v_rate.daily_amount*v_multiplier,2),v_allowance,coalesce(p_data->>'transport_mode','INSTITUCIONAL'),v_transport,v_tolls,v_allowance+v_transport+v_tolls,coalesce(p_data->>'support_url',''),coalesce(p_data->>'observations',''),v_rate.legal_basis,v_tourist,case when v_tourist then 5 else 0 end,v_user.id) returning id,request_number into v_id,v_number;
  for v_detail in select * from jsonb_to_recordset(coalesce(p_data->'concepts','[]'::jsonb)) as x(code text,quantity integer) loop
   select * into v_concept from public.hr_travel_allowance_concepts where code=v_detail.code and active;v_quantity:=greatest(0,least(31,coalesce(v_detail.quantity,0)));
-  if v_concept.code is not null and v_quantity>0 then insert into public.hr_travel_allowance_details(allowance_id,concept_code,quantity,rate_percent,unit_amount,total_amount) values(v_id,v_concept.code,v_quantity,v_concept.rate_percent,round(v_rate.daily_amount*v_concept.rate_percent/100,2),round(v_rate.daily_amount*v_concept.rate_percent/100,2)*v_quantity);end if;
+  if v_concept.code is not null and v_quantity>0 then insert into public.hr_travel_allowance_details(allowance_id,concept_code,quantity,rate_percent,unit_amount,total_amount) values(v_id,v_concept.code,v_quantity,v_concept.rate_percent,round(v_rate.daily_amount*v_multiplier*v_concept.rate_percent/100,2),round(v_rate.daily_amount*v_multiplier*v_concept.rate_percent/100,2)*v_quantity);end if;
  end loop;
  insert into public.security_audit_log(actor_user_id,action,module,detail) values(v_user.id,'REGISTRAR_VIATICO','Recursos Humanos',jsonb_build_object('entity_type','hr_travel_allowances','entity_id',v_id,'request_number',v_number,'employee_id',p_data->>'employee_id','concepts',p_data->'concepts','total',v_allowance+v_transport+v_tolls));return jsonb_build_object('success',true,'id',v_id,'request_number',v_number);
  exception when others then return jsonb_build_object('success',false,'error','No fue posible registrar la solicitud: '||sqlerrm);end $$;
