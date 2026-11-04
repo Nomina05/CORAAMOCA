@@ -1281,3 +1281,15 @@ test("la prima descuenta solo el ISR incremental después del cierre de nómina 
  assert.equal(component.includes("ISR acumulado mensual"),true);
  assert.equal(component.includes("Pensión, SFS y otros descuentos del empleado permanecen en RD$0.00"),true);
 });
+
+test("los reportes de la sección de nómina comparten el encabezado institucional",async()=>{
+ const header=await readFile(new URL("../app/components/PayrollReportHeader.tsx",import.meta.url),"utf8");
+ const payroll=await readFile(new URL("../app/components/PayrollProcessing.tsx",import.meta.url),"utf8");
+ const reports=await readFile(new URL("../app/components/HrOfficialReports.tsx",import.meta.url),"utf8");
+ const styles=await readFile(new URL("../app/globals.css",import.meta.url),"utf8");
+ for(const text of ["REPÚBLICA DOMINICANA","Capítulo y Prosusa de la Institución Procesada","CAP.","SUB-CAP.","DAF.","UE.","PROG.","SUB-PROG.","PROY.","ACT.","FUNCIÓN","OBJETO","Tesorería de la Seguridad Social"])assert.equal(header.includes(text),true);
+ assert.equal(payroll.includes("<PayrollReportHeader"),true);
+ assert.equal(reports.includes('payrollSection=selected?.unit==="Registro y Control de Nómina"'),true);
+ assert.equal(reports.includes("<PayrollReportHeader"),true);
+ assert.equal(styles.includes(".payroll-institutional-header"),true);
+});
