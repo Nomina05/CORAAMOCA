@@ -58,7 +58,11 @@ create table if not exists public.hr_payroll_batches(
 alter table public.hr_payroll_batches add column if not exists execution_fund text not null default '30';
 alter table public.hr_payroll_batches add column if not exists program integer not null default 1;
 alter table public.hr_payroll_batches drop constraint if exists hr_payroll_batches_payroll_type_payroll_year_payroll_month_key;
-do $$begin if not exists(select 1 from pg_constraint where conname='hr_payroll_batches_type_period_program_key') then alter table public.hr_payroll_batches add constraint hr_payroll_batches_type_period_program_key unique(payroll_type,payroll_year,payroll_month,program);end if;end$$;
+-- La nómina se procesa por segmento presupuestario. Esta restricción antigua
+-- impedía registrar dos actividades, fondos o cuentas del mismo tipo y mes.
+-- El índice completo se crea en hr_payroll_engine_phase6.sql después de añadir
+-- subproducto y actividad.
+alter table public.hr_payroll_batches drop constraint if exists hr_payroll_batches_type_period_program_key;
 alter table public.hr_payroll_batches drop constraint if exists hr_payroll_batches_payroll_type_check;
 alter table public.hr_payroll_batches add constraint hr_payroll_batches_payroll_type_check check(payroll_type in ('NOMINA','NOMINA_FIJA','SUPLENCIA','INTERINATO','TEMPORAL','PRIMA_TRANSPORTE','VIATICOS','HORAS_EXTRAS'));
 create table if not exists public.hr_payroll_batch_lines(

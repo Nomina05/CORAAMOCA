@@ -208,9 +208,15 @@ test("el estado técnico exige una sesión válida",async()=>{
 
 test("la migración automática incluye las tablas base y módulos dependientes",async()=>{
   const workflow=await readFile(new URL("../.github/workflows/supabase-migrate.yml",import.meta.url),"utf8");
+  const processing=await readFile(new URL("../supabase/hr_payroll_processing.sql",import.meta.url),"utf8");
+  const engine=await readFile(new URL("../supabase/hr_payroll_engine_phase6.sql",import.meta.url),"utf8");
   for(const migration of ["username_auth.sql","technical_projects.sql","cubicaciones_workflow.sql","project_digital_file.sql","personal_dashboard.sql"]){
     assert.equal(workflow.includes(migration),true);
   }
+  assert.equal(processing.includes("add constraint hr_payroll_batches_type_period_program_key"),false);
+  assert.equal(processing.includes("drop constraint if exists hr_payroll_batches_type_period_program_key"),true);
+  assert.equal(engine.includes("hr_payroll_batches_engine_unique"),true);
+  assert.equal(engine.includes("execution_fund,program,subproduct,activity,coalesce(account_code,'')"),true);
 });
 
 test("el tablero institucional utiliza proyectos, empleados y presupuesto de Supabase",async()=>{
