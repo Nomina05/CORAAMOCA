@@ -1187,3 +1187,37 @@ test("Alcance institucional es un módulo exclusivo de Dirección General y Plan
  assert.equal(financial.includes('Alcance institucional'),false);
  assert.equal(commercial.includes('Alcance institucional'),false);
 });
+
+test("los paneles direccionales de Gestión Humana paginan y filtran la jerarquía",async()=>{
+ const component=await readFile(new URL("../app/components/DirectionalHumanManagement.tsx",import.meta.url),"utf8");
+ const styles=await readFile(new URL("../app/globals.css",import.meta.url),"utf8");
+ assert.equal(component.includes("const PAGE_SIZE=20"),true);
+ for(const field of ["department","division","section","center"])assert.equal(component.includes(`updateFilter(\"${field}\"`),true);
+ assert.equal(component.includes("Página {page} de {pageCount}"),true);
+ assert.equal(component.includes("Siguiente →"),true);
+ assert.equal(styles.includes(".directional-hr-filters"),true);
+ assert.equal(styles.includes(".directional-pagination"),true);
+});
+
+test("vacaciones permiten ajustes certificados y dos períodos conforme a la Ley 41-08",async()=>{
+ const workflow=await readFile(new URL("../supabase/hr_novelty_workflow.sql",import.meta.url),"utf8");
+ const phase4=await readFile(new URL("../supabase/hr_cases_phase4.sql",import.meta.url),"utf8");
+ const component=await readFile(new URL("../app/components/HrNoveltyWorkflow.tsx",import.meta.url),"utf8");
+ assert.equal(workflow.includes("hr_vacation_entitlements"),true);
+ assert.equal(workflow.includes("hr_legal_vacation_days"),true);
+ for(const days of [15,20,25,30])assert.equal(workflow.includes(`then ${days}`)||workflow.includes(`else ${days}`),true);
+ assert.equal(workflow.includes("AJUSTAR_BALANCE_VACACIONES"),true);
+ assert.equal(phase4.includes("vacation_period_year"),true);
+ assert.equal(phase4.includes("año inmediatamente anterior"),true);
+ assert.equal(component.includes('action:"ADJUST_BALANCE"'),true);
+ assert.equal(component.includes("Modificar días"),true);
+ assert.equal(component.includes("(acumulado)"),true);
+});
+
+test("permisos y licencias aplican la clasificación de la Ley 41-08 y el Reglamento 523-09",async()=>{
+ const sql=await readFile(new URL("../supabase/hr_permission_license_control.sql",import.meta.url),"utf8");
+ assert.equal(sql.includes("un permiso no puede exceder tres días laborables"),true);
+ assert.equal(sql.includes("la licencia debe exceder tres días"),true);
+ for(const article of ["art. 75.1","art. 75.2","art. 75.4","art. 75.5","art. 75.6","art. 75.7","art. 78.1","art. 78.2","art. 78.3","art. 78.4","art. 78.5"])assert.equal(sql.includes(article),true);
+ assert.equal(sql.includes("day_basis='CALENDARIO'"),true);
+});

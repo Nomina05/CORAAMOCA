@@ -4,12 +4,31 @@ create table if not exists public.hr_permission_types(
  paid boolean not null default true,requires_medical_document boolean not null default false,max_days_per_request numeric(8,2),max_days_per_year numeric(8,2),max_requests_per_year integer,
  consecutive_window_days integer not null default 7,active boolean not null default true,created_at timestamptz not null default now(),updated_at timestamptz not null default now()
 );
+alter table public.hr_permission_types add column if not exists legal_reference text not null default 'Ley 41-08, arts. 56-57; Reglamento 523-09, arts. 72-78';
+alter table public.hr_permission_types add column if not exists day_basis text not null default 'LABORABLE' check(day_basis in('LABORABLE','CALENDARIO','HORAS'));
 insert into public.hr_permission_types(code,name,category,paid,requires_medical_document,max_days_per_request,max_days_per_year,max_requests_per_year) values
 ('PER_PERSONAL','Diligencia personal','PERMISO',true,false,1,6,6),('PER_ESTUDIOS','Permiso por estudios','PERMISO',true,false,2,10,6),
 ('LIC_MEDICA','Licencia médica','LICENCIA',true,true,30,null,null),('LIC_MATERNIDAD','Licencia por maternidad','LICENCIA',true,true,null,null,null),
 ('LIC_PATERNIDAD','Licencia por paternidad','LICENCIA',true,true,2,2,1),('LIC_MATRIMONIO','Licencia por matrimonio','LICENCIA',true,true,5,5,1),
 ('LIC_DUELO','Licencia por fallecimiento familiar','LICENCIA',true,true,3,9,3),('PER_SIN_SUELDO','Permiso sin disfrute de salario','PERMISO',false,false,30,60,4)
 on conflict(code) do update set name=excluded.name,category=excluded.category,paid=excluded.paid,requires_medical_document=excluded.requires_medical_document,max_days_per_request=excluded.max_days_per_request,max_days_per_year=excluded.max_days_per_year,max_requests_per_year=excluded.max_requests_per_year;
+
+insert into public.hr_permission_types(code,name,category,paid,requires_medical_document,max_days_per_request,max_days_per_year,max_requests_per_year,legal_reference,day_basis) values
+('PER_NACIMIENTO','Nacimiento de un hijo','PERMISO',true,false,2,null,null,'Reglamento 523-09, art. 78.1','LABORABLE'),
+('PER_DUELO_FAMILIAR','Muerte, enfermedad o accidente grave de familiar','PERMISO',true,true,3,null,null,'Reglamento 523-09, art. 78.2','LABORABLE'),
+('PER_CITACION','Citación de organismo público','PERMISO',true,true,3,null,null,'Reglamento 523-09, art. 78.3','LABORABLE'),
+('PER_ESTUDIO_PARCIAL','Estudios de tiempo parcial','PERMISO',true,true,null,null,null,'Reglamento 523-09, art. 78.4: hasta 2 horas diarias','HORAS'),
+('PER_DOCENCIA','Docencia, asistencia o voluntariado','PERMISO',true,true,null,null,null,'Reglamento 523-09, art. 78.5: hasta 5 horas semanales','HORAS'),
+('LIC_SIN_SUELDO','Licencia ordinaria sin disfrute de sueldo','LICENCIA',false,false,60,60,null,'Ley 41-08, art. 57; Reglamento 523-09, art. 74','CALENDARIO'),
+('LIC_CUIDADO_FAMILIAR','Cuidado de cónyuge, padres o hijos','LICENCIA',true,true,14,14,null,'Reglamento 523-09, art. 75.2','CALENDARIO'),
+('LIC_ESTUDIOS','Estudios e investigación de servidor de carrera','LICENCIA',true,true,730,null,null,'Reglamento 523-09, art. 75.4','CALENDARIO'),
+('LIC_INVITACION','Invitación de gobierno u organismo','LICENCIA',true,true,30,null,null,'Reglamento 523-09, art. 75.5','CALENDARIO'),
+('LIC_FUERZA_MAYOR','Fuerza mayor comprobada','LICENCIA',true,true,30,null,null,'Reglamento 523-09, art. 75.6','CALENDARIO')
+on conflict(code) do update set name=excluded.name,category=excluded.category,paid=excluded.paid,requires_medical_document=excluded.requires_medical_document,max_days_per_request=excluded.max_days_per_request,max_days_per_year=excluded.max_days_per_year,max_requests_per_year=excluded.max_requests_per_year,legal_reference=excluded.legal_reference,day_basis=excluded.day_basis;
+update public.hr_permission_types set max_days_per_request=90,max_days_per_year=null,max_requests_per_year=null,legal_reference='Reglamento 523-09, art. 75.1; prórroga requiere nueva certificación',day_basis='CALENDARIO' where code='LIC_MEDICA';
+update public.hr_permission_types set max_days_per_request=84,max_days_per_year=null,max_requests_per_year=null,legal_reference='Reglamento 523-09, art. 75.3',day_basis='CALENDARIO' where code='LIC_MATERNIDAD';
+update public.hr_permission_types set max_days_per_request=5,max_days_per_year=5,max_requests_per_year=1,legal_reference='Reglamento 523-09, art. 75.7',day_basis='CALENDARIO' where code='LIC_MATRIMONIO';
+update public.hr_permission_types set max_days_per_request=3,legal_reference='Ley 41-08, art. 56; Reglamento 523-09, arts. 77-78',day_basis='LABORABLE' where category='PERMISO' and code not in('PER_ESTUDIO_PARCIAL','PER_DOCENCIA');
 
 alter table public.hr_employee_cases add column if not exists permission_type_id uuid references public.hr_permission_types(id);
 alter table public.hr_employee_cases add column if not exists requested_hours numeric(8,2) not null default 0;
@@ -57,8 +76,10 @@ declare v_user public.app_users;v_employee public.hr_employees;v_type public.hr_
  if v_user.id is null or (v_user.role<>'Administrador' and not coalesce((v_user.permissions->>'registrar_permisos_laborales')::boolean,false)) then return jsonb_build_object('success',false,'error','No posee permiso para registrar solicitudes.');end if;
  select * into v_employee from public.hr_employees where id=(p_data->>'employee_id')::uuid;select * into v_type from public.hr_permission_types where id=(p_data->>'permission_type_id')::uuid and active;
  if v_employee.id is null or v_type.id is null then return jsonb_build_object('success',false,'error','Empleado o tipo de permiso inválido.');end if;if v_user.role<>'Administrador' and not public.hr_employee_in_user_scope(v_user,v_employee) then return jsonb_build_object('success',false,'error','Empleado fuera de su unidad autorizada.');end if;
- v_start:=(p_data->>'start_date')::date;v_end:=coalesce(nullif(p_data->>'end_date','')::date,v_start);v_hours:=greatest(0,coalesce(nullif(p_data->>'requested_hours','')::numeric,0));v_days:=case when v_hours>0 then 0 else public.hr_business_days(v_start,v_end) end;
+ v_start:=(p_data->>'start_date')::date;v_end:=coalesce(nullif(p_data->>'end_date','')::date,v_start);v_hours:=greatest(0,coalesce(nullif(p_data->>'requested_hours','')::numeric,0));v_days:=case when v_hours>0 then 0 when v_type.day_basis='CALENDARIO' then v_end-v_start+1 else public.hr_business_days(v_start,v_end) end;
  if v_hours>8 then return jsonb_build_object('success',false,'error','Las horas solicitadas no pueden superar ocho por día.');end if;if v_days=0 and v_hours=0 then return jsonb_build_object('success',false,'error','Indique días laborables u horas de permiso.');end if;
+ if v_type.category='PERMISO' and v_days>3 then return jsonb_build_object('success',false,'error','Conforme al artículo 56 de la Ley 41-08, un permiso no puede exceder tres días laborables; registre una licencia.');end if;
+ if v_type.category='LICENCIA' and v_days<=3 then return jsonb_build_object('success',false,'error','Conforme al artículo 56 de la Ley 41-08, la licencia debe exceder tres días; registre un permiso.');end if;
  if v_type.requires_medical_document and coalesce(p_data->>'medical_document_url','')!~*'^https?://' then return jsonb_build_object('success',false,'error','Este tipo de licencia requiere un documento médico válido.');end if;
  select coalesce(sum(day_count+requested_hours/8.0),0),count(*) into v_used,v_count from public.hr_employee_cases where employee_id=v_employee.id and permission_type_id=v_type.id and status not in('RECHAZADO','ANULADA') and extract(year from request_date)=extract(year from (p_data->>'request_date')::date);
  if v_type.max_days_per_request is not null and v_days+v_hours/8.0>v_type.max_days_per_request then return jsonb_build_object('success',false,'error','La solicitud supera el límite permitido por evento.');end if;

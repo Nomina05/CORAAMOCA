@@ -101,7 +101,7 @@ end $$;
 -- La creación de vacaciones valida disponibilidad anual, solapamientos y días laborables.
 create or replace function public.save_hr_novelty(p_token text,p_data jsonb)
 returns jsonb language plpgsql security definer set search_path=public,extensions as $$
-declare v_user public.app_users;v_employee public.hr_employees;v_type text:=p_data->>'novelty_type';v_start date;v_end date;v_request date;v_days integer;v_id uuid;v_case_id uuid;v_acquired integer;v_reserved integer;
+declare v_user public.app_users;v_employee public.hr_employees;v_type text:=p_data->>'novelty_type';v_start date;v_end date;v_request date;v_days integer;v_id uuid;v_case_id uuid;v_period integer;v_acquired numeric;v_reserved numeric;
 begin
  v_user:=public.hr_authenticated_user(p_token);
  if v_user.id is null then return jsonb_build_object('success',false,'error','Sesión inválida.');end if;
@@ -116,8 +116,10 @@ begin
  if v_days<1 then return jsonb_build_object('success',false,'error','El período no contiene días laborables.');end if;
  if exists(select 1 from public.hr_novelties where employee_id=v_employee.id and novelty_type in('PERMISO','VACACION') and status not in('RECHAZADA','ANULADA','DEVUELTA') and daterange(start_date,end_date,'[]')&&daterange(v_start,v_end,'[]')) then return jsonb_build_object('success',false,'error','El empleado ya posee una ausencia que coincide con este período.');end if;
  if v_type='VACACION' then
-  v_acquired:=case when v_employee.hire_date is null or age(v_start,v_employee.hire_date)<interval '1 year' then 0 when age(v_start,v_employee.hire_date)>=interval '5 years' then 18 else 14 end;
-  select coalesce(sum(work_days),0)::integer into v_reserved from public.hr_novelties where employee_id=v_employee.id and novelty_type='VACACION' and extract(year from start_date)=extract(year from v_start) and status not in('RECHAZADA','ANULADA','DEVUELTA');
+  v_period:=coalesce(nullif(p_data->>'vacation_period_year','')::integer,extract(year from v_start)::integer);
+  if v_period<extract(year from v_start)::integer-1 or v_period>extract(year from v_start)::integer then return jsonb_build_object('success',false,'error','Solo pueden utilizarse vacaciones del período actual o del año inmediatamente anterior.');end if;
+  select coalesce((select acquired_days from public.hr_vacation_entitlements where employee_id=v_employee.id and period_year=v_period),public.hr_legal_vacation_days(v_employee.hire_date,v_period)) into v_acquired;
+  select coalesce(sum(work_days),0) into v_reserved from public.hr_novelties where employee_id=v_employee.id and novelty_type='VACACION' and coalesce(vacation_period_year,extract(year from start_date)::integer)=v_period and status not in('RECHAZADA','ANULADA','DEVUELTA');
   if v_days>greatest(v_acquired-v_reserved,0) then return jsonb_build_object('success',false,'error','La solicitud excede el balance de vacaciones disponible.');end if;
   if exists(select 1 from public.hr_novelties n join public.hr_employees e on e.id=n.employee_id where n.novelty_type='VACACION' and n.status not in('RECHAZADA','ANULADA','DEVUELTA') and daterange(n.start_date,n.end_date,'[]')&&daterange(v_start,v_end,'[]') and e.organization_unit_id=v_employee.organization_unit_id) then return jsonb_build_object('success',false,'error','Existe otra ausencia programada en la misma unidad para esas fechas.');end if;
  end if;
@@ -128,6 +130,7 @@ begin
  end if;
  insert into public.hr_novelties(employee_id,novelty_type,request_date,start_date,end_date,work_days,amount,description,document_url,source_table,source_id,created_by)
  values(v_employee.id,v_type,v_request,v_start,v_end,v_days,greatest(0,coalesce(nullif(p_data->>'amount','')::numeric,0)),trim(p_data->>'description'),coalesce(p_data->>'document_url',''),case when v_case_id is not null then 'hr_employee_cases' end,v_case_id,v_user.id) returning id into v_id;
+ if v_type='VACACION' then update public.hr_novelties set vacation_period_year=v_period where id=v_id;end if;
  insert into public.hr_novelty_history(novelty_id,to_status,observation,document_url,responsible_user_id)
  values(v_id,'REGISTRADA','Registro inicial',coalesce(p_data->>'document_url',''),v_user.id);
  insert into public.security_audit_log(actor_user_id,action,module,detail)

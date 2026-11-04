@@ -14,6 +14,15 @@ create table if not exists public.hr_novelties(
  source_table text,source_id uuid,created_by uuid not null references public.app_users(id),created_at timestamptz not null default now(),updated_at timestamptz not null default now(),
  check(end_date>=start_date),unique(source_table,source_id)
 );
+alter table public.hr_novelties add column if not exists vacation_period_year integer;
+create table if not exists public.hr_vacation_entitlements(
+ id uuid primary key default gen_random_uuid(),employee_id uuid not null references public.hr_employees(id) on delete cascade,
+ period_year integer not null check(period_year between 2000 and 2200),acquired_days numeric(8,2) not null check(acquired_days>=0 and acquired_days<=60),
+ source text not null default 'MANUAL' check(source in('LEGAL','MANUAL','IMPORTADO')),reason text not null default '',
+ adjusted_by uuid references public.app_users(id),created_at timestamptz not null default now(),updated_at timestamptz not null default now(),unique(employee_id,period_year)
+);
+alter table public.hr_vacation_entitlements enable row level security;
+revoke all on public.hr_vacation_entitlements from anon,authenticated;
 create table if not exists public.hr_novelty_history(
  id uuid primary key default gen_random_uuid(),novelty_id uuid not null references public.hr_novelties(id) on delete cascade,
  from_status text,to_status text not null,observation text not null default '',document_url text not null default '',responsible_user_id uuid not null references public.app_users(id),created_at timestamptz not null default now()
@@ -26,6 +35,13 @@ revoke all on public.hr_holidays,public.hr_novelties,public.hr_novelty_history f
 create or replace function public.hr_business_days(p_start date,p_end date) returns integer language sql stable set search_path=public as $$
  select count(*)::integer from generate_series(p_start,p_end,'1 day') d
  where extract(isodow from d)<6 and not exists(select 1 from public.hr_holidays h where h.active and h.holiday_date=d::date)
+$$;
+
+create or replace function public.hr_legal_vacation_days(p_hire_date date,p_year integer) returns numeric language sql immutable as $$
+ select case when p_hire_date is null or make_date(p_year,12,31)<p_hire_date+interval '1 year' then 0
+  when age(make_date(p_year,12,31),p_hire_date)>interval '15 years' then 30
+  when age(make_date(p_year,12,31),p_hire_date)>interval '10 years' then 25
+  when age(make_date(p_year,12,31),p_hire_date)>interval '5 years' then 20 else 15 end::numeric
 $$;
 
 create or replace function public.list_hr_novelty_workflow(p_token text,p_year integer)
@@ -41,11 +57,12 @@ declare v_user public.app_users;begin v_user:=public.hr_authenticated_user(p_tok
  'employees',coalesce((select jsonb_agg(jsonb_build_object('id',e.id,'employee_code',e.employee_code,'full_name',e.full_name,'position_name',e.position_name,'direction_name',e.direction_name,'department_name',e.department_name) order by e.full_name) from public.hr_employees e where e.employment_status<>'Desvinculado' and (v_user.role='Administrador' or public.hr_employee_in_user_scope(v_user,e))),'[]'::jsonb),
  'vacation_balances',coalesce((select jsonb_agg(to_jsonb(x) order by x.alert_level desc,x.full_name) from(
   select e.id employee_id,e.employee_code,e.full_name,e.position_name,e.direction_name,e.department_name,e.monthly_salary,e.hire_date,
-   case when e.hire_date is null then 0 when age(make_date(p_year,12,31),e.hire_date)<interval '1 year' then round(least(12,greatest(0,extract(year from age(make_date(p_year,12,31),e.hire_date))*12+extract(month from age(make_date(p_year,12,31),e.hire_date))))*14/12.0)::integer when age(make_date(p_year,12,31),e.hire_date)>=interval '5 years' then 18 else 14 end acquired_days,
-   coalesce(sum(n.work_days) filter(where n.novelty_type='VACACION' and n.status='APLICADA_NOMINA' and extract(year from n.start_date)=p_year),0)::integer used_days,
-   coalesce(sum(n.work_days) filter(where n.novelty_type='VACACION' and n.status in('REGISTRADA','REVISADA_ENCARGADO','VALIDADA_RRHH','APROBADA') and extract(year from n.start_date)=p_year),0)::integer pending_days,
+   coalesce(max(ve.acquired_days),public.hr_legal_vacation_days(e.hire_date,p_year)) acquired_days,
+   coalesce(sum(n.work_days) filter(where n.novelty_type='VACACION' and n.status='APLICADA_NOMINA' and coalesce(n.vacation_period_year,extract(year from n.start_date)::integer)=p_year),0)::integer used_days,
+   coalesce(sum(n.work_days) filter(where n.novelty_type='VACACION' and n.status in('REGISTRADA','REVISADA_ENCARGADO','VALIDADA_RRHH','APROBADA') and coalesce(n.vacation_period_year,extract(year from n.start_date)::integer)=p_year),0)::integer pending_days,
+   coalesce(max(ve.source),'LEGAL') entitlement_source,coalesce(max(ve.reason),'Calculado conforme al artículo 53 de la Ley 41-08') entitlement_reason,
    case when e.hire_date is not null and current_date>make_date(p_year,12,31) and coalesce(sum(n.work_days) filter(where n.novelty_type='VACACION' and n.status='APLICADA_NOMINA' and extract(year from n.start_date)=p_year),0)=0 then 'VENCIDA' when coalesce(sum(n.work_days) filter(where n.novelty_type='VACACION' and n.status='APLICADA_NOMINA' and extract(year from n.start_date)=p_year),0)=0 then 'ACUMULADA' else 'NORMAL' end alert_level
-  from public.hr_employees e left join public.hr_novelties n on n.employee_id=e.id where e.employment_status<>'Desvinculado' and (v_user.role='Administrador' or public.hr_employee_in_user_scope(v_user,e)) group by e.id
+  from public.hr_employees e left join public.hr_novelties n on n.employee_id=e.id left join public.hr_vacation_entitlements ve on ve.employee_id=e.id and ve.period_year=p_year where e.employment_status<>'Desvinculado' and (v_user.role='Administrador' or public.hr_employee_in_user_scope(v_user,e)) group by e.id
  )x),'[]'::jsonb),
  'holidays',coalesce((select jsonb_agg(to_jsonb(h) order by h.holiday_date) from public.hr_holidays h where h.active and extract(year from h.holiday_date)=p_year),'[]'::jsonb));end $$;
 
@@ -88,3 +105,15 @@ declare v_user public.app_users;v_item public.hr_novelties;v_next text;begin v_u
  return jsonb_build_object('success',true,'status',v_next);end $$;
 
 grant execute on function public.hr_business_days(date,date),public.list_hr_novelty_workflow(text,integer),public.save_hr_novelty(text,jsonb),public.transition_hr_novelty(text,uuid,text,text,text) to anon,authenticated;
+
+create or replace function public.adjust_hr_vacation_entitlement(p_token text,p_employee_id uuid,p_year integer,p_days numeric,p_reason text)
+returns jsonb language plpgsql security definer set search_path=public,extensions as $$declare v_user public.app_users;v_employee public.hr_employees;begin
+ v_user:=public.hr_authenticated_user(p_token);select * into v_employee from public.hr_employees where id=p_employee_id;
+ if v_user.id is null or v_employee.id is null then return jsonb_build_object('success',false,'error','Sesión o empleado inválido.');end if;
+ if v_user.role<>'Administrador' and not coalesce((v_user.permissions->>'aprobar_vacaciones')::boolean,false) then return jsonb_build_object('success',false,'error','No posee permiso para ajustar balances de vacaciones.');end if;
+ if p_year not between 2000 and extract(year from current_date)::integer+1 or p_days<0 or p_days>60 or trim(coalesce(p_reason,''))='' then return jsonb_build_object('success',false,'error','Indique período, días y motivo válidos.');end if;
+ insert into public.hr_vacation_entitlements(employee_id,period_year,acquired_days,source,reason,adjusted_by) values(p_employee_id,p_year,p_days,'MANUAL',trim(p_reason),v_user.id)
+ on conflict(employee_id,period_year) do update set acquired_days=excluded.acquired_days,source='MANUAL',reason=excluded.reason,adjusted_by=v_user.id,updated_at=now();
+ insert into public.security_audit_log(actor_user_id,action,module,detail) values(v_user.id,'AJUSTAR_BALANCE_VACACIONES','Recursos Humanos',jsonb_build_object('employee_id',p_employee_id,'period_year',p_year,'acquired_days',p_days,'reason',p_reason));
+ return jsonb_build_object('success',true);end$$;
+grant execute on function public.adjust_hr_vacation_entitlement(text,uuid,integer,numeric,text),public.hr_legal_vacation_days(date,integer) to anon,authenticated;
