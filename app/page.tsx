@@ -3,7 +3,7 @@
 import { useEffect, useEffectEvent, useMemo, useState } from "react";
 import Image from "next/image";
 import PayrollProcessing from "./components/PayrollProcessing";
-import TravelAllowanceManagement from "./components/TravelAllowanceManagement";
+import TravelAllowanceManagement from "./components/TravelAllowanceCollectiveManagement";
 import EmployeeProfileForm,{type EmployeeProfileData} from "./components/EmployeeProfileForm";
 import PersonnelAction from "./components/PersonnelAction";
 import VacancyDashboard from "./components/VacancyDashboard";

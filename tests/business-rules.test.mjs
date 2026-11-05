@@ -184,6 +184,19 @@ test("los viáticos se calculan por solicitud y por conceptos individuales",asyn
  assert.equal(component.includes("Máximo cinco solicitudes activas por empleado y mes"),true);
 });
 
+test("una solicitud de viáticos admite varios participantes con control individual",async()=>{
+ const sql=await readFile(new URL("../supabase/hr_travel_collective_requests.sql",import.meta.url),"utf8");
+ const component=await readFile(new URL("../app/components/TravelAllowanceCollectiveManagement.tsx",import.meta.url),"utf8");
+ const workflow=await readFile(new URL("../.github/workflows/supabase-migrate.yml",import.meta.url),"utf8");
+ assert.equal(sql.includes("create table if not exists public.hr_travel_requests"),true);
+ assert.equal(sql.includes("jsonb_array_elements(p_data->'participants')"),true);
+ assert.equal(sql.includes("perform public.sync_hr_travel_request_status"),true);
+ assert.equal(component.includes("Agregar participante"),true);
+ assert.equal(component.includes("Total general"),true);
+ assert.equal(component.includes("Estado individual actualizado"),true);
+ assert.equal(workflow.includes("supabase/hr_travel_collective_requests.sql"),true);
+});
+
 test("los módulos no utilizan almacenamiento local para datos institucionales",async()=>{
   const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
   assert.equal(page.includes("localStorage"),false);
@@ -257,6 +270,15 @@ test("la acción de personal se imprime en tamaño carta",async()=>{
   assert.equal(css.includes('align-content:space-evenly!important'),true);
   assert.equal(css.includes('background:linear-gradient(#103f77,#103f77) left bottom/100% 1px no-repeat!important'),true);
   assert.equal(css.includes('grid-template-rows:.3in .15in!important'),true);
+});
+
+test("la acción de personal conserva la misma geometría en pantalla e impresión",async()=>{
+ const css=await readFile(new URL("../app/personnel-action-document.css",import.meta.url),"utf8");
+ assert.equal(css.includes("width:7.75in!important;height:10.35in!important"),true);
+ assert.equal(css.includes("grid-template-rows:.48in .48in!important"),true);
+ assert.equal(css.includes("body.printing-personnel-action"),true);
+ assert.equal(css.includes("body.printing-personnel-batch"),true);
+ assert.equal(css.includes("border-bottom:1px solid #103f77!important"),true);
 });
 
 test("cada documento exportable utiliza un modo de impresión independiente",async()=>{

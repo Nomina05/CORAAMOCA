@@ -67,6 +67,7 @@ jobs:
             "supabase/hr_permission_license_control.sql"
             "supabase/hr_disciplinary_management.sql"
             "supabase/hr_travel_allowances.sql"
+            "supabase/hr_travel_collective_requests.sql"
             "supabase/hr_security_confidentiality.sql"
             "supabase/hr_data_quality.sql"
             "supabase/hr_module_foundation.sql"

@@ -1,0 +1,52 @@
+/* Geometría única de la acción de personal para pantalla e impresión. */
+html body .personnel-action-module .personnel-action-sheet{
+ box-sizing:border-box!important;display:flex!important;flex-direction:column!important;
+ width:7.75in!important;height:10.35in!important;min-height:10.35in!important;max-height:10.35in!important;
+ margin:.2in auto!important;border:2px solid #103f77!important;border-radius:9px!important;overflow:hidden!important;
+ background:#fff!important;color:#0a376a!important;
+}
+html body .personnel-action-module .personnel-action-sheet header.personnel-document-header{flex:0 0 1.2in!important;min-height:1.2in!important;max-height:1.2in!important;grid-template-columns:1.05in 1fr!important}
+html body .personnel-action-module .personnel-action-sheet .action-identification{box-sizing:border-box!important;flex:0 0 .53in!important;min-height:.53in!important;max-height:.53in!important}
+html body .personnel-action-module .personnel-action-sheet .state-columns{box-sizing:border-box!important;flex:0 0 1.62in!important;min-height:1.62in!important;max-height:1.62in!important}
+html body .personnel-action-module .personnel-action-sheet .action-title{box-sizing:border-box!important;flex:0 0 .27in!important;min-height:.27in!important;max-height:.27in!important}
+html body .personnel-action-module .personnel-action-sheet .action-options{box-sizing:border-box!important;flex:0 0 1.18in!important;min-height:1.18in!important;max-height:1.18in!important}
+html body .personnel-action-module .personnel-action-sheet .action-notes{box-sizing:border-box!important;flex:0 0 .78in!important;min-height:.78in!important;max-height:.78in!important;padding:5px 11px!important}
+html body .personnel-action-module .personnel-action-sheet .action-notes textarea{box-sizing:border-box!important;height:.5in!important;min-height:.5in!important;max-height:.5in!important;line-height:15px!important}
+html body .personnel-action-module .personnel-action-sheet .action-approvals{
+ box-sizing:border-box!important;display:grid!important;grid-template-columns:1fr 1fr!important;
+ flex:1 1 auto!important;height:auto!important;min-height:0!important;max-height:none!important;overflow:hidden!important;
+}
+html body .personnel-action-module .personnel-action-sheet .action-approvals>section{
+ box-sizing:border-box!important;display:grid!important;grid-template-rows:.58in 1fr!important;align-content:stretch!important;padding:5px 12px 8px!important;min-width:0!important;
+}
+html body .personnel-action-module .personnel-action-sheet .action-approvals h4,
+html body .personnel-action-module .personnel-action-sheet .action-approvals>section>label{
+ box-sizing:border-box!important;height:.58in!important;min-height:.58in!important;max-height:.58in!important;margin:0!important;padding:2px 0 0!important;
+}
+html body .personnel-action-module .personnel-action-sheet .action-approvals textarea{box-sizing:border-box!important;height:.4in!important;min-height:.4in!important;max-height:.4in!important;line-height:15px!important}
+html body .personnel-action-module .personnel-action-sheet .action-approvals section>div{
+ align-self:stretch!important;display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1.65fr)!important;grid-template-rows:.48in .48in!important;
+ align-content:space-evenly!important;column-gap:.2in!important;row-gap:.26in!important;margin:0!important;padding:.12in 0 .1in!important;
+}
+html body .personnel-action-module .personnel-action-sheet .action-approvals section>div label{
+ display:grid!important;grid-template-rows:.29in .14in!important;align-content:start!important;min-width:0!important;margin:0!important;text-align:center!important;font-size:8px!important;
+}
+html body .personnel-action-module .personnel-action-sheet .action-approvals section>div input{
+ box-sizing:border-box!important;width:100%!important;height:.29in!important;min-height:.29in!important;max-height:.29in!important;margin:0!important;padding:0 2px!important;
+ border:0!important;border-bottom:1px solid #103f77!important;border-radius:0!important;background:transparent!important;text-align:center!important;font-size:9px!important;line-height:.27in!important;
+}
+@media(max-width:850px){html body .personnel-action-module .personnel-action-sheet{transform:scale(calc((100vw - 24px) / 744));transform-origin:top left;margin-left:0!important;margin-bottom:calc(-10.35in * (1 - ((100vw - 24px) / 744)))!important}}
+@media print{
+ @page{size:letter portrait;margin:0!important}
+ html,body{width:8.5in!important;height:11in!important;margin:0!important;padding:0!important;background:#fff!important}
+ html body.printing-personnel-action .personnel-action-module .personnel-action-sheet,
+ html body.printing-personnel-batch .personnel-action-module .personnel-action-sheet{
+  position:relative!important;inset:auto!important;transform:none!important;width:7.75in!important;height:10.35in!important;min-height:10.35in!important;max-height:10.35in!important;
+  margin:.2in auto 0!important;break-inside:avoid!important;page-break-inside:avoid!important;print-color-adjust:exact!important;-webkit-print-color-adjust:exact!important;
+ }
+ html body[class*="printing-personnel"] .personnel-action-module .personnel-action-sheet .action-approvals{flex:1 1 auto!important;height:auto!important;min-height:0!important;max-height:none!important}
+ html body[class*="printing-personnel"] .personnel-action-module .personnel-action-sheet .action-approvals>section{grid-template-rows:.58in 1fr!important;padding:5px 12px 8px!important}
+ html body[class*="printing-personnel"] .personnel-action-module .personnel-action-sheet .action-approvals section>div{grid-template-rows:.48in .48in!important;align-content:space-evenly!important;column-gap:.2in!important;row-gap:.26in!important;margin:0!important;padding:.12in 0 .1in!important}
+ html body[class*="printing-personnel"] .personnel-action-module .personnel-action-sheet .action-approvals section>div label{grid-template-rows:.29in .14in!important}
+ html body[class*="printing-personnel"] .personnel-action-module .personnel-action-sheet .action-approvals section>div input{height:.29in!important;min-height:.29in!important;max-height:.29in!important;line-height:.27in!important}
+}
