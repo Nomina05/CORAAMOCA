@@ -1,4 +1,4 @@
-import Image from "next/image";
+import type {CSSProperties} from "react";
 
 export type OfficialPersonnelAction={
  id:string;action_number:number;employee_code:string;document_number:string;full_name:string;
@@ -8,27 +8,31 @@ export type OfficialPersonnelAction={
  approval_dates:Record<string,string>;
 };
 
-const fields=[['direction','Dirección'],['department','Departamento'],['division','División'],['section','Sección'],['position','Cargo'],['salary','Sueldo RD$']] as const;
-const actionOptions=[['APERTURA_CONCURSO','APERTURA DE CONCURSO'],['LICENCIA_ENFERMEDAD','LICENCIA POR ENFERMEDAD'],['PRORROGA_CONTRATO','PRÓRROGA DE CONTRATO'],['AUMENTO_SUELDO','AUMENTO DE SUELDO'],['LICENCIA_EMBARAZO','LICENCIA POR EMBARAZO'],['DESPIDO','DESPIDO'],['ASCENSO','ASCENSO'],['COMPENSACION','COMPENSACIÓN'],['ABANDONO_TRABAJO','ABANDONO DEL TRABAJO'],['INTERINAJE','INTERINAJE'],['REINGRESO_TRABAJO','REINGRESO AL TRABAJO'],['RENUNCIA','RENUNCIA'],['VACACIONES','VACACIONES'],['NOMBRAMIENTO_REGULAR','NOMBRAMIENTO REGULAR'],['TRASLADO','TRASLADO'],['LICENCIA_ESTUDIOS','LICENCIA POR ESTUDIOS'],['NOMBRAMIENTO_CONTRATO','NOMBRAMIENTO POR CONTRATO'],['OTROS','OTROS'],['LICENCIA_SIN_SUELDO','LICENCIA SIN SUELDO'],['RESCISION_CONTRATO','RESCISIÓN DE CONTRATO']] as const;
+const stateKeys=['direction','department','division','section','position','salary'] as const;
+const optionPosition:Record<string,[number,number]>={
+ APERTURA_CONCURSO:[0,0],AUMENTO_SUELDO:[0,1],ASCENSO:[0,2],INTERINAJE:[0,3],VACACIONES:[0,4],LICENCIA_ESTUDIOS:[0,5],LICENCIA_SIN_SUELDO:[0,6],
+ LICENCIA_ENFERMEDAD:[1,0],LICENCIA_EMBARAZO:[1,1],COMPENSACION:[1,2],REINGRESO_TRABAJO:[1,3],NOMBRAMIENTO_REGULAR:[1,4],NOMBRAMIENTO_CONTRATO:[1,5],RESCISION_CONTRATO:[1,6],
+ PRORROGA_CONTRATO:[2,0],DESPIDO:[2,1],ABANDONO_TRABAJO:[2,2],RENUNCIA:[2,3],TRASLADO:[2,4],OTROS:[2,5]
+};
 const money=(value:unknown)=>Number(value||0).toLocaleString('es-DO',{minimumFractionDigits:2,maximumFractionDigits:2});
 const idNumber=(value:unknown)=>{const digits=String(value||'').replace(/\D/g,'');return digits.length===11?`${digits.slice(0,3)}-${digits.slice(3,10)}-${digits.slice(10)}`:String(value||'')};
 const date=(value:unknown)=>{const raw=String(value||'');if(!raw)return '';const parts=raw.slice(0,10).split('-');return parts.length===3?`${parts[2]}/${parts[1]}/${parts[0]}`:raw};
-
-function StateColumn({title,data}:{title:string;data:Record<string,unknown>}){
- return <section className="oad-state-column"><h3>{title}</h3>{fields.map(([key,label])=><div className="oad-line" key={key}><span>{label}</span><b>{key==='salary'&&data[key]!==''&&data[key]!=null?money(data[key]):String(data[key]||'')}</b></div>)}</section>
-}
-
-function Signature({value,label}:{value:string;label:string}){return <div className="oad-signature"><b>{value}</b><span>{label}</span></div>}
+const value=(data:Record<string,unknown>,key:string)=>key==='salary'&&data[key]!==''&&data[key]!=null?money(data[key]):String(data[key]||'');
 
 export default function PersonnelActionDocument({item,className='' }:{item:OfficialPersonnelAction;className?:string}){
- const dates=item.approval_dates||{};
- return <article className={`official-action-document ${className}`}>
-  <header className="oad-header"><div className="oad-logo"><Image src="/logo-coraamoca-oficial.jpg" alt="CORAAMOCA" width={500} height={388} quality={90}/></div><div className="oad-heading"><h1>CORPORACIÓN DEL ACUEDUCTO Y ALCANTARILLADO DE MOCA</h1><strong>(CORAAMOCA)</strong><h2>ACCIÓN DE PERSONAL</h2></div></header>
-  <section className="oad-identification"><div><span>Nombre:</span><b>{item.full_name}</b></div><div><span>Codif. No.:</span><b>{item.employee_code}</b></div><div><span>Cédula No.:</span><b>{idNumber(item.document_number)}</b></div><div><span>Efectivo a partir de:</span><b>{date(item.effective_date)}</b></div></section>
-  <section className="oad-states"><StateColumn title="ESTADO PRESENTE" data={item.present_state||{}}/><StateColumn title="ESTADO QUE SE PROPONE" data={item.proposed_state||{}}/></section>
-  <h3 className="oad-action-title">A C C I Ó N</h3>
-  <section className="oad-options">{actionOptions.map(([key,label])=><div key={key}><i>{item.action_type===key?'✓':''}</i><span>{label}</span>{key==='OTROS'&&<b>{item.other_action||''}</b>}</div>)}</section>
-  <section className="oad-observations"><span>Observaciones:</span><p>{item.observations||''}</p></section>
-  <section className="oad-approvals"><div><h4>Recomendación</h4><p>{item.recommendation||''}</p><div className="oad-signature-grid"><Signature value={date(dates.recommendation_date)} label="Fecha"/><Signature value={item.immediate_supervisor||''} label="Superior Inmediato"/><Signature value={date(dates.department_date)} label="Fecha"/><Signature value={item.department_manager||''} label="Enc. Departamento"/></div></div><div><h4>Visto Bueno</h4><p></p><div className="oad-signature-grid"><Signature value={date(dates.payroll_date)} label="Fecha"/><Signature value={item.payroll_officer||''} label="Enc. Registro Control y Nómina"/><Signature value={date(dates.director_date)} label="Fecha"/><Signature value={item.general_director||''} label="Director General"/></div></div></section>
+ const dates=item.approval_dates||{},present=item.present_state||{},proposed=item.proposed_state||{},position=optionPosition[item.action_type];
+ const checkStyle=position?({'--oad-col':position[0],'--oad-row':position[1]} as CSSProperties):undefined;
+ return <article className={`official-action-document ${className}`} aria-label={`Acción de personal ${item.action_number}`}>
+  <span className="oad-data oad-name">{item.full_name}</span><span className="oad-data oad-code">{item.employee_code}</span>
+  <span className="oad-data oad-id">{idNumber(item.document_number)}</span><span className="oad-data oad-effective">{date(item.effective_date)}</span>
+  {stateKeys.map((key,index)=><span key={`present-${key}`} className="oad-data oad-state oad-present" style={{top:`${238+index*33}px`}}>{value(present,key)}</span>)}
+  {stateKeys.map((key,index)=><span key={`proposed-${key}`} className="oad-data oad-state oad-proposed" style={{top:`${238+index*33}px`}}>{value(proposed,key)}</span>)}
+  {position&&<span className="oad-selected-check" style={checkStyle}>✓</span>}{item.action_type==='OTROS'&&<span className="oad-data oad-other">{item.other_action||''}</span>}
+  <span className="oad-data oad-observation-text">{item.observations||''}</span><span className="oad-data oad-recommendation-text">{item.recommendation||''}</span>
+  <i className="oad-clean oad-clean-payroll-date"/><i className="oad-clean oad-clean-payroll-name"/><i className="oad-clean oad-clean-director-date"/><i className="oad-clean oad-clean-director-name"/>
+  <span className="oad-data oad-sign oad-recommendation-date">{date(dates.recommendation_date)}</span><span className="oad-data oad-sign oad-supervisor">{item.immediate_supervisor||''}</span>
+  <span className="oad-data oad-sign oad-department-date">{date(dates.department_date)}</span><span className="oad-data oad-sign oad-department-manager">{item.department_manager||''}</span>
+  <span className="oad-data oad-sign oad-payroll-date">{date(dates.payroll_date)}</span><span className="oad-data oad-sign oad-payroll-officer">{item.payroll_officer||''}</span>
+  <span className="oad-data oad-sign oad-director-date">{date(dates.director_date)}</span><span className="oad-data oad-sign oad-general-director">{item.general_director||''}</span>
  </article>
 }
