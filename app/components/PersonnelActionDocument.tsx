@@ -18,6 +18,7 @@ const money=(value:unknown)=>Number(value||0).toLocaleString('es-DO',{minimumFra
 const idNumber=(value:unknown)=>{const digits=String(value||'').replace(/\D/g,'');return digits.length===11?`${digits.slice(0,3)}-${digits.slice(3,10)}-${digits.slice(10)}`:String(value||'')};
 const date=(value:unknown)=>{const raw=String(value||'');if(!raw)return '';const parts=raw.slice(0,10).split('-');return parts.length===3?`${parts[2]}/${parts[1]}/${parts[0]}`:raw};
 const value=(data:Record<string,unknown>,key:string)=>key==='salary'&&data[key]!==''&&data[key]!=null?money(data[key]):String(data[key]||'');
+const fittedFontSize=(content:string,key:string)=>{if(key==='salary')return 12;if(content.length<=20)return 13.5;if(content.length<=28)return 12.5;if(content.length<=36)return 11.5;if(content.length<=46)return 10.5;if(content.length<=58)return 9.5;return 8.5};
 
 export default function PersonnelActionDocument({item,className='' }:{item:OfficialPersonnelAction;className?:string}){
  const dates=item.approval_dates||{},present=item.present_state||{},proposed=item.proposed_state||{},position=optionPosition[item.action_type];
@@ -25,8 +26,8 @@ export default function PersonnelActionDocument({item,className='' }:{item:Offic
  return <article className={`official-action-document ${className}`} aria-label={`Acción de personal ${item.action_number}`}>
   <span className="oad-data oad-name">{item.full_name}</span><span className="oad-data oad-code">{item.employee_code}</span>
   <span className="oad-data oad-id">{idNumber(item.document_number)}</span><span className="oad-data oad-effective">{date(item.effective_date)}</span>
-  {stateKeys.map((key,index)=><span key={`present-${key}`} className="oad-data oad-state oad-present" style={{top:`${238+index*33}px`}}>{value(present,key)}</span>)}
-  {stateKeys.map((key,index)=><span key={`proposed-${key}`} className="oad-data oad-state oad-proposed" style={{top:`${238+index*33}px`}}>{value(proposed,key)}</span>)}
+  {stateKeys.map((key,index)=>{const content=value(present,key);return <span key={`present-${key}`} className="oad-data oad-state oad-present" style={{top:`${238+index*33}px`,fontSize:`${fittedFontSize(content,key)}px`}}>{content}</span>})}
+  {stateKeys.map((key,index)=>{const content=value(proposed,key);return <span key={`proposed-${key}`} className="oad-data oad-state oad-proposed" style={{top:`${238+index*33}px`,fontSize:`${fittedFontSize(content,key)}px`}}>{content}</span>})}
   {position&&<span className="oad-selected-check" style={checkStyle}>✓</span>}{item.action_type==='OTROS'&&<span className="oad-data oad-other">{item.other_action||''}</span>}
   <span className="oad-data oad-observation-text">{item.observations||''}</span><span className="oad-data oad-recommendation-text">{item.recommendation||''}</span>
   <i className="oad-clean oad-clean-payroll-date"/><i className="oad-clean oad-clean-payroll-name"/><i className="oad-clean oad-clean-director-date"/><i className="oad-clean oad-clean-director-name"/>
