@@ -57,7 +57,7 @@ create trigger trg_hr_apply_payroll_adjustments after insert on public.hr_payrol
 
 create or replace function public.list_hr_permission_control(p_token text,p_year integer)
 returns jsonb language plpgsql security definer set search_path=public,extensions as $$ declare v_user public.app_users;begin v_user:=public.hr_authenticated_user(p_token);
- if v_user.id is null or (v_user.role<>'Administrador' and not coalesce((v_user.permissions->>'ver_permisos_laborales')::boolean,false)) then return jsonb_build_object('success',false,'error','No posee permiso para consultar permisos y licencias.');end if;
+ if v_user.id is null or (v_user.role<>'Administrador' and not(coalesce((v_user.permissions->>'ver_permisos_laborales')::boolean,false) or coalesce((v_user.permissions->>'ver_licencias_medicas')::boolean,false))) then return jsonb_build_object('success',false,'error','No posee permiso para consultar permisos o licencias médicas.');end if;
  return jsonb_build_object('success',true,
  'types',coalesce((select jsonb_agg(to_jsonb(t) order by t.category,t.name) from public.hr_permission_types t where t.active),'[]'::jsonb),
  'employees',coalesce((select jsonb_agg(jsonb_build_object('id',e.id,'employee_code',e.employee_code,'full_name',e.full_name,'position_name',e.position_name,'direction_name',e.direction_name,'department_name',e.department_name) order by e.full_name) from public.hr_employees e where e.employment_status<>'Desvinculado' and (v_user.role='Administrador' or public.hr_employee_in_user_scope(v_user,e))),'[]'::jsonb),
@@ -73,9 +73,10 @@ returns jsonb language plpgsql security definer set search_path=public,extension
 create or replace function public.save_hr_permission_request(p_token text,p_data jsonb)
 returns jsonb language plpgsql security definer set search_path=public,extensions as $$
 declare v_user public.app_users;v_employee public.hr_employees;v_type public.hr_permission_types;v_start date;v_end date;v_hours numeric;v_days integer;v_id uuid;v_novelty uuid;v_used numeric;v_count integer;begin v_user:=public.hr_authenticated_user(p_token);
- if v_user.id is null or (v_user.role<>'Administrador' and not coalesce((v_user.permissions->>'registrar_permisos_laborales')::boolean,false)) then return jsonb_build_object('success',false,'error','No posee permiso para registrar solicitudes.');end if;
+ if v_user.id is null then return jsonb_build_object('success',false,'error','Sesión inválida.');end if;
  select * into v_employee from public.hr_employees where id=(p_data->>'employee_id')::uuid;select * into v_type from public.hr_permission_types where id=(p_data->>'permission_type_id')::uuid and active;
  if v_employee.id is null or v_type.id is null then return jsonb_build_object('success',false,'error','Empleado o tipo de permiso inválido.');end if;if v_user.role<>'Administrador' and not public.hr_employee_in_user_scope(v_user,v_employee) then return jsonb_build_object('success',false,'error','Empleado fuera de su unidad autorizada.');end if;
+ if v_user.role<>'Administrador' and ((v_type.category='PERMISO' and not coalesce((v_user.permissions->>'registrar_permisos_laborales')::boolean,false)) or (v_type.category='LICENCIA' and not coalesce((v_user.permissions->>'registrar_licencias_medicas')::boolean,false))) then return jsonb_build_object('success',false,'error','No posee permiso para registrar este tipo de solicitud.');end if;
  v_start:=(p_data->>'start_date')::date;v_end:=coalesce(nullif(p_data->>'end_date','')::date,v_start);v_hours:=greatest(0,coalesce(nullif(p_data->>'requested_hours','')::numeric,0));v_days:=case when v_hours>0 then 0 when v_type.day_basis='CALENDARIO' then v_end-v_start+1 else public.hr_business_days(v_start,v_end) end;
  if v_hours>8 then return jsonb_build_object('success',false,'error','Las horas solicitadas no pueden superar ocho por día.');end if;if v_days=0 and v_hours=0 then return jsonb_build_object('success',false,'error','Indique días laborables u horas de permiso.');end if;
  if v_type.category='PERMISO' and v_days>3 then return jsonb_build_object('success',false,'error','Conforme al artículo 56 de la Ley 41-08, un permiso no puede exceder tres días laborables; registre una licencia.');end if;
@@ -93,7 +94,7 @@ declare v_user public.app_users;v_employee public.hr_employees;v_type public.hr_
 
 create or replace function public.validate_hr_medical_document(p_token text,p_case_id uuid,p_valid boolean,p_notes text)
 returns jsonb language plpgsql security definer set search_path=public,extensions as $$ declare v_user public.app_users;v_case public.hr_employee_cases;begin v_user:=public.hr_authenticated_user(p_token);select * into v_case from public.hr_employee_cases where id=p_case_id for update;
- if v_user.id is null or v_case.id is null or (v_user.role<>'Administrador' and not coalesce((v_user.permissions->>'aprobar_recursos_humanos')::boolean,false)) then return jsonb_build_object('success',false,'error','No posee permiso para validar documentos médicos.');end if;
+ if v_user.id is null or v_case.id is null or (v_user.role<>'Administrador' and not(coalesce((v_user.permissions->>'validar_licencias_medicas')::boolean,false) or coalesce((v_user.permissions->>'aprobar_recursos_humanos')::boolean,false))) then return jsonb_build_object('success',false,'error','No posee permiso para validar documentos médicos.');end if;
  update public.hr_employee_cases set medical_document_status=case when p_valid then 'VALIDADO' else 'RECHAZADO' end,medical_validated_by=v_user.id,medical_validated_at=now(),decision_notes=coalesce(p_notes,''),updated_at=now() where id=p_case_id;
  insert into public.security_audit_log(actor_user_id,action,module,detail) values(v_user.id,'VALIDAR_DOCUMENTO_MEDICO','Recursos Humanos',jsonb_build_object('employee_id',v_case.employee_id,'case_id',p_case_id,'valid',p_valid,'notes',p_notes));return jsonb_build_object('success',true);end $$;
 

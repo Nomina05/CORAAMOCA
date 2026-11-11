@@ -7,14 +7,14 @@ begin
  select * into v_type from public.hr_permission_types where id=(p_data->>'permission_type_id')::uuid and active;
  if v_user.id is null or v_type.id is null then return jsonb_build_object('success',false,'error','Sesión o tipo de licencia inválido.');end if;
  if v_user.role<>'Administrador' and (
-   (v_type.requires_medical_document and not coalesce((v_user.permissions->>'registrar_licencias_medicas')::boolean,false))
+   (v_type.category='LICENCIA' and not coalesce((v_user.permissions->>'registrar_licencias_medicas')::boolean,false))
    or
-   (not v_type.requires_medical_document and not coalesce((v_user.permissions->>'registrar_permisos_laborales')::boolean,false))
+   (v_type.category='PERMISO' and not coalesce((v_user.permissions->>'registrar_permisos_laborales')::boolean,false))
  ) then return jsonb_build_object('success',false,'error','No posee permiso para registrar esta solicitud.');end if;
  select * into v_employee from public.hr_employees where id=(p_data->>'employee_id')::uuid;
  if v_employee.id is null then return jsonb_build_object('success',false,'error','Empleado inválido.');end if;
  if v_user.role<>'Administrador' and not public.hr_employee_in_user_scope(v_user,v_employee) then return jsonb_build_object('success',false,'error','Empleado fuera de su unidad autorizada.');end if;
- v_start:=(p_data->>'start_date')::date;v_end:=coalesce(nullif(p_data->>'end_date','')::date,v_start);v_hours:=greatest(0,coalesce(nullif(p_data->>'requested_hours','')::numeric,0));v_days:=case when v_hours>0 then 0 else public.hr_business_days(v_start,v_end) end;
+ v_start:=(p_data->>'start_date')::date;v_end:=coalesce(nullif(p_data->>'end_date','')::date,v_start);v_hours:=greatest(0,coalesce(nullif(p_data->>'requested_hours','')::numeric,0));v_days:=case when v_hours>0 then 0 when v_type.day_basis='CALENDARIO' then v_end-v_start+1 else public.hr_business_days(v_start,v_end) end;
  if v_hours>8 then return jsonb_build_object('success',false,'error','Las horas solicitadas no pueden superar ocho por día.');end if;
  if v_days=0 and v_hours=0 then return jsonb_build_object('success',false,'error','Indique días laborables u horas de permiso.');end if;
  if v_type.requires_medical_document and coalesce(p_data->>'medical_document_url','')!~*'^https?://' then return jsonb_build_object('success',false,'error','Este tipo de licencia requiere un documento médico válido.');end if;
@@ -25,7 +25,7 @@ begin
  insert into public.hr_employee_cases(employee_id,case_type,request_date,category,start_date,end_date,day_count,paid,reason,observations,status,created_by,permission_type_id,requested_hours,medical_document_url,medical_document_status)
  values(v_employee.id,'PERMISO',(p_data->>'request_date')::date,v_type.name,v_start,v_end,v_days,v_type.paid,trim(p_data->>'reason'),coalesce(p_data->>'observations',''),'SOLICITADO',v_user.id,v_type.id,v_hours,coalesce(p_data->>'medical_document_url',''),case when v_type.requires_medical_document then 'PENDIENTE' else 'NO_APLICA' end) returning id into v_id;
  insert into public.hr_novelties(employee_id,novelty_type,request_date,start_date,end_date,work_days,description,document_url,source_table,source_id,created_by) values(v_employee.id,'PERMISO',(p_data->>'request_date')::date,v_start,v_end,v_days,trim(p_data->>'reason'),coalesce(p_data->>'medical_document_url',''),'hr_employee_cases',v_id,v_user.id) returning id into v_novelty;
- insert into public.hr_novelty_history(novelty_id,to_status,observation,document_url,responsible_user_id) values(v_novelty,'REGISTRADA','Licencia médica registrada',coalesce(p_data->>'medical_document_url',''),v_user.id);
+ insert into public.hr_novelty_history(novelty_id,to_status,observation,document_url,responsible_user_id) values(v_novelty,'REGISTRADA',case when v_type.category='LICENCIA' then 'Licencia médica registrada' else 'Permiso laboral registrado' end,coalesce(p_data->>'medical_document_url',''),v_user.id);
  return jsonb_build_object('success',true,'id',v_id,'novelty_id',v_novelty);
 end $$;
 
