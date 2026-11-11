@@ -70,7 +70,7 @@ returns jsonb language plpgsql security definer set search_path=public,extension
  'items',coalesce((select jsonb_agg(to_jsonb(x) order by x.request_date desc,x.created_at desc) from(
   select c.*,e.employee_code,e.full_name,e.position_name,e.direction_name,e.department_name,t.code type_code,t.name type_name,t.category type_category,t.paid type_paid,t.requires_medical_document,
    count(*) over(partition by c.employee_id,c.permission_type_id,extract(year from c.request_date)) annual_frequency,
-   coalesce(sum(c.day_count+c.requested_hours/8.0) over(partition by c.employee_id,c.permission_type_id,extract(year from c.request_date)),0) annual_days,
+   coalesce(sum(case when t.category='LICENCIA' then c.day_count else c.day_count+c.requested_hours/8.0 end) over(partition by c.employee_id,c.permission_type_id,extract(year from c.request_date)),0) annual_days,
    case when lag(c.end_date) over(partition by c.employee_id,c.permission_type_id order by c.start_date) is not null and c.start_date<=lag(c.end_date) over(partition by c.employee_id,c.permission_type_id order by c.start_date)+t.consecutive_window_days then true else false end consecutive_request
   from public.hr_employee_cases c join public.hr_employees e on e.id=c.employee_id left join public.hr_permission_types t on t.id=c.permission_type_id
   where c.case_type='PERMISO' and extract(year from c.request_date)=p_year and (v_user.role='Administrador' or public.hr_employee_in_user_scope(v_user,e))
