@@ -693,6 +693,22 @@ test("la fase 6 segmenta, valida, cierra y reabre la nómina con auditoría",asy
  assert.equal(component.includes("Reabrir con motivo"),true);
 });
 
+test("la nómina impide avanzar de mes mientras existan cierres anteriores pendientes",async()=>{
+ const component=await readFile(new URL("../app/components/PayrollProcessing.tsx",import.meta.url),"utf8");
+ const engine=await readFile(new URL("../supabase/hr_payroll_engine_phase6.sql",import.meta.url),"utf8");
+ for(const text of ["periodOpenBatches","CIERRE MENSUAL PENDIENTE","no han sido cerradas","changeMonth"])assert.equal(component.includes(text),true);
+ for(const text of ["period_open_batches","v_previous_open","La nómina anterior","no ha sido cerrada"])assert.equal(engine.includes(text),true);
+});
+
+test("prestaciones usa inactivos y vacaciones solo activos con detalle por período",async()=>{
+ const benefits=await readFile(new URL("../supabase/hr_labor_benefits.sql",import.meta.url),"utf8");
+ const vacations=await readFile(new URL("../supabase/hr_novelty_workflow.sql",import.meta.url),"utf8");
+ const component=await readFile(new URL("../app/components/HrNoveltyWorkflow.tsx",import.meta.url),"utf8");
+ assert.equal(benefits.includes("termination_date is not null or lower(coalesce(e.employment_status,'')) in('inactivo','desvinculado')"),true);
+ assert.equal(vacations.includes("termination_date is null and lower(coalesce(e.employment_status,'')) not in('inactivo','desvinculado')"),true);
+ for(const text of ["PERÍODOS REGISTRADOS","Períodos disponibles (","días disponibles"])assert.equal(component.includes(text),true);
+});
+
 test("la navegación institucional usa direcciones superiores, ruta y accesos recientes",async()=>{
  const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
  const styles=await readFile(new URL("../app/globals.css",import.meta.url),"utf8");

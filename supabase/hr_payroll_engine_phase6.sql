@@ -44,14 +44,16 @@ end $$;
 drop function if exists public.list_hr_payroll_processing(text,integer,integer,text,integer);
 create or replace function public.list_hr_payroll_processing(p_token text,p_year integer,p_month integer,p_type text default 'NOMINA',p_program integer default 1,p_execution_fund text default null,p_subproduct integer default null,p_activity integer default null,p_account_code text default null)
 returns jsonb language plpgsql security definer set search_path=public,extensions as $$
-declare v_user public.app_users;v_batch uuid;
+declare v_user public.app_users;v_batch uuid;v_open_batches integer:=0;
 begin
  v_user:=public.hr_authenticated_user(p_token);
  if v_user.id is null or (v_user.role<>'Administrador' and not coalesce((v_user.permissions->>'ver_recursos_humanos')::boolean,false)) then return jsonb_build_object('success',false,'error','No posee permiso para consultar nómina.');end if;
  select b.id into v_batch from public.hr_payroll_batches b where b.payroll_year=p_year and b.payroll_month=p_month and b.payroll_type=p_type and b.program=p_program
   and (p_execution_fund is null or b.execution_fund=p_execution_fund) and (p_subproduct is null or b.subproduct=p_subproduct) and (p_activity is null or b.activity=p_activity) and (p_account_code is null or b.account_code=p_account_code)
   order by b.created_at desc limit 1;
+ select count(*) into v_open_batches from public.hr_payroll_batches b where b.payroll_year=p_year and b.payroll_month=p_month and b.status<>'CERRADA';
  return jsonb_build_object('success',true,
+  'period_open_batches',v_open_batches,
   'batch',(select to_jsonb(b) from public.hr_payroll_batches b where b.id=v_batch),
   'lines',coalesce((select jsonb_agg(to_jsonb(l) order by l.employee_name) from public.hr_payroll_batch_lines l where l.batch_id=v_batch),'[]'::jsonb),
   'configurations',coalesce((select jsonb_agg(to_jsonb(c) order by c.program,c.subproduct,c.activity,c.execution_fund,c.account_code) from(
@@ -68,11 +70,14 @@ end $$;
 drop function if exists public.generate_hr_payroll(text,integer,integer,text,text,integer);
 create or replace function public.generate_hr_payroll(p_token text,p_year integer,p_month integer,p_type text,p_account_code text,p_program integer,p_execution_fund text,p_subproduct integer,p_activity integer)
 returns jsonb language plpgsql security definer set search_path=public,extensions as $$
-declare v_user public.app_users;v_batch uuid;v_date date:=make_date(p_year,p_month,1);v_ep numeric;v_epr numeric;v_es numeric;v_esr numeric;v_lr numeric;v_pc numeric;v_sc numeric;v_lc numeric;v_closed boolean;v_pending_fixed integer:=0;
+declare v_user public.app_users;v_batch uuid;v_date date:=make_date(p_year,p_month,1);v_ep numeric;v_epr numeric;v_es numeric;v_esr numeric;v_lr numeric;v_pc numeric;v_sc numeric;v_lc numeric;v_closed boolean;v_pending_fixed integer:=0;v_previous_open integer:=0;v_previous_period text;
 begin
  v_user:=public.hr_authenticated_user(p_token);
  if v_user.id is null or (v_user.role<>'Administrador' and not coalesce((v_user.permissions->>'procesar_nomina')::boolean,false)) then return jsonb_build_object('success',false,'error','No posee permiso específico para procesar nómina.');end if;
  if nullif(trim(p_account_code),'') is null then return jsonb_build_object('success',false,'error','Seleccione una cuenta presupuestaria.');end if;
+ select count(*),to_char(min(make_date(b.payroll_year,b.payroll_month,1)),'MM/YYYY') into v_previous_open,v_previous_period
+ from public.hr_payroll_batches b where make_date(b.payroll_year,b.payroll_month,1)<v_date and b.status<>'CERRADA';
+ if v_previous_open>0 then return jsonb_build_object('success',false,'error','No puede procesar '||to_char(v_date,'MM/YYYY')||'. La nómina anterior '||v_previous_period||' no ha sido cerrada ('||v_previous_open||' registro(s) pendiente(s)).');end if;
  select exists(select 1 from public.hr_payroll_batches where payroll_type=p_type and payroll_year=p_year and payroll_month=p_month and execution_fund=p_execution_fund and program=p_program and subproduct=p_subproduct and activity=p_activity and coalesce(account_code,'')=p_account_code and status='CERRADA') into v_closed;
  if v_closed then return jsonb_build_object('success',false,'error','La nómina está cerrada. Debe reabrirla con autorización y motivo antes de modificarla.');end if;
  if p_type='PRIMA_TRANSPORTE' then

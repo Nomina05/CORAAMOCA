@@ -107,7 +107,7 @@ begin
  if v_user.id is null then return jsonb_build_object('success',false,'error','Sesión inválida.');end if;
  if v_type not in('PERMISO','VACACION','VIATICO','HORAS_EXTRAS','PRIMA_TRANSPORTE') then return jsonb_build_object('success',false,'error','Tipo de novedad inválido.');end if;
  if v_user.role<>'Administrador' and not(case when v_type='VACACION' then coalesce((v_user.permissions->>'registrar_vacaciones')::boolean,false) when v_type='PERMISO' then coalesce((v_user.permissions->>'registrar_permisos_laborales')::boolean,false) else coalesce((v_user.permissions->>'crear_recursos_humanos')::boolean,false) end) then return jsonb_build_object('success',false,'error','No posee permiso para registrar esta novedad.');end if;
- select * into v_employee from public.hr_employees where id=(p_data->>'employee_id')::uuid and employment_status<>'Desvinculado';
+ select * into v_employee from public.hr_employees where id=(p_data->>'employee_id')::uuid and termination_date is null and lower(coalesce(employment_status,'')) not in('inactivo','desvinculado');
  if v_employee.id is null then return jsonb_build_object('success',false,'error','Empleado activo no encontrado.');end if;
  if v_user.role<>'Administrador' and not public.hr_employee_in_user_scope(v_user,v_employee) then return jsonb_build_object('success',false,'error','El empleado no pertenece a su unidad autorizada.');end if;
  v_request:=(p_data->>'request_date')::date;v_start:=(p_data->>'start_date')::date;v_end:=coalesce(nullif(p_data->>'end_date','')::date,v_start);

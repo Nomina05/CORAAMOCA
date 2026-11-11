@@ -86,7 +86,8 @@ begin
  v_user:=public.hr_authenticated_user(p_token);
  if v_user.id is null or (v_user.role<>'Administrador' and not coalesce((v_user.permissions->>'ver_prestaciones_laborales')::boolean,false)) then return jsonb_build_object('success',false,'error','No posee permiso para consultar prestaciones laborales.');end if;
  select coalesce(jsonb_agg(jsonb_build_object('id',e.id,'employee_code',e.employee_code,'full_name',e.full_name,'position_name',e.position_name,'direction_name',coalesce(o.unit_name,''),'department_name',coalesce(e.department_name,''),'hire_date',e.hire_date,'termination_date',e.termination_date,'termination_type',e.termination_type,'monthly_salary',case when v_user.role='Administrador' or coalesce((v_user.permissions->>'ver_salarios')::boolean,false) then e.monthly_salary else null end) order by e.full_name),'[]'::jsonb) into v_employees
- from public.hr_employees e left join public.organization_units o on o.id=e.organization_unit_id where public.hr_employee_in_user_scope(v_user,e);
+ from public.hr_employees e left join public.organization_units o on o.id=e.organization_unit_id
+ where (e.termination_date is not null or lower(coalesce(e.employment_status,'')) in('inactivo','desvinculado')) and public.hr_employee_in_user_scope(v_user,e);
  select coalesce(jsonb_agg(to_jsonb(x) order by x.created_at desc),'[]'::jsonb) into v_items from(
   select c.*,e.employee_code,e.full_name,e.position_name,coalesce(o.unit_name,'') direction_name,
    creator.full_name created_by_name,reviewer.full_name reviewed_by_name,approver.full_name approved_by_name,payer.full_name paid_by_name,
@@ -104,7 +105,7 @@ declare v_user public.app_users;v_employee public.hr_employees;v_previous public
 begin
  v_user:=public.hr_authenticated_user(p_token);
  if v_user.id is null or (v_user.role<>'Administrador' and not coalesce((v_user.permissions->>'calcular_prestaciones_laborales')::boolean,false)) then return jsonb_build_object('success',false,'error','No posee permiso para calcular prestaciones laborales.');end if;
- select * into v_employee from public.hr_employees where id=nullif(p_data->>'employee_id','')::uuid;
+ select * into v_employee from public.hr_employees where id=nullif(p_data->>'employee_id','')::uuid and (termination_date is not null or lower(coalesce(employment_status,'')) in('inactivo','desvinculado'));
  if v_employee.id is null or not public.hr_employee_in_user_scope(v_user,v_employee) then return jsonb_build_object('success',false,'error','Empleado no encontrado o fuera de su alcance.');end if;
  if p_id is not null then select * into v_previous from public.hr_labor_benefit_calculations where id=p_id for update;if v_previous.id is null then return jsonb_build_object('success',false,'error','Cálculo no encontrado.');end if;if v_previous.status<>'BORRADOR' then return jsonb_build_object('success',false,'error','Solo puede modificar cálculos en borrador.');end if;end if;
  v_entry:=coalesce(nullif(p_data->>'entry_date','')::date,v_employee.hire_date);v_exit:=nullif(p_data->>'exit_date','')::date;v_salary:=coalesce(nullif(p_data->>'monthly_salary','')::numeric,v_employee.monthly_salary,0);
@@ -182,7 +183,7 @@ declare v_user public.app_users;v_employee public.hr_employees;v_previous public
 begin
  v_user:=public.hr_authenticated_user(p_token);
  if v_user.id is null or (v_user.role<>'Administrador' and not coalesce((v_user.permissions->>'calcular_prestaciones_laborales')::boolean,false)) then return jsonb_build_object('success',false,'error','No posee permiso para calcular prestaciones laborales.');end if;
- select * into v_employee from public.hr_employees where id=nullif(p_data->>'employee_id','')::uuid;
+ select * into v_employee from public.hr_employees where id=nullif(p_data->>'employee_id','')::uuid and (termination_date is not null or lower(coalesce(employment_status,'')) in('inactivo','desvinculado'));
  if v_employee.id is null or not public.hr_employee_in_user_scope(v_user,v_employee) then return jsonb_build_object('success',false,'error','Servidor público no encontrado o fuera de su alcance.');end if;
  if p_id is not null then select * into v_previous from public.hr_labor_benefit_calculations where id=p_id for update;if v_previous.id is null then return jsonb_build_object('success',false,'error','Cálculo no encontrado.');end if;if v_previous.status<>'BORRADOR' then return jsonb_build_object('success',false,'error','Solo puede modificar cálculos en borrador.');end if;end if;
  v_entry:=coalesce(nullif(p_data->>'entry_date','')::date,v_employee.hire_date);v_exit:=nullif(p_data->>'exit_date','')::date;v_salary:=coalesce(nullif(p_data->>'monthly_salary','')::numeric,v_employee.monthly_salary,0);v_category:=coalesce(nullif(p_data->>'public_servant_category',''),'ESTATUTO_SIMPLIFICADO');v_unjustified:=coalesce((p_data->>'unjustified_termination')::boolean,false);v_calendar_months:=greatest(0,least(coalesce(nullif(p_data->>'calendar_service_months','')::integer,0),12));
