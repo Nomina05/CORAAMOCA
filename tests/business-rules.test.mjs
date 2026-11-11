@@ -433,7 +433,7 @@ test("los permisos controlan límites, soportes médicos y descuentos de nómina
   assert.equal(migration.includes("PERMISO_SIN_SUELDO"),true);
   assert.equal(migration.includes("trg_hr_apply_payroll_adjustments"),true);
   assert.equal(component.includes("FRECUENCIA ELEVADA"),true);
-  assert.equal(component.includes("No remunerado"),true);
+  assert.equal(component.includes("Sin sueldo"),true);
 });
 
 test("la gestión disciplinaria protege expedientes y controla reincidencias",async()=>{
@@ -704,7 +704,7 @@ test("la navegación institucional usa direcciones superiores, ruta y accesos re
  assert.equal(styles.includes(".dashboard-focus-tabs"),true);
 });
 
-test("las licencias médicas poseen registro operativo y permisos independientes",async()=>{
+test("las licencias laborales poseen catálogo legal completo y permisos independientes",async()=>{
  const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
  const component=await readFile(new URL("../app/components/HrPermissionControl.tsx",import.meta.url),"utf8");
  const migration=await readFile(new URL("../supabase/hr_medical_leave_module.sql",import.meta.url),"utf8");
@@ -712,9 +712,12 @@ test("las licencias médicas poseen registro operativo y permisos independientes
  for(const permission of ["ver_licencias_medicas","registrar_licencias_medicas","validar_licencias_medicas"])assert.equal(page.includes(permission),true);
  assert.equal(page.includes('section:"Licencias Médicas"'),true);
  assert.equal(page.includes("<HrPermissionControl medicalOnly"),true);
- assert.equal(component.includes('medicalOnly?"Registro de licencias médicas"'),true);
+ assert.equal(component.includes('medicalOnly?"Registro de licencias laborales"'),true);
+ assert.equal(component.includes('category==="LICENCIA"'),true);
  assert.equal(component.includes("requires_medical_document"),true);
  assert.equal(component.includes("medical_document_status"),true);
+ const catalog=await readFile(new URL("../supabase/hr_permission_license_control.sql",import.meta.url),"utf8");
+ for(const code of ["LIC_MEDICA","LIC_CUIDADO_FAMILIAR","LIC_MATERNIDAD","LIC_ESTUDIOS","LIC_INVITACION","LIC_FUERZA_MAYOR","LIC_MATRIMONIO","LIC_ESPECIAL_PRESIDENCIAL","LIC_ESPECIAL_SIN_SUELDO","LIC_CARGO_ALTO_NIVEL"])assert.equal(catalog.includes(code),true);
  assert.equal(migration.includes("validar_licencias_medicas"),true);
  assert.equal(migration.includes("VALIDAR_DOCUMENTO_MEDICO"),true);
  assert.equal(workflow.includes("hr_medical_leave_module.sql"),true);

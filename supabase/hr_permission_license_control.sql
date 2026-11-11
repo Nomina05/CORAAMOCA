@@ -25,9 +25,15 @@ insert into public.hr_permission_types(code,name,category,paid,requires_medical_
 ('LIC_INVITACION','Invitación de gobierno u organismo','LICENCIA',true,true,30,null,null,'Reglamento 523-09, art. 75.5','CALENDARIO'),
 ('LIC_FUERZA_MAYOR','Fuerza mayor comprobada','LICENCIA',true,true,30,null,null,'Reglamento 523-09, art. 75.6','CALENDARIO')
 on conflict(code) do update set name=excluded.name,category=excluded.category,paid=excluded.paid,requires_medical_document=excluded.requires_medical_document,max_days_per_request=excluded.max_days_per_request,max_days_per_year=excluded.max_days_per_year,max_requests_per_year=excluded.max_requests_per_year,legal_reference=excluded.legal_reference,day_basis=excluded.day_basis;
+insert into public.hr_permission_types(code,name,category,paid,requires_medical_document,max_days_per_request,max_days_per_year,max_requests_per_year,legal_reference,day_basis) values
+('LIC_ESPECIAL_PRESIDENCIAL','Licencia especial otorgada por el Presidente de la República','LICENCIA',true,true,365,null,null,'Reglamento 523-09, art. 75.8','CALENDARIO'),
+('LIC_ESPECIAL_SIN_SUELDO','Licencia especial presidencial sin disfrute de sueldo','LICENCIA',false,true,null,null,null,'Reglamento 523-09, art. 74, párrafo III','CALENDARIO'),
+('LIC_CARGO_ALTO_NIVEL','Licencia de servidor de carrera para ocupar un cargo de alto nivel','LICENCIA',false,true,null,null,null,'Ley 41-08, art. 22; Reglamento 523-09, art. 90','CALENDARIO')
+on conflict(code) do update set name=excluded.name,category=excluded.category,paid=excluded.paid,requires_medical_document=excluded.requires_medical_document,max_days_per_request=excluded.max_days_per_request,max_days_per_year=excluded.max_days_per_year,max_requests_per_year=excluded.max_requests_per_year,legal_reference=excluded.legal_reference,day_basis=excluded.day_basis,active=true;
 update public.hr_permission_types set max_days_per_request=90,max_days_per_year=null,max_requests_per_year=null,legal_reference='Reglamento 523-09, art. 75.1; prórroga requiere nueva certificación',day_basis='CALENDARIO' where code='LIC_MEDICA';
 update public.hr_permission_types set max_days_per_request=84,max_days_per_year=null,max_requests_per_year=null,legal_reference='Reglamento 523-09, art. 75.3',day_basis='CALENDARIO' where code='LIC_MATERNIDAD';
 update public.hr_permission_types set max_days_per_request=5,max_days_per_year=5,max_requests_per_year=1,legal_reference='Reglamento 523-09, art. 75.7',day_basis='CALENDARIO' where code='LIC_MATRIMONIO';
+update public.hr_permission_types set active=false where code in('LIC_PATERNIDAD','LIC_DUELO','PER_SIN_SUELDO');
 update public.hr_permission_types set max_days_per_request=3,legal_reference='Ley 41-08, art. 56; Reglamento 523-09, arts. 77-78',day_basis='LABORABLE' where category='PERMISO' and code not in('PER_ESTUDIO_PARCIAL','PER_DOCENCIA');
 
 alter table public.hr_employee_cases add column if not exists permission_type_id uuid references public.hr_permission_types(id);
