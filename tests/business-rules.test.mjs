@@ -302,6 +302,18 @@ test("las acciones de personal solo se modifican mientras están pendientes",asy
   assert.equal(sql.includes("v_existing.approval_dates->>'director_date'"),true);
 });
 
+test("el estado propuesto solo se utiliza para movimientos que modifican la situación laboral",async()=>{
+  const component=await readFile(new URL("../app/components/PersonnelAction.tsx",import.meta.url),"utf8");
+  const document=await readFile(new URL("../app/components/PersonnelActionDocument.tsx",import.meta.url),"utf8");
+  const sql=await readFile(new URL("../supabase/hr_personnel_actions.sql",import.meta.url),"utf8");
+  for(const action of ["AUMENTO_SUELDO","ASCENSO","INTERINAJE","SUPLENCIA","TRASLADO"])assert.equal(component.includes(action),true);
+  assert.equal(component.includes("usesProposedState?Object.fromEntries"),true);
+  assert.equal(component.includes("No aplica para esta acción"),true);
+  assert.equal(document.includes("proposedStateActions.has(item.action_type)"),true);
+  assert.equal(sql.includes("v_proposed:=case when v_type in('AUMENTO_SUELDO','ASCENSO','INTERINAJE','SUPLENCIA','TRASLADO')"),true);
+  assert.equal(sql.includes("set proposed_state='{}'::jsonb where action_type not in"),true);
+});
+
 test("apropiaciones y adjudicaciones actualizan el proyecto y los reportes",async()=>{
   const sql=await readFile(new URL("../supabase/budget_management.sql",import.meta.url),"utf8");
   const page=await readFile(new URL("../app/page.tsx",import.meta.url),"utf8");
