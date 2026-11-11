@@ -1,6 +1,6 @@
 -- Registro y validación con permisos independientes para Licencias Médicas.
 insert into public.hr_permission_types(code,name,category,paid,requires_medical_document,max_days_per_request,max_days_per_year,max_requests_per_year,legal_reference,day_basis,active)
-values('LIC_MEDICA','Licencia médica','LICENCIA',true,true,90,null,null,'Reglamento 523-09, art. 75.1; prórroga requiere nueva certificación','CALENDARIO',true)
+values('LIC_MEDICA','Licencia médica — enfermedad común u otra condición','LICENCIA',true,true,90,null,null,'Reglamento 523-09, art. 75.1; prórroga requiere nueva certificación','CALENDARIO',true)
 on conflict(code) do update set name=excluded.name,category=excluded.category,paid=excluded.paid,requires_medical_document=excluded.requires_medical_document,max_days_per_request=excluded.max_days_per_request,legal_reference=excluded.legal_reference,day_basis=excluded.day_basis,active=true,updated_at=now();
 create or replace function public.save_hr_permission_request(p_token text,p_data jsonb)
 returns jsonb language plpgsql security definer set search_path=public,extensions as $$
