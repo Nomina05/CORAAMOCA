@@ -784,7 +784,7 @@ test("carnetización utiliza empleados activos, Supabase y permisos independient
  assert.equal(migration.includes("update public.hr_employees set photo_data=p_data->>'photo_data'"),true);
  const dossier=await readFile(new URL("../app/components/EmployeeDossier.tsx",import.meta.url),"utf8");
  assert.equal(dossier.includes("employee.photo_data"),true);
- for(const text of ["Ver carnet","disabled={!canManage}","backgroundImage:`url(${photo})`","Buscar colaborador","Código, nombre, cargo o unidad","employeeOptions"])assert.equal(component.includes(text),true);
+ for(const text of ["Ver carnet","disabled={!canManage}","backgroundImage:`url(${photo})`","Buscar colaborador","Código, nombre, cargo o unidad","employeeOptions","Procesando y optimizando la imagen","toDataURL(\"image/webp\"","Fotografía lista para guardar en Supabase"])assert.equal(component.includes(text),true);
  for(const text of ["coalesce(nullif(c.photo_data,''),nullif(e.photo_data,''),'') photo_data","get_hr_id_card_photo","photo_saved',exists"])assert.equal(migration.includes(text),true);
  assert.equal(workflow.includes("hr_id_card_management.sql"),true);
 });
