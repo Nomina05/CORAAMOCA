@@ -67,6 +67,26 @@ begin
  return jsonb_build_object('success',true,'items',v_items,'configuration',coalesce(v_config,'{}'::jsonb));
 end $$;
 
+-- Consulta individual para evitar transportar todas las fotografías en la lista general.
+-- La imagen siempre se recupera desde Supabase al abrir el carnet, incluso si fue
+-- registrada por otro usuario o desde otro equipo.
+create or replace function public.get_hr_id_card_photo(p_token text,p_employee_id uuid)
+returns jsonb language plpgsql security definer set search_path=public,extensions as $$
+declare v_user public.app_users;v_employee public.hr_employees;v_photo text;
+begin
+ v_user:=public.hr_authenticated_user(p_token);
+ if v_user.id is null or (v_user.role<>'Administrador' and not coalesce((v_user.permissions->>'ver_carnets_rrhh')::boolean,false)) then
+  return jsonb_build_object('success',false,'error','No posee permiso para consultar la fotografía del carnet.');
+ end if;
+ select * into v_employee from public.hr_employees where id=p_employee_id;
+ if v_employee.id is null or not public.hr_employee_in_user_scope(v_user,v_employee) then
+  return jsonb_build_object('success',false,'error','Empleado no encontrado o fuera de su alcance.');
+ end if;
+ select coalesce(nullif(c.photo_data,''),nullif(v_employee.photo_data,''),'') into v_photo
+ from (select 1) seed left join public.hr_employee_id_cards c on c.employee_id=v_employee.id;
+ return jsonb_build_object('success',true,'employee_id',v_employee.id,'photo_data',coalesce(v_photo,''),'photo_saved',coalesce(v_photo,'')<>'');
+end $$;
+
 create or replace function public.save_hr_id_card(p_token text,p_data jsonb)
 returns jsonb language plpgsql security definer set search_path=public,extensions as $$
 declare v_user public.app_users;v_employee public.hr_employees;v_id uuid;v_issue date;v_expiry date;
@@ -93,7 +113,7 @@ begin
  end if;
  insert into public.security_audit_log(actor_user_id,action,module,detail)
  values(v_user.id,'HR_ID_CARD_SAVED','Recursos Humanos',jsonb_build_object('employee_id',v_employee.id,'card_id',v_id,'status',p_data->>'status'));
- return jsonb_build_object('success',true,'id',v_id,'photo_saved',coalesce(p_data->>'photo_data','')<>'');
+ return jsonb_build_object('success',true,'id',v_id,'photo_saved',exists(select 1 from public.hr_employee_id_cards where id=v_id and photo_data<>''));
 end $$;
 
 create or replace function public.save_hr_id_card_configuration(p_token text,p_data jsonb)
@@ -115,4 +135,4 @@ begin
  return jsonb_build_object('success',true);
 end $$;
 
-grant execute on function public.list_hr_id_cards(text),public.save_hr_id_card(text,jsonb),public.save_hr_id_card_configuration(text,jsonb) to anon,authenticated;
+grant execute on function public.list_hr_id_cards(text),public.get_hr_id_card_photo(text,uuid),public.save_hr_id_card(text,jsonb),public.save_hr_id_card_configuration(text,jsonb) to anon,authenticated;
