@@ -85,6 +85,7 @@ declare v_user public.app_users;v_id uuid:=nullif(p_data->>'id','')::uuid;v_empl
  if v_user.id is null or (v_user.role<>'Administrador' and ((v_id is null and not coalesce((v_user.permissions->>'crear_recursos_humanos')::boolean,false)) or (v_id is not null and not coalesce((v_user.permissions->>'editar_recursos_humanos')::boolean,false)))) then return jsonb_build_object('success',false,'error','No posee permiso para registrar o modificar acciones de personal.');end if;
  select * into v_employee from public.hr_employees where id=(p_data->>'employee_id')::uuid;if v_employee.id is null then return jsonb_build_object('success',false,'error','Empleado no encontrado.');end if;
  if v_user.role<>'Administrador' and not public.hr_employee_in_user_scope(v_user,v_employee) then return jsonb_build_object('success',false,'error','No puede gestionar acciones de empleados fuera de su unidad autorizada.');end if;
+ if v_type='OTROS' and coalesce(nullif(trim(p_data->>'other_action'),''),'')='' then return jsonb_build_object('success',false,'error','Debe escribir el concepto correspondiente a la opción Otros.');end if;
  v_exit_cause:=case v_type when 'DESPIDO' then 'Despido' when 'ABANDONO_TRABAJO' then 'Abandono del trabajo' when 'RENUNCIA' then 'Renuncia' when 'RESCISION_CONTRATO' then 'Rescisión de contrato' else '' end;
  v_proposed:=case when v_type in('AUMENTO_SUELDO','ASCENSO','INTERINAJE','SUPLENCIA','TRASLADO') then coalesce(p_data->'proposed_state','{}'::jsonb) else '{}'::jsonb end;
  if v_id is not null then
