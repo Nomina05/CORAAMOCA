@@ -56,7 +56,8 @@ begin
  select coalesce(jsonb_agg(to_jsonb(x) order by x.full_name),'[]'::jsonb) into v_items from(
   select e.id employee_id,e.employee_code,e.full_name,e.position_name,e.employment_status,
    e.direction_name,e.department_name,e.division_name,e.section_name,e.center_name,
-   c.id,c.card_number,c.personnel_type,c.issue_date,c.expiry_date,c.status,c.photo_data,c.observation,c.updated_at
+   c.id,c.card_number,c.personnel_type,c.issue_date,c.expiry_date,c.status,
+   coalesce(nullif(c.photo_data,''),nullif(e.photo_data,''),'') photo_data,c.observation,c.updated_at
   from public.hr_employees e left join public.hr_employee_id_cards c on c.employee_id=e.id
   where e.employment_status<>'Desvinculado' and public.hr_employee_in_user_scope(v_user,e)
  )x;
@@ -82,7 +83,7 @@ begin
  insert into public.hr_employee_id_cards(employee_id,personnel_type,issue_date,expiry_date,status,photo_data,observation,created_by,updated_by)
  values(v_employee.id,coalesce(nullif(trim(p_data->>'personnel_type'),''),'Empleado fijo'),v_issue,v_expiry,
   case when p_data->>'status' in('Activo','Suspendido','Anulado') then p_data->>'status' else 'Activo' end,
-  coalesce(p_data->>'photo_data',''),coalesce(p_data->>'observation',''),v_user.id,v_user.id)
+  coalesce(nullif(p_data->>'photo_data',''),v_employee.photo_data,''),coalesce(p_data->>'observation',''),v_user.id,v_user.id)
  on conflict(employee_id) do update set personnel_type=excluded.personnel_type,issue_date=excluded.issue_date,expiry_date=excluded.expiry_date,
   status=excluded.status,photo_data=case when excluded.photo_data='' then public.hr_employee_id_cards.photo_data else excluded.photo_data end,
   observation=excluded.observation,updated_by=v_user.id,updated_at=now()
@@ -92,7 +93,7 @@ begin
  end if;
  insert into public.security_audit_log(actor_user_id,action,module,detail)
  values(v_user.id,'HR_ID_CARD_SAVED','Recursos Humanos',jsonb_build_object('employee_id',v_employee.id,'card_id',v_id,'status',p_data->>'status'));
- return jsonb_build_object('success',true,'id',v_id);
+ return jsonb_build_object('success',true,'id',v_id,'photo_saved',coalesce(p_data->>'photo_data','')<>'');
 end $$;
 
 create or replace function public.save_hr_id_card_configuration(p_token text,p_data jsonb)
