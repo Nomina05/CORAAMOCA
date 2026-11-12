@@ -754,8 +754,8 @@ test("las licencias laborales poseen catálogo legal completo y permisos indepen
 test("las licencias médicas calculan días y horas y exigen motivo en el tipo universal",async()=>{
  const component=await readFile(new URL("../app/components/HrPermissionControl.tsx",import.meta.url),"utf8");
  const migration=await readFile(new URL("../supabase/hr_medical_leave_module.sql",import.meta.url),"utf8");
- for(const text of ["Días calculados","Horas calculadas","calculatedDays*8","Motivo de la licencia médica (obligatorio)","a.code===\"LIC_MEDICA\"?-1","noValidate","type=\"submit\"","Registrando…","El servidor devolvió una respuesta inválida","enlace válido de la certificación médica"])assert.equal(component.includes(text),true);
- for(const text of ["values('LIC_MEDICA','Licencia médica — enfermedad común u otra condición'","v_days*8","Debe indicar obligatoriamente el motivo de la licencia médica","La fecha final no puede ser anterior"])assert.equal(migration.includes(text),true);
+ for(const text of ["Días calculados","Horas calculadas","calculatedDays*8","Motivo de la licencia médica (obligatorio)","a.code===\"LIC_MEDICA\"?-1","noValidate","type=\"submit\"","Registrando…","El servidor devolvió una respuesta inválida","Este tipo específico de licencia requiere el enlace válido de la certificación"])assert.equal(component.includes(text),true);
+ for(const text of ["values('LIC_MEDICA','Licencia médica — enfermedad común u otra condición','LICENCIA',true,false,90","v_days*8","Debe indicar obligatoriamente el motivo de la licencia médica","La fecha final no puede ser anterior"])assert.equal(migration.includes(text),true);
 });
 
 test("carnetización utiliza empleados activos, Supabase y permisos independientes",async()=>{

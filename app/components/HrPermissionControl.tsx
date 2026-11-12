@@ -16,7 +16,7 @@ export default function HrPermissionControl({canCreate=false,canValidate=false,m
   if(!startDate||!endDate){setMessage("Indique la fecha inicial y la fecha final de la licencia.");return}
   if(calculatedDays<1){setMessage("El período indicado no genera días válidos. Revise las fechas.");return}
   if(!reason){setMessage("Indique el motivo de la licencia médica.");return}
-  if(selectedType.requires_medical_document&&!/^https?:\/\//i.test(documentUrl)){setMessage("Este tipo de licencia requiere el enlace válido de la certificación médica, iniciado con https://");return}
+  if(selectedType.requires_medical_document&&!/^https?:\/\//i.test(documentUrl)){setMessage("Este tipo específico de licencia requiere el enlace válido de la certificación, iniciado con https://");return}
   const payload={...Object.fromEntries(formData),employee_id:selected,requested_hours:medicalOnly?calculatedHours:formData.get("requested_hours")};
   setBusy(true);
   try{const response=await fetch("/api/hr/permission-control",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});const data=await response.json().catch(()=>({error:"El servidor devolvió una respuesta inválida."}));if(!response.ok)throw new Error(data.error||"No fue posible registrar la licencia.");setMessage("Licencia registrada y enviada al flujo de aprobación.");form.reset();setSelected("");setTypeId("");setStartDate("");setEndDate("");await load()}
