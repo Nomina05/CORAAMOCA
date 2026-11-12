@@ -30,7 +30,7 @@ export default function PersonnelActionDocument({item,className='' }:{item:Offic
   {stateKeys.map((key,index)=>{const content=value(present,key);return <span key={`present-${key}`} className="oad-data oad-state oad-present" style={{top:`${238+index*33}px`,fontSize:`${fittedFontSize(content,key)}px`}}>{content}</span>})}
   {stateKeys.map((key,index)=>{const content=value(proposed,key);return <span key={`proposed-${key}`} className="oad-data oad-state oad-proposed" style={{top:`${238+index*33}px`,fontSize:`${fittedFontSize(content,key)}px`}}>{content}</span>})}
   {position&&<span className="oad-selected-check" style={checkStyle}>✓</span>}{(item.action_type==='OTROS'||item.action_type==='SUPLENCIA')&&<span className="oad-data oad-other">{item.action_type==='SUPLENCIA'?'SUPLENCIA':item.other_action||''}</span>}
-  <span className="oad-data oad-observation-text">{item.observations||''}</span><span className="oad-data oad-recommendation-text">{item.recommendation||''}</span>
+  <span className="oad-data oad-observation-text">{item.observations||''}</span>
   <i className="oad-clean oad-clean-payroll-date"/><i className="oad-clean oad-clean-payroll-name"/><i className="oad-clean oad-clean-director-date"/><i className="oad-clean oad-clean-director-name"/>
   <span className="oad-data oad-sign oad-recommendation-date">{date(dates.recommendation_date)}</span><span className="oad-data oad-sign oad-supervisor">{item.immediate_supervisor||''}</span>
   <span className="oad-data oad-sign oad-department-date">{date(dates.department_date)}</span><span className="oad-data oad-sign oad-department-manager">{item.department_manager||''}</span>

@@ -302,6 +302,9 @@ test("las acciones de personal solo se modifican mientras están pendientes",asy
   assert.equal(sql.includes("v_existing.approval_dates->>'director_date'"),true);
   assert.equal(component.includes("Concepto de otra acción"),true);
   assert.equal(component.includes("required={action==='OTROS'}"),true);
+  assert.equal(component.includes("value={otherAction}"),true);
+  assert.equal(component.includes("<h4>Recomendación</h4>"),true);
+  assert.equal(component.includes('name="recommendation"'),false);
   assert.equal(sql.includes("Debe escribir el concepto correspondiente a la opción Otros"),true);
 });
 
