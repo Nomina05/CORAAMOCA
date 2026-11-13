@@ -300,7 +300,7 @@ test("las acciones de personal solo se modifican mientras están pendientes",asy
   assert.equal(component.includes(">Reimprimir</button>"),true);
   assert.equal(sql.includes("coalesce(nullif(p_data->>'general_director',''),v_existing.general_director)"),true);
   assert.equal(sql.includes("v_existing.approval_dates->>'director_date'"),true);
-  assert.equal(component.includes("Concepto de otra acción"),true);
+  assert.equal(component.includes("Motivo de otra acción"),true);
   assert.equal(component.includes("required={action==='OTROS'}"),true);
   assert.equal(component.includes("value={otherAction}"),true);
   assert.equal(component.includes("<h4>Recomendación</h4>"),true);

@@ -141,6 +141,9 @@ main { min-width:0; } header { height:70px; background:white; border-bottom:1px 
  font-size:10px!important;
  line-height:18px!important;
 }
+.personnel-action-entry .action-options .other-action-option{display:flex;align-items:center;gap:7px;min-width:0;padding-right:7px;border:1px solid #e0e7eb;border-radius:7px;background:#f8fafb}
+.personnel-action-entry .action-options .other-action-option>label{flex:none;border:0;background:transparent;padding-right:0}
+.personnel-action-entry .action-options .other-action-option>.other-action{flex:1;min-width:0;width:auto;height:30px;padding:4px 7px;background:#fff}
 .personnel-action-module .personnel-action-sheet .action-approvals textarea,
 .personnel-action-module .personnel-action-sheet .action-notes textarea{
  border:0!important;
